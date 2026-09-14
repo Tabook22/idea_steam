@@ -1,6 +1,6 @@
-# [Project name]
+# Idea Stream
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A personal workspace for capturing ideas over time and compiling them into finished drafts.
 
 ## Run & Operate
 
@@ -22,15 +22,23 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/idea-stream` — React web application
+- `artifacts/api-server/src/routes/idea-stream.ts` — subject, idea, and compilation API
+- `lib/api-spec/openapi.yaml` — API contract
+- `lib/db/src/schema/subjects.ts` and `ideas.ts` — persistent data model
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Voice capture produces an editable transcript before saving so imperfect recognition can be corrected.
+- AI compilation preserves the original fragments and stores the generated draft separately.
+- Idea fragments are displayed newest-first, while AI compilation receives them oldest-first.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Create, search, open, edit, and delete subjects.
+- Add timestamped text or voice-transcribed idea fragments over time.
+- Edit and delete individual fragments.
+- Compile all fragments into an editable draft with clear, conversational, academic, or cinematic tone.
 
 ## User preferences
 
