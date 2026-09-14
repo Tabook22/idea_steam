@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   type Idea,
@@ -69,6 +69,7 @@ function AttachmentCard({
   const [isEditingTranscript, setIsEditingTranscript] = useState(false);
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
+  const [documentViewerSize, setDocumentViewerSize] = useState<{ width: number; height: number } | null>(null);
   const queryClient = useQueryClient();
   const updateIdea = useUpdateIdea();
   const translateNote = useTranslateNote();
@@ -100,6 +101,34 @@ function AttachmentCard({
         onError: () => toast({ variant: "destructive", title: t("error"), description: t("transcriptSaveFailed") }),
       },
     );
+  };
+
+  const startDocumentResize = (direction: string, event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const viewer = event.currentTarget.parentElement;
+    if (!viewer) return;
+    const rect = viewer.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const maxWidth = window.innerWidth * 0.95;
+    const maxHeight = window.innerHeight * 0.95;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      const widthDelta = direction.includes("e") ? deltaX * 2 : direction.includes("w") ? -deltaX * 2 : 0;
+      const heightDelta = direction.includes("s") ? deltaY * 2 : direction.includes("n") ? -deltaY * 2 : 0;
+      setDocumentViewerSize({
+        width: Math.min(maxWidth, Math.max(320, rect.width + widthDelta)),
+        height: Math.min(maxHeight, Math.max(360, rect.height + heightDelta)),
+      });
+    };
+    const onPointerUp = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
   };
 
   return (
@@ -228,8 +257,19 @@ function AttachmentCard({
       </a>
       )}
       {canPreviewDocument && (
-        <Dialog open={isDocumentViewerOpen} onOpenChange={setIsDocumentViewerOpen}>
-          <DialogContent className="flex h-[80vh] w-[80vw] max-w-none flex-col gap-3 p-4">
+        <Dialog open={isDocumentViewerOpen} onOpenChange={(open) => { setIsDocumentViewerOpen(open); if (!open) setDocumentViewerSize(null); }}>
+          <DialogContent
+            className="flex h-[80vh] min-h-[360px] max-h-[95vh] w-[80vw] min-w-[320px] max-w-[95vw] flex-col gap-3 overflow-hidden p-4"
+            style={documentViewerSize ?? undefined}
+          >
+            <div onPointerDown={(event) => startDocumentResize("n", event)} className="absolute inset-x-3 top-0 z-20 h-2 cursor-n-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("s", event)} className="absolute inset-x-3 bottom-0 z-20 h-2 cursor-s-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("w", event)} className="absolute inset-y-3 left-0 z-20 w-2 cursor-w-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("e", event)} className="absolute inset-y-3 right-0 z-20 w-2 cursor-e-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("nw", event)} className="absolute left-0 top-0 z-30 h-4 w-4 cursor-nw-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("ne", event)} className="absolute right-0 top-0 z-30 h-4 w-4 cursor-ne-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("sw", event)} className="absolute bottom-0 left-0 z-30 h-4 w-4 cursor-sw-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("se", event)} className="absolute bottom-0 right-0 z-30 h-4 w-4 cursor-se-resize touch-none" />
             <DialogHeader className="shrink-0 pe-8 text-start">
               <DialogTitle className="truncate">{attachment.name}</DialogTitle>
               <DialogDescription>{t("documentPreviewHelp")}</DialogDescription>
