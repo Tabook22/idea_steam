@@ -9,9 +9,10 @@ import {
   getListIdeasQueryKey,
   getGetSubjectQueryKey,
   useListIdeas,
+  useTranslateNote,
 } from "@workspace/api-client-react";
 import { formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play } from "lucide-react";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,8 +61,11 @@ function AttachmentCard({
 }) {
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [note, setNote] = useState(attachment.note ?? "");
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [translation, setTranslation] = useState<{ text: string; language: "en" | "ar" } | null>(null);
   const queryClient = useQueryClient();
   const updateIdea = useUpdateIdea();
+  const translateNote = useTranslateNote();
   const { toast } = useToast();
   const { t } = useLanguage();
   const youtubeId = attachment.type === "link" ? getYoutubeId(attachment.url) : null;
@@ -130,17 +134,51 @@ function AttachmentCard({
             </div>
           </div>
         ) : (
-          <button type="button" onClick={() => setIsEditingNote(true)} className="w-full text-start">
+          <div>
             {attachment.note ? (
               <>
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t("attachmentNote")}</p>
-                <p className="whitespace-pre-wrap text-sm">{attachment.note}</p>
-                <p className="mt-2 text-xs font-medium text-primary">{t("editAttachmentNote")}</p>
+                <p className={`whitespace-pre-wrap text-sm ${isExpanded ? "" : "line-clamp-3"}`}>{attachment.note}</p>
+                {translation && (
+                  <div className="mt-3 rounded-md bg-primary/5 p-2" dir={translation.language === "ar" ? "rtl" : "ltr"}>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primary">{translation.language === "ar" ? t("arabicTranslation") : t("englishTranslation")}</p>
+                    <p className={`whitespace-pre-wrap text-sm ${isExpanded ? "" : "line-clamp-3"}`}>{translation.text}</p>
+                  </div>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setIsExpanded((value) => !value)}>
+                    {isExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
+                    {isExpanded ? t("showLess") : t("showMore")}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setIsEditingNote(true)}>
+                    {t("editAttachmentNote")}
+                  </Button>
+                  {(["ar", "en"] as const).map((targetLanguage) => (
+                    <Button
+                      key={targetLanguage}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      disabled={translateNote.isPending}
+                      onClick={() => translateNote.mutate(
+                        { data: { text: attachment.note!, targetLanguage } },
+                        {
+                          onSuccess: (result) => { setTranslation(result); setIsExpanded(true); },
+                          onError: () => toast({ variant: "destructive", title: t("error"), description: t("translationFailed") }),
+                        },
+                      )}
+                    >
+                      {translateNote.isPending ? <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" /> : <Languages className="me-1 h-3.5 w-3.5" />}
+                      {targetLanguage === "ar" ? t("translateArabic") : t("translateEnglish")}
+                    </Button>
+                  ))}
+                </div>
               </>
             ) : (
-              <p className="text-sm font-medium text-primary">+ {t("addAttachmentNote")}</p>
+              <button type="button" onClick={() => setIsEditingNote(true)} className="w-full text-start text-sm font-medium text-primary">+ {t("addAttachmentNote")}</button>
             )}
-          </button>
+          </div>
         )}
       </div>
     </div>

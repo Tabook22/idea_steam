@@ -289,6 +289,24 @@ export const TranscribeAudioResponse = zod.object({
 
 
 /**
+ * @summary Translate an attachment note
+ */
+export const translateNoteBodyTextMax = 10000;
+
+
+
+export const TranslateNoteBody = zod.object({
+  "text": zod.string().min(1).max(translateNoteBodyTextMax),
+  "targetLanguage": zod.enum(['en', 'ar'])
+})
+
+export const TranslateNoteResponse = zod.object({
+  "text": zod.string(),
+  "language": zod.enum(['en', 'ar'])
+})
+
+
+/**
  * @summary Request a presigned URL for file upload
  */
 

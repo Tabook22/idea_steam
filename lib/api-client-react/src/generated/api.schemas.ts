@@ -39,6 +39,36 @@ export interface Transcription {
   text: string;
 }
 
+export type NoteTranslationInputTargetLanguage = typeof NoteTranslationInputTargetLanguage[keyof typeof NoteTranslationInputTargetLanguage];
+
+
+export const NoteTranslationInputTargetLanguage = {
+  en: 'en',
+  ar: 'ar',
+} as const;
+
+export interface NoteTranslationInput {
+  /**
+     * @minLength 1
+     * @maxLength 10000
+     */
+  text: string;
+  targetLanguage: NoteTranslationInputTargetLanguage;
+}
+
+export type NoteTranslationLanguage = typeof NoteTranslationLanguage[keyof typeof NoteTranslationLanguage];
+
+
+export const NoteTranslationLanguage = {
+  en: 'en',
+  ar: 'ar',
+} as const;
+
+export interface NoteTranslation {
+  text: string;
+  language: NoteTranslationLanguage;
+}
+
 export interface HealthStatus {
   status: string;
 }

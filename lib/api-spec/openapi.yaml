@@ -211,6 +211,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Transcription"
+  /note-translations:
+    post:
+      operationId: translateNote
+      tags: [translation]
+      summary: Translate an attachment note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteTranslationInput"
+      responses:
+        "200":
+          description: Translated note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteTranslation"
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -314,6 +332,26 @@ components:
       properties:
         text:
           type: string
+    NoteTranslationInput:
+      type: object
+      required: [text, targetLanguage]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        targetLanguage:
+          type: string
+          enum: [en, ar]
+    NoteTranslation:
+      type: object
+      required: [text, language]
+      properties:
+        text:
+          type: string
+        language:
+          type: string
+          enum: [en, ar]
     HealthStatus:
       type: object
       properties:

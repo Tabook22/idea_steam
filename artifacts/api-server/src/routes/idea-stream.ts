@@ -26,6 +26,8 @@ import {
   UpdateSubjectResponse,
   TranscribeAudioBody,
   TranscribeAudioResponse,
+  TranslateNoteBody,
+  TranslateNoteResponse,
 } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
@@ -68,6 +70,38 @@ router.post("/transcriptions", async (req, res): Promise<void> => {
   } catch (error) {
     console.error("Audio transcription failed", error);
     res.status(502).json({ error: "The recording could not be transcribed" });
+  }
+});
+
+router.post("/note-translations", async (req, res): Promise<void> => {
+  const body = TranslateNoteBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  try {
+    const languageName = body.data.targetLanguage === "ar" ? "Arabic" : "English";
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.6-luna",
+      max_completion_tokens: 2048,
+      messages: [
+        {
+          role: "system",
+          content: `Translate the user's note into ${languageName}. Preserve its meaning, tone, names, links, and formatting. Return only the translation.`,
+        },
+        { role: "user", content: body.data.text },
+      ],
+    });
+    const text = response.choices[0]?.message.content?.trim();
+    if (!text) {
+      res.status(502).json({ error: "The note could not be translated" });
+      return;
+    }
+    res.json(TranslateNoteResponse.parse({ text, language: body.data.targetLanguage }));
+  } catch (error) {
+    console.error("Note translation failed", error);
+    res.status(502).json({ error: "The note could not be translated" });
   }
 });
 

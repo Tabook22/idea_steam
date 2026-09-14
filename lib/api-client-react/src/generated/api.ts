@@ -26,6 +26,8 @@ import type {
   Idea,
   IdeaInput,
   IdeaUpdate,
+  NoteTranslation,
+  NoteTranslationInput,
   Subject,
   SubjectDetail,
   SubjectInput,
@@ -1050,6 +1052,94 @@ export const useTranscribeAudio = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getTranscribeAudioMutationOptions(options));
+    }
+
+export const getTranslateNoteUrl = () => {
+
+
+
+
+  return `/api/note-translations`
+}
+
+/**
+ * @summary Translate an attachment note
+ */
+export const translateNote = async (noteTranslationInput: NoteTranslationInput, options?: Parameters<typeof customFetch>[1]): Promise<NoteTranslation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<NoteTranslation>(getTranslateNoteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(noteTranslationInput)
+  }
+);}
+
+
+
+
+
+export const getTranslateNoteMutationKey = () => ['translateNote'] as const;
+
+export const getTranslateNoteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof translateNote>>, TError,TranslateNoteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof translateNote>>, TError,TranslateNoteMutationVariables, TContext> => {
+
+const mutationKey = getTranslateNoteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof translateNote>>, TranslateNoteMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  translateNote(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TranslateNoteMutationResult = NonNullable<Awaited<ReturnType<typeof translateNote>>>
+    export type TranslateNoteMutationBody = BodyType<NoteTranslationInput>
+    export type TranslateNoteMutationError = ErrorType<unknown>
+    export type TranslateNoteMutationVariables = {data: BodyType<NoteTranslationInput>}
+
+    /**
+ * @summary Translate an attachment note
+ */
+export const useTranslateNote = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof translateNote>>, TError,TranslateNoteMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof translateNote>>,
+        TError,
+        TranslateNoteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTranslateNoteMutationOptions(options));
     }
 
 export const getRequestUploadUrlUrl = () => {
