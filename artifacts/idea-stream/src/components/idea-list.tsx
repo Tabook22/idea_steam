@@ -25,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLanguage } from "@/lib/i18n";
 
 interface IdeaListProps {
   subjectId: number;
@@ -32,6 +33,7 @@ interface IdeaListProps {
 }
 
 export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
+  const { t } = useLanguage();
   const { data: latestIdeas, isLoading } = useListIdeas(subjectId);
   const ideas = latestIdeas || initialIdeas;
   
@@ -51,9 +53,9 @@ export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
         <div className="mx-auto w-12 h-12 bg-muted/50 rounded-full flex items-center justify-center mb-4">
           <FileText className="h-6 w-6 text-muted-foreground/50" />
         </div>
-        <p className="text-lg font-serif text-muted-foreground mb-1">Your stream is empty</p>
+        <p className="text-lg font-serif text-muted-foreground mb-1">{t("emptyStream")}</p>
         <p className="text-sm text-muted-foreground/70">
-          Capture your first thought above to start building this subject.
+          {t("emptyStreamDetail")}
         </p>
       </div>
     );
@@ -75,6 +77,7 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { language, t } = useLanguage();
   
   const updateIdea = useUpdateIdea();
   const deleteIdea = useDeleteIdea();
@@ -95,8 +98,8 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
         onError: () => {
           toast({
             variant: "destructive",
-            title: "Error",
-            description: "Failed to update fragment.",
+            title: t("error"),
+            description: t("editFailed"),
           });
         }
       }
@@ -114,8 +117,8 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
         onError: () => {
           toast({
             variant: "destructive",
-            title: "Error",
-            description: "Failed to delete fragment.",
+            title: t("error"),
+            description: t("deleteFailed"),
           });
         }
       }
@@ -132,10 +135,10 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded-md">
               {idea.source === IdeaSource.voice ? <Mic className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-              {idea.source === IdeaSource.voice ? 'Voice Note' : 'Text Note'}
+              {idea.source === IdeaSource.voice ? t("voiceNote") : t("textNote")}
             </span>
             <span className="text-xs text-muted-foreground/60">•</span>
-            <span className="text-xs text-muted-foreground/80">{formatTimeAgo(idea.createdAt)}</span>
+            <span className="text-xs text-muted-foreground/80">{formatTimeAgo(idea.createdAt, language)}</span>
           </div>
           
           {!isEditing && (
@@ -152,15 +155,15 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Delete Fragment</DialogTitle>
+                    <DialogTitle>{t("deleteFragment")}</DialogTitle>
                     <DialogDescription>
-                      Are you sure you want to delete this fragment? This action cannot be undone.
+                      {t("deleteFragmentConfirm")}
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>{t("cancel")}</Button>
                     <Button variant="destructive" onClick={handleDelete} disabled={deleteIdea.isPending}>
-                      {deleteIdea.isPending ? "Deleting..." : "Delete"}
+                      {deleteIdea.isPending ? t("deleting") : t("delete")}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -179,10 +182,10 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
             />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
-                <X className="h-4 w-4 mr-1.5" /> Cancel
+                <X className="h-4 w-4 me-1.5" /> {t("cancel")}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={updateIdea.isPending}>
-                <Check className="h-4 w-4 mr-1.5" /> Save
+                <Check className="h-4 w-4 me-1.5" /> {t("save")}
               </Button>
             </div>
           </div>

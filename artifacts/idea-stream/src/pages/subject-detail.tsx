@@ -29,6 +29,7 @@ import {
 import { IdeaList } from "@/components/idea-list";
 import { CreateIdeaForm } from "@/components/create-idea-form";
 import { CompilationView } from "@/components/compilation-view";
+import { useLanguage } from "@/lib/i18n";
 
 export default function SubjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +37,7 @@ export default function SubjectDetailPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isArabic, t } = useLanguage();
 
   const { data: subjectDetail, isLoading, error } = useGetSubject(subjectId, {
     query: {
@@ -81,8 +83,8 @@ export default function SubjectDetailPage() {
         onError: () => {
           toast({
             variant: "destructive",
-            title: "Error",
-            description: "Failed to update title.",
+            title: t("error"),
+            description: t("updateTitleFailed"),
           });
         }
       }
@@ -105,8 +107,8 @@ export default function SubjectDetailPage() {
         onError: () => {
           toast({
             variant: "destructive",
-            title: "Error",
-            description: "Failed to update intro.",
+            title: t("error"),
+            description: t("updateIntroFailed"),
           });
         }
       }
@@ -120,15 +122,15 @@ export default function SubjectDetailPage() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSubjectsQueryKey() });
           toast({
-            title: "Subject deleted",
+            title: t("subjectDeleted"),
           });
           setLocation("/");
         },
         onError: () => {
           toast({
             variant: "destructive",
-            title: "Error",
-            description: "Failed to delete subject.",
+            title: t("error"),
+            description: t("deleteSubjectFailed"),
           });
         }
       }
@@ -136,7 +138,7 @@ export default function SubjectDetailPage() {
   };
 
   if (isNaN(subjectId)) {
-    return <div className="p-8 text-center text-destructive">Invalid subject ID</div>;
+    return <div className="p-8 text-center text-destructive">{t("invalidSubject")}</div>;
   }
 
   if (isLoading) {
@@ -165,10 +167,10 @@ export default function SubjectDetailPage() {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6">
         <div className="text-center max-w-md bg-destructive/10 p-8 rounded-xl border border-destructive/20">
-          <h2 className="text-xl font-semibold text-destructive mb-2">Subject not found</h2>
-          <p className="text-destructive/80 mb-6">It may have been deleted or you don't have access.</p>
+          <h2 className="text-xl font-semibold text-destructive mb-2">{t("subjectNotFound")}</h2>
+          <p className="text-destructive/80 mb-6">{t("subjectMissing")}</p>
           <Button onClick={() => setLocation("/")} variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive/10">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Return Home
+            <ArrowLeft className={`me-2 h-4 w-4 ${isArabic ? "rotate-180" : ""}`} /> {t("returnHome")}
           </Button>
         </div>
       </div>
@@ -186,7 +188,7 @@ export default function SubjectDetailPage() {
               onClick={() => setLocation("/")}
               className="text-muted-foreground hover:text-foreground -ml-3"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Subjects
+              <ArrowLeft className={`me-2 h-4 w-4 ${isArabic ? "rotate-180" : ""}`} /> {t("subjects")}
             </Button>
 
             <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -197,15 +199,15 @@ export default function SubjectDetailPage() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Delete Subject</DialogTitle>
+                  <DialogTitle>{t("deleteSubject")}</DialogTitle>
                   <DialogDescription>
-                    Are you sure you want to delete "{subjectDetail.title}"? This will permanently delete the subject and all its fragments.
+                    {t("deleteSubjectConfirm")}
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>{t("cancel")}</Button>
                   <Button variant="destructive" onClick={handleDelete} disabled={deleteSubject.isPending}>
-                    {deleteSubject.isPending ? "Deleting..." : "Delete Subject"}
+                    {deleteSubject.isPending ? t("deleting") : t("deleteSubject")}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -242,7 +244,7 @@ export default function SubjectDetailPage() {
                 <Textarea
                   value={editIntro}
                   onChange={(e) => setEditIntro(e.target.value)}
-                  placeholder="Add a brief introduction or context for this subject..."
+                  placeholder={t("addIntro")}
                   className="resize-none min-h-[100px] text-lg font-serif bg-transparent border-muted/50 focus-visible:ring-primary/20"
                   autoFocus
                   onKeyDown={(e) => {
@@ -251,8 +253,8 @@ export default function SubjectDetailPage() {
                   }}
                 />
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setIsEditingIntro(false)}>Cancel</Button>
-                  <Button size="sm" onClick={handleSaveIntro}>Save Intro</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setIsEditingIntro(false)}>{t("cancel")}</Button>
+                  <Button size="sm" onClick={handleSaveIntro}>{t("saveIntro")}</Button>
                 </div>
               </div>
             ) : (
@@ -263,7 +265,7 @@ export default function SubjectDetailPage() {
                 {subjectDetail.intro ? (
                   <p>{subjectDetail.intro}</p>
                 ) : (
-                  <p className="italic opacity-60">Add a brief introduction or context...</p>
+                  <p className="italic opacity-60">{t("addIntro")}</p>
                 )}
               </div>
             )}
@@ -275,7 +277,7 @@ export default function SubjectDetailPage() {
         <div className="lg:col-span-7 flex flex-col gap-10">
           <section>
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-serif font-semibold">Capture Fragment</h2>
+              <h2 className="text-xl font-serif font-semibold">{t("captureFragment")}</h2>
             </div>
             <CreateIdeaForm subjectId={subjectId} />
           </section>
@@ -283,7 +285,7 @@ export default function SubjectDetailPage() {
           <section>
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-serif font-semibold flex items-center gap-2">
-                Stream 
+                {t("stream")}
                 <span className="bg-primary/10 text-primary text-xs py-0.5 px-2 rounded-full font-sans font-medium">
                   {subjectDetail.ideas?.length || 0}
                 </span>

@@ -5,6 +5,7 @@ import { type Subject } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Search, ArrowRight, BookType } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/lib/i18n";
 
 interface SubjectListProps {
   subjects: Subject[];
@@ -12,6 +13,7 @@ interface SubjectListProps {
 
 export function SubjectList({ subjects }: SubjectListProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { language, isArabic, t } = useLanguage();
 
   const filteredSubjects = subjects.filter(subject => 
     subject.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -21,21 +23,21 @@ export function SubjectList({ subjects }: SubjectListProps) {
   return (
     <div className="space-y-6">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search subjects..."
+          placeholder={t("searchSubjects")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 bg-card border-card-border"
+          className="ps-9 bg-card border-card-border"
         />
       </div>
 
       {filteredSubjects.length === 0 ? (
         <div className="text-center py-12 px-4 border border-dashed rounded-xl border-border">
           <BookType className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground font-serif text-lg">No subjects found.</p>
+          <p className="text-muted-foreground font-serif text-lg">{t("noSubjects")}</p>
           <p className="text-sm text-muted-foreground mt-1">
-            {searchQuery ? "Try a different search term." : "Create your first subject above."}
+            {searchQuery ? t("trySearch") : t("createFirst")}
           </p>
         </div>
       ) : (
@@ -48,7 +50,7 @@ export function SubjectList({ subjects }: SubjectListProps) {
                     <h3 className="font-serif font-semibold text-lg line-clamp-2 leading-tight group-hover:text-primary transition-colors">
                       {subject.title}
                     </h3>
-                    <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center shrink-0 ml-2 group-hover:bg-primary/10 transition-colors">
+                    <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center shrink-0 ms-2 group-hover:bg-primary/10 transition-colors">
                       <BookOpen className="h-4 w-4 text-primary" />
                     </div>
                   </div>
@@ -64,10 +66,10 @@ export function SubjectList({ subjects }: SubjectListProps) {
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto pt-4 border-t border-border/50">
                     <span className="flex items-center gap-1.5">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent/80"></span>
-                      {subject.ideaCount} {subject.ideaCount === 1 ? 'fragment' : 'fragments'}
+                      {new Intl.NumberFormat(language).format(subject.ideaCount)} {subject.ideaCount === 1 ? t("fragment") : t("fragments")}
                     </span>
                     <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-primary">
-                      Open <ArrowRight className="h-3 w-3" />
+                      {t("open")} <ArrowRight className={`h-3 w-3 ${isArabic ? "rotate-180" : ""}`} />
                     </span>
                   </div>
                 </CardContent>

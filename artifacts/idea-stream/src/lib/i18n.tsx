@@ -1,0 +1,216 @@
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+
+type Language = "en" | "ar";
+
+const messages = {
+  en: {
+    shapeThoughts: "Shape your thoughts.",
+    heroSubtitle: "A quiet space to collect fragments over days or weeks, and shape them into finished work when the time is right.",
+    yourSubjects: "Your Subjects",
+    newSubject: "New subject title...",
+    createSubject: "Create Subject",
+    titleRequired: "Title is required",
+    subjectCreated: "Subject created",
+    readyCollect: "Ready to collect your ideas.",
+    error: "Error",
+    createFailed: "Failed to create subject. Please try again.",
+    searchSubjects: "Search subjects...",
+    noSubjects: "No subjects found.",
+    trySearch: "Try a different search term.",
+    createFirst: "Create your first subject above.",
+    fragment: "fragment",
+    fragments: "fragments",
+    open: "Open",
+    subjects: "Subjects",
+    invalidSubject: "Invalid subject ID",
+    subjectNotFound: "Subject not found",
+    subjectMissing: "It may have been deleted or you don't have access.",
+    returnHome: "Return Home",
+    deleteSubject: "Delete Subject",
+    deleteSubjectConfirm: "Are you sure you want to delete this subject? This will permanently delete the subject and all its fragments.",
+    cancel: "Cancel",
+    deleting: "Deleting...",
+    delete: "Delete",
+    addIntro: "Add a brief introduction or context for this subject...",
+    saveIntro: "Save Intro",
+    captureFragment: "Capture Fragment",
+    stream: "Stream",
+    subjectDeleted: "Subject deleted",
+    updateTitleFailed: "Failed to update title.",
+    updateIntroFailed: "Failed to update introduction.",
+    deleteSubjectFailed: "Failed to delete subject.",
+    contentRequired: "Fragment content is required",
+    fragmentAdded: "Fragment added",
+    saveFragmentFailed: "Failed to save fragment.",
+    type: "Type",
+    voice: "Voice",
+    voiceUnsupported: "Voice capture not supported",
+    voiceUnsupportedDetail: "Your browser doesn't support the required recording APIs. Use the text tab or try Chrome.",
+    recording: "Recording...",
+    listening: "Listening...",
+    tapToSpeak: "Tap to speak",
+    reviewTranscript: "Review and edit your transcript below before saving.",
+    thoughtPlaceholder: "Jot down a quick thought, link, or fragment...",
+    transcriptPlaceholder: "Your transcript will appear here. You can edit it before saving.",
+    saving: "Saving...",
+    saveFragment: "Save Fragment",
+    emptyStream: "Your stream is empty",
+    emptyStreamDetail: "Capture your first thought above to start building this subject.",
+    voiceNote: "Voice Note",
+    textNote: "Text Note",
+    deleteFragment: "Delete Fragment",
+    deleteFragmentConfirm: "Are you sure you want to delete this fragment? This action cannot be undone.",
+    editFailed: "Failed to update fragment.",
+    deleteFailed: "Failed to delete fragment.",
+    save: "Save",
+    shapeDraft: "Shape into Draft",
+    shapeDraftDetail: "When you've collected enough fragments, use AI to weave them into a cohesive draft.",
+    selectTone: "Select tone",
+    clearDirect: "Clear & Direct",
+    conversational: "Conversational",
+    academic: "Academic & Rigorous",
+    cinematic: "Cinematic & Descriptive",
+    compileFragments: "Compile Fragments",
+    nothingToCompile: "Nothing to compile",
+    addFragmentsFirst: "Add some fragments to the stream first.",
+    compilationComplete: "Compilation complete",
+    compilationCompleteDetail: "Your fragments have been shaped into a draft.",
+    compilationFailed: "Compilation failed",
+    compilationFailedDetail: "An error occurred while compiling your fragments.",
+    draftSaved: "Draft saved",
+    draftSaveFailed: "Failed to save draft edits.",
+    compiledDraft: "Compiled Draft",
+    recompile: "Recompile",
+    weaving: "Shaping your fragments...",
+    pageNotFound: "Page not found",
+    pageMissing: "The page you're looking for doesn't exist or has been moved.",
+    returnSubjects: "Return to Subjects",
+  },
+  ar: {
+    shapeThoughts: "شكّل أفكارك.",
+    heroSubtitle: "مساحة هادئة تجمع فيها خواطرك على مدى أيام أو أسابيع، ثم تحولها إلى عمل متكامل عندما يحين الوقت.",
+    yourSubjects: "موضوعاتك",
+    newSubject: "عنوان موضوع جديد...",
+    createSubject: "إنشاء موضوع",
+    titleRequired: "العنوان مطلوب",
+    subjectCreated: "تم إنشاء الموضوع",
+    readyCollect: "يمكنك الآن البدء في جمع أفكارك.",
+    error: "خطأ",
+    createFailed: "تعذر إنشاء الموضوع. حاول مرة أخرى.",
+    searchSubjects: "ابحث في الموضوعات...",
+    noSubjects: "لم يتم العثور على موضوعات.",
+    trySearch: "جرّب عبارة بحث مختلفة.",
+    createFirst: "أنشئ موضوعك الأول أعلاه.",
+    fragment: "فكرة",
+    fragments: "أفكار",
+    open: "فتح",
+    subjects: "الموضوعات",
+    invalidSubject: "رقم الموضوع غير صالح",
+    subjectNotFound: "الموضوع غير موجود",
+    subjectMissing: "ربما تم حذفه أو لم يعد متاحاً.",
+    returnHome: "العودة للرئيسية",
+    deleteSubject: "حذف الموضوع",
+    deleteSubjectConfirm: "هل تريد حذف هذا الموضوع؟ سيتم حذف الموضوع وجميع أفكاره نهائياً.",
+    cancel: "إلغاء",
+    deleting: "جارٍ الحذف...",
+    delete: "حذف",
+    addIntro: "أضف مقدمة موجزة أو سياقاً لهذا الموضوع...",
+    saveIntro: "حفظ المقدمة",
+    captureFragment: "أضف فكرة",
+    stream: "تسلسل الأفكار",
+    subjectDeleted: "تم حذف الموضوع",
+    updateTitleFailed: "تعذر تحديث العنوان.",
+    updateIntroFailed: "تعذر تحديث المقدمة.",
+    deleteSubjectFailed: "تعذر حذف الموضوع.",
+    contentRequired: "محتوى الفكرة مطلوب",
+    fragmentAdded: "تمت إضافة الفكرة",
+    saveFragmentFailed: "تعذر حفظ الفكرة.",
+    type: "كتابة",
+    voice: "صوت",
+    voiceUnsupported: "التسجيل الصوتي غير مدعوم",
+    voiceUnsupportedDetail: "متصفحك لا يدعم خصائص التسجيل المطلوبة. استخدم الكتابة أو جرّب متصفح كروم.",
+    recording: "جارٍ التسجيل...",
+    listening: "جارٍ الاستماع...",
+    tapToSpeak: "اضغط للتحدث",
+    reviewTranscript: "راجع النص وعدّله قبل الحفظ.",
+    thoughtPlaceholder: "اكتب خاطرة سريعة أو رابطاً أو فكرة...",
+    transcriptPlaceholder: "سيظهر النص هنا، ويمكنك تعديله قبل الحفظ.",
+    saving: "جارٍ الحفظ...",
+    saveFragment: "حفظ الفكرة",
+    emptyStream: "لا توجد أفكار بعد",
+    emptyStreamDetail: "أضف فكرتك الأولى أعلاه لبدء بناء هذا الموضوع.",
+    voiceNote: "ملاحظة صوتية",
+    textNote: "ملاحظة مكتوبة",
+    deleteFragment: "حذف الفكرة",
+    deleteFragmentConfirm: "هل تريد حذف هذه الفكرة؟ لا يمكن التراجع عن هذا الإجراء.",
+    editFailed: "تعذر تحديث الفكرة.",
+    deleteFailed: "تعذر حذف الفكرة.",
+    save: "حفظ",
+    shapeDraft: "حوّلها إلى مسودة",
+    shapeDraftDetail: "بعد جمع أفكار كافية، استخدم الذكاء الاصطناعي لدمجها في مسودة مترابطة.",
+    selectTone: "اختر الأسلوب",
+    clearDirect: "واضح ومباشر",
+    conversational: "حواري",
+    academic: "أكاديمي ودقيق",
+    cinematic: "سينمائي ووصفي",
+    compileFragments: "تجميع الأفكار",
+    nothingToCompile: "لا توجد أفكار للتجميع",
+    addFragmentsFirst: "أضف بعض الأفكار أولاً.",
+    compilationComplete: "اكتمل إعداد المسودة",
+    compilationCompleteDetail: "تم تحويل أفكارك إلى مسودة.",
+    compilationFailed: "فشل إعداد المسودة",
+    compilationFailedDetail: "حدث خطأ أثناء تجميع أفكارك.",
+    draftSaved: "تم حفظ المسودة",
+    draftSaveFailed: "تعذر حفظ تعديلات المسودة.",
+    compiledDraft: "المسودة المجمّعة",
+    recompile: "إعادة التجميع",
+    weaving: "جارٍ تشكيل أفكارك...",
+    pageNotFound: "الصفحة غير موجودة",
+    pageMissing: "الصفحة التي تبحث عنها غير موجودة أو تم نقلها.",
+    returnSubjects: "العودة إلى الموضوعات",
+  },
+} as const;
+
+type MessageKey = keyof typeof messages.en;
+
+type LanguageContextValue = {
+  language: Language;
+  isArabic: boolean;
+  setLanguage: (language: Language) => void;
+  t: (key: MessageKey) => string;
+};
+
+const LanguageContext = createContext<LanguageContextValue | null>(null);
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguage] = useState<Language>(() => {
+    const requested = new URLSearchParams(window.location.search).get("lang");
+    if (requested === "ar" || requested === "en") return requested;
+    const saved = localStorage.getItem("idea-stream-language");
+    return saved === "ar" ? "ar" : "en";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("idea-stream-language", language);
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+  }, [language]);
+
+  const value = useMemo<LanguageContextValue>(
+    () => ({
+      language,
+      isArabic: language === "ar",
+      setLanguage,
+      t: (key) => messages[language][key],
+    }),
+    [language],
+  );
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (!context) throw new Error("useLanguage must be used within LanguageProvider");
+  return context;
+}

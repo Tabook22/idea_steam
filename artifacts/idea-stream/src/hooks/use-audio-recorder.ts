@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useState, useCallback, useRef } from "react";
 
-export function useAudioRecorder() {
+export function useAudioRecorder(language: "en" | "ar" = "en") {
   const [isRecording, setIsRecording] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
   const [transcript, setTranscript] = useState("");
@@ -27,6 +27,7 @@ export function useAudioRecorder() {
         recognitionRef.current = new SpeechRecognition();
         recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = language === "ar" ? "ar-SA" : "en-US";
         
         recognitionRef.current.onresult = (event: any) => {
           let currentTranscript = "";
@@ -45,7 +46,7 @@ export function useAudioRecorder() {
       console.error("Error accessing microphone:", err);
       setIsSupported(false);
     }
-  }, [isSupported]);
+  }, [isSupported, language]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {

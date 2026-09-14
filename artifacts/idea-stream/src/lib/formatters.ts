@@ -3,20 +3,36 @@ import {
   type Idea,
   type SubjectDetail,
 } from "@workspace/api-client-react";
-import { format, formatDistanceToNow } from "date-fns";
-
-export function formatDate(dateString: string): string {
+export function formatDate(dateString: string, language = "en"): string {
   try {
-    return format(new Date(dateString), "MMM d, yyyy");
-  } catch (e) {
+    return new Intl.DateTimeFormat(language, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(new Date(dateString));
+  } catch {
     return dateString;
   }
 }
 
-export function formatTimeAgo(dateString: string): string {
+export function formatTimeAgo(dateString: string, language = "en"): string {
   try {
-    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
-  } catch (e) {
+    const elapsedSeconds = Math.round((new Date(dateString).getTime() - Date.now()) / 1000);
+    const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+      ["year", 31536000],
+      ["month", 2592000],
+      ["week", 604800],
+      ["day", 86400],
+      ["hour", 3600],
+      ["minute", 60],
+      ["second", 1],
+    ];
+    const [unit, seconds] = units.find(([, size]) => Math.abs(elapsedSeconds) >= size) ?? units.at(-1)!;
+    return new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(
+      Math.round(elapsedSeconds / seconds),
+      unit,
+    );
+  } catch {
     return dateString;
   }
 }

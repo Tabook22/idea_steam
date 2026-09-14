@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useLanguage } from "@/lib/i18n";
 
 interface CompilationViewProps {
   subjectId: number;
@@ -34,6 +35,7 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useLanguage();
   
   const compileSubject = useCompileSubject();
   const updateSubject = useUpdateSubject();
@@ -48,8 +50,8 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
   const handleCompile = () => {
     if (!hasIdeas) {
       toast({
-        title: "Nothing to compile",
-        description: "Add some fragments to the stream first.",
+        title: t("nothingToCompile"),
+        description: t("addFragmentsFirst"),
       });
       return;
     }
@@ -62,15 +64,15 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
           setEditDraft(data.draft);
           setIsEditing(false);
           toast({
-            title: "Compilation complete",
-            description: "Your fragments have been woven into a draft.",
+            title: t("compilationComplete"),
+            description: t("compilationCompleteDetail"),
           });
         },
         onError: () => {
           toast({
             variant: "destructive",
-            title: "Compilation failed",
-            description: "An error occurred while compiling your fragments.",
+            title: t("compilationFailed"),
+            description: t("compilationFailedDetail"),
           });
         }
       }
@@ -90,14 +92,14 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
           queryClient.invalidateQueries({ queryKey: getGetSubjectQueryKey(subjectId) });
           setIsEditing(false);
           toast({
-            title: "Draft saved",
+            title: t("draftSaved"),
           });
         },
         onError: () => {
           toast({
             variant: "destructive",
-            title: "Error",
-            description: "Failed to save draft edits.",
+            title: t("error"),
+            description: t("draftSaveFailed"),
           });
         }
       }
@@ -115,9 +117,9 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
           <Wand2 className="h-8 w-8 text-primary" />
         </div>
-        <CardTitle className="font-serif text-2xl mb-2">Shape into Draft</CardTitle>
+        <CardTitle className="font-serif text-2xl mb-2">{t("shapeDraft")}</CardTitle>
         <CardDescription className="text-base max-w-sm mx-auto mb-8 font-serif leading-relaxed">
-          When you've collected enough fragments, use AI to weave them together into a cohesive draft.
+          {t("shapeDraftDetail")}
         </CardDescription>
         
         <div className="w-full max-w-xs space-y-4">
@@ -127,13 +129,13 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
             disabled={!hasIdeas}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select tone" />
+              <SelectValue placeholder={t("selectTone")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={CompilationInputTone.clear}>Clear & Direct</SelectItem>
-              <SelectItem value={CompilationInputTone.conversational}>Conversational</SelectItem>
-              <SelectItem value={CompilationInputTone.academic}>Academic & Rigorous</SelectItem>
-              <SelectItem value={CompilationInputTone.cinematic}>Cinematic & Descriptive</SelectItem>
+              <SelectItem value={CompilationInputTone.clear}>{t("clearDirect")}</SelectItem>
+              <SelectItem value={CompilationInputTone.conversational}>{t("conversational")}</SelectItem>
+              <SelectItem value={CompilationInputTone.academic}>{t("academic")}</SelectItem>
+              <SelectItem value={CompilationInputTone.cinematic}>{t("cinematic")}</SelectItem>
             </SelectContent>
           </Select>
           
@@ -144,7 +146,7 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
             disabled={!hasIdeas || compileSubject.isPending}
           >
             <Sparkles className="mr-2 h-4 w-4" />
-            Compile Fragments
+            {t("compileFragments")}
           </Button>
         </div>
       </Card>
@@ -156,7 +158,7 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
       <CardHeader className="border-b border-border/50 bg-primary/5 py-4 px-6 flex flex-row items-center justify-between space-y-0 sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <BookText className="h-5 w-5 text-primary" />
-          <CardTitle className="font-serif text-xl">Compiled Draft</CardTitle>
+          <CardTitle className="font-serif text-xl">{t("compiledDraft")}</CardTitle>
         </div>
         
         <div className="flex items-center gap-2">
@@ -167,13 +169,13 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
               disabled={compileSubject.isPending}
             >
               <SelectTrigger className="h-8 w-[140px] text-xs">
-                <SelectValue placeholder="Select tone" />
+                <SelectValue placeholder={t("selectTone")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={CompilationInputTone.clear}>Clear</SelectItem>
-                <SelectItem value={CompilationInputTone.conversational}>Conversational</SelectItem>
-                <SelectItem value={CompilationInputTone.academic}>Academic</SelectItem>
-                <SelectItem value={CompilationInputTone.cinematic}>Cinematic</SelectItem>
+                <SelectItem value={CompilationInputTone.clear}>{t("clearDirect")}</SelectItem>
+                <SelectItem value={CompilationInputTone.conversational}>{t("conversational")}</SelectItem>
+                <SelectItem value={CompilationInputTone.academic}>{t("academic")}</SelectItem>
+                <SelectItem value={CompilationInputTone.cinematic}>{t("cinematic")}</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -181,10 +183,10 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
           {isEditing ? (
             <>
               <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="h-8">
-                Cancel
+                {t("cancel")}
               </Button>
               <Button size="sm" onClick={handleSaveEdit} disabled={updateSubject.isPending} className="h-8">
-                <Save className="mr-2 h-3.5 w-3.5" /> Save
+                <Save className="me-2 h-3.5 w-3.5" /> {t("save")}
               </Button>
             </>
           ) : (
@@ -200,7 +202,7 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
               ) : (
                 <RefreshCw className="mr-2 h-3.5 w-3.5" />
               )}
-              Recompile
+              {t("recompile")}
             </Button>
           )}
         </div>
@@ -213,7 +215,7 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
               <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin"></div>
               <Wand2 className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
             </div>
-            <p className="mt-4 font-serif font-medium text-primary">Weaving your fragments...</p>
+            <p className="mt-4 font-serif font-medium text-primary">{t("weaving")}</p>
           </div>
         )}
         
