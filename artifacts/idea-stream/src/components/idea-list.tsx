@@ -226,6 +226,7 @@ export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
 function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(idea.content);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const queryClient = useQueryClient();
@@ -368,10 +369,24 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
             </div>
           </div>
         ) : (
-          <div className="prose prose-sm max-w-none text-foreground font-serif leading-relaxed text-[1.05rem]">
-            {idea.content.split('\n').map((paragraph, i) => (
-              paragraph ? <p key={i} className="mb-2 last:mb-0">{paragraph}</p> : <br key={i} />
-            ))}
+          <div>
+            <div className={`prose prose-sm max-w-none text-foreground font-serif leading-relaxed text-[1.05rem] ${isContentExpanded ? "" : "line-clamp-4"}`}>
+              {idea.content.split('\n').map((paragraph, i) => (
+                paragraph ? <p key={i} className="mb-2 last:mb-0">{paragraph}</p> : <br key={i} />
+              ))}
+            </div>
+            {(idea.content.length > 220 || idea.content.split("\n").length > 4) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-2 h-8 px-2 text-xs text-primary"
+                onClick={() => setIsContentExpanded((value) => !value)}
+              >
+                {isContentExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
+                {isContentExpanded ? t("collapseDetails") : t("expandDetails")}
+              </Button>
+            )}
           </div>
         )}
       </div>
