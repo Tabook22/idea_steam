@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <div className="min-h-[100dvh] w-full flex flex-col items-center">
       {/* Hero Section */}
-      <section className="w-full bg-primary text-primary-foreground py-16 md:py-24 px-6 relative overflow-hidden">
+      <section className="w-full bg-[#e8e8e4] text-foreground py-16 md:py-24 px-6 relative overflow-hidden">
         {/* Subtle decorative pattern */}
         <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "32px 32px" }}></div>
         
@@ -17,7 +17,7 @@ export default function HomePage() {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-semibold tracking-tight mb-4 text-balance">
             Shape your thoughts.
           </h1>
-          <p className="text-primary-foreground/80 text-lg md:text-xl max-w-2xl text-balance font-light">
+          <p className="text-muted-foreground text-lg md:text-xl max-w-2xl text-balance font-light">
             A quiet space to collect fragments over days or weeks, and shape them into finished work when the time is right.
           </p>
           
