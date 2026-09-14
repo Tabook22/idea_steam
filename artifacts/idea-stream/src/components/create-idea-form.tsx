@@ -33,6 +33,7 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
   const [linkUrl, setLinkUrl] = useState("");
   const [linkNote, setLinkNote] = useState("");
   const [uploads, setUploads] = useState<MediaAttachment[]>([]);
+  const [voiceRecording, setVoiceRecording] = useState<MediaAttachment | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -48,6 +49,7 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
     setLinkUrl("");
     setLinkNote("");
     setUploads([]);
+    setVoiceRecording(null);
   };
 
   const blobToBase64 = async (blob: Blob) => {
@@ -69,15 +71,35 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
   };
 
   const handleStopRecording = async () => {
+    setIsUploading(true);
     try {
       const audio = await stopRecording();
-      const result = await transcribeAudio.mutateAsync({
-        data: { audioBase64: await blobToBase64(audio), mimeType: audio.type || "audio/webm", language },
-      });
-      setTranscript(result.text);
-      setContent(result.text);
+      const mimeType = audio.type || "audio/webm";
+      const extension = mimeType.includes("mp4") ? "m4a" : "webm";
+      const recordingFile = new File([audio], `voice-recording-${Date.now()}.${extension}`, { type: mimeType });
+      const [uploadResult, transcriptionResult] = await Promise.allSettled([
+        uploadFile(recordingFile, "audio"),
+        transcribeAudio.mutateAsync({
+          data: { audioBase64: await blobToBase64(audio), mimeType, language },
+        }),
+      ]);
+
+      if (uploadResult.status === "fulfilled") {
+        setVoiceRecording(uploadResult.value);
+      } else {
+        toast({ variant: "destructive", title: t("error"), description: t("recordingUploadFailed") });
+      }
+
+      if (transcriptionResult.status === "fulfilled") {
+        setTranscript(transcriptionResult.value.text);
+        setContent(transcriptionResult.value.text);
+      } else {
+        toast({ variant: "destructive", title: t("error"), description: t("transcriptionFailed") });
+      }
     } catch {
-      toast({ variant: "destructive", title: t("error"), description: t("transcriptionFailed") });
+      toast({ variant: "destructive", title: t("error"), description: t("recordingFailed") });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -93,6 +115,29 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
       /\.(docx?|txt|rtf|odt)$/i.test(file.name)
     ) return "document";
     return null;
+  };
+
+  const uploadFile = async (file: File, attachmentType: MediaAttachment["type"]): Promise<MediaAttachment> => {
+    const request = await fetch("/api/storage/uploads/request-url", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+    });
+    if (!request.ok) throw new Error("Upload URL failed");
+    const { uploadURL, objectPath } = await request.json() as { uploadURL: string; objectPath: string };
+    const upload = await fetch(uploadURL, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    if (!upload.ok) throw new Error("Upload failed");
+    return {
+      type: attachmentType,
+      url: `/api/storage${objectPath}`,
+      name: file.name,
+      mimeType: file.type || "application/octet-stream",
+    };
   };
 
   const handleFiles = async (files?: FileList | null) => {
@@ -117,26 +162,7 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
       const completed: MediaAttachment[] = [];
       for (const file of pendingFiles) {
         const attachmentType = getAttachmentType(file)!;
-        const request = await fetch("/api/storage/uploads/request-url", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
-        });
-        if (!request.ok) throw new Error("Upload URL failed");
-        const { uploadURL, objectPath } = await request.json() as { uploadURL: string; objectPath: string };
-        const upload = await fetch(uploadURL, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
-        });
-        if (!upload.ok) throw new Error("Upload failed");
-        completed.push({
-          type: attachmentType,
-          url: `/api/storage${objectPath}`,
-          name: file.name,
-          mimeType: file.type || "application/octet-stream",
-        });
+        completed.push(await uploadFile(file, attachmentType));
       }
       setUploads((current) => [...current, ...completed]);
       if (!content && completed.length) setContent(completed.map((item) => item.name).join(", "));
@@ -151,7 +177,17 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
   const saveIdea = () => {
     let source: (typeof IdeaInputSource)[keyof typeof IdeaInputSource] = IdeaInputSource.text;
     const attachments = [];
-    if (activeTab === "voice") source = IdeaInputSource.voice;
+    if (activeTab === "voice") {
+      source = IdeaInputSource.voice;
+      if (voiceRecording) {
+        attachments.push({
+          type: IdeaAttachmentType.audio,
+          url: voiceRecording.url,
+          name: voiceRecording.name,
+          mimeType: voiceRecording.mimeType,
+        });
+      }
+    }
     if (activeTab === "media" && uploads.length) {
       source = IdeaInputSource[uploads[0].type];
       attachments.push(...uploads.map((upload) => ({
@@ -226,6 +262,13 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
               {isRecording ? <Square className="h-8 w-8 sm:h-6 sm:w-6 fill-current" /> : <Mic className="h-8 w-8 sm:h-7 sm:w-7" />}
             </Button>
             <p className="text-sm font-medium">{isRecording ? t("recording") : transcribeAudio.isPending ? t("transcribing") : t("tapToSpeak")}</p>
+            {voiceRecording && (
+              <div className="mt-5 w-full rounded-lg border bg-background p-3 text-start shadow-sm">
+                <p className="mb-2 text-xs font-semibold text-primary">{t("originalVoiceRecording")}</p>
+                <audio src={voiceRecording.url} controls preload="metadata" className="h-10 w-full" />
+                <p className="mt-2 text-xs text-muted-foreground">{t("voiceRecordingReference")}</p>
+              </div>
+            )}
           </div>
         ) : activeTab === "media" ? (
           <div className="rounded-lg border border-dashed p-4 sm:p-6 text-center bg-muted/10">
