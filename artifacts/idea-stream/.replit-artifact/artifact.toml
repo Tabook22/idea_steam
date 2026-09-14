@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Idea Stream"
+description = "A personal idea capture workspace for organizing subjects, adding timestamped text or voice notes, and compiling them into editable finished drafts."
+version = "1.0.0"
+id = "artifacts/idea-stream"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18119
+
+[services.development]
+run = "pnpm --filter @workspace/idea-stream run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/idea-stream", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/idea-stream/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18119"
+BASE_PATH = "/"

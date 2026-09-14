@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: subjects
+    description: Idea subjects and their note streams
+  - name: ideas
+    description: Timestamped idea notes
+  - name: compilation
+    description: Turning collected ideas into drafts
 paths:
   /healthz:
     get:
@@ -24,7 +30,179 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /subjects:
+    get:
+      operationId: listSubjects
+      tags: [subjects]
+      summary: List all subjects
+      responses:
+        "200":
+          description: Subjects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subject"
+    post:
+      operationId: createSubject
+      tags: [subjects]
+      summary: Create a new subject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubjectInput"
+      responses:
+        "201":
+          description: Created subject
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+  /subjects/{subjectId}:
+    get:
+      operationId: getSubject
+      tags: [subjects]
+      summary: Get a subject with its ideas
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+      responses:
+        "200":
+          description: Subject detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectDetail"
+        "404":
+          description: Subject not found
+    patch:
+      operationId: updateSubject
+      tags: [subjects]
+      summary: Update subject metadata
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubjectUpdate"
+      responses:
+        "200":
+          description: Updated subject
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+    delete:
+      operationId: deleteSubject
+      tags: [subjects]
+      summary: Delete a subject and its ideas
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+      responses:
+        "204":
+          description: Deleted
+  /subjects/{subjectId}/ideas:
+    post:
+      operationId: createIdea
+      tags: [ideas]
+      summary: Add an idea to a subject
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdeaInput"
+      responses:
+        "201":
+          description: Created idea
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Idea"
+    get:
+      operationId: listIdeas
+      tags: [ideas]
+      summary: List ideas for a subject
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+      responses:
+        "200":
+          description: Ideas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Idea"
+  /ideas/{ideaId}:
+    patch:
+      operationId: updateIdea
+      tags: [ideas]
+      summary: Edit an idea
+      parameters:
+        - $ref: "#/components/parameters/IdeaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdeaUpdate"
+      responses:
+        "200":
+          description: Updated idea
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Idea"
+    delete:
+      operationId: deleteIdea
+      tags: [ideas]
+      summary: Delete an idea
+      parameters:
+        - $ref: "#/components/parameters/IdeaId"
+      responses:
+        "204":
+          description: Deleted
+  /subjects/{subjectId}/compile:
+    post:
+      operationId: compileSubject
+      tags: [compilation]
+      summary: Compile a subject's ideas into a draft
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompilationInput"
+      responses:
+        "200":
+          description: Compiled draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Compilation"
 components:
+  parameters:
+    SubjectId:
+      name: subjectId
+      in: path
+      required: true
+      schema:
+        type: integer
+    IdeaId:
+      name: ideaId
+      in: path
+      required: true
+      schema:
+        type: integer
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +211,107 @@ components:
           type: string
       required:
         - status
+    Subject:
+      type: object
+      required: [id, title, intro, createdAt, updatedAt, ideaCount]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        intro:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        ideaCount:
+          type: integer
+    SubjectDetail:
+      allOf:
+        - $ref: "#/components/schemas/Subject"
+        - type: object
+          required: [ideas]
+          properties:
+            ideas:
+              type: array
+              items:
+                $ref: "#/components/schemas/Idea"
+            draft:
+              type: ["string", "null"]
+    SubjectInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        intro:
+          type: string
+          default: ""
+    SubjectUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        intro:
+          type: string
+        draft:
+          type: ["string", "null"]
+    Idea:
+      type: object
+      required: [id, subjectId, content, source, createdAt]
+      properties:
+        id:
+          type: integer
+        subjectId:
+          type: integer
+        content:
+          type: string
+        source:
+          type: string
+          enum: [text, voice]
+        createdAt:
+          type: string
+          format: date-time
+    IdeaInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+        source:
+          type: string
+          enum: [text, voice]
+          default: text
+    IdeaUpdate:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+    CompilationInput:
+      type: object
+      properties:
+        tone:
+          type: string
+          enum: [clear, conversational, academic, cinematic]
+          default: clear
+    Compilation:
+      type: object
+      required: [subjectId, title, draft, generatedAt]
+      properties:
+        subjectId:
+          type: integer
+        title:
+          type: string
+        draft:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
 
