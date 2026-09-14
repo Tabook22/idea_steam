@@ -16,10 +16,10 @@ export const ideasTable = pgTable("ideas", {
     .notNull()
     .references(() => subjectsTable.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
-  source: text("source", { enum: ["text", "voice", "image", "video", "link"] }).notNull().default("text"),
+  source: text("source", { enum: ["text", "voice", "image", "video", "audio", "pdf", "document", "link"] }).notNull().default("text"),
   attachments: jsonb("attachments")
     .$type<Array<{
-      type: "image" | "video" | "link";
+      type: "image" | "video" | "audio" | "pdf" | "document" | "link";
       url: string;
       name: string;
       mimeType?: string;

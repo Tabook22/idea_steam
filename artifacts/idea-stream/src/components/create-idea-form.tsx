@@ -8,7 +8,7 @@ import {
   useCreateIdea,
   useTranscribeAudio,
 } from "@workspace/api-client-react";
-import { AlertCircle, ImagePlus, Link2, Mic, PenTool, Send, Square, Upload, Video } from "lucide-react";
+import { AlertCircle, FileAudio, FileText, ImagePlus, Link2, Mic, PenTool, Send, Square, Upload, Video, X } from "lucide-react";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +19,7 @@ import { useLanguage } from "@/lib/i18n";
 
 type Tab = "text" | "voice" | "media" | "link";
 type MediaAttachment = {
-  type: "image" | "video";
+  type: "image" | "video" | "audio" | "pdf" | "document";
   url: string;
   name: string;
   mimeType?: string;
@@ -30,7 +30,7 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
   const [content, setContent] = useState("");
   const [transcript, setTranscript] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
-  const [media, setMedia] = useState<MediaAttachment | null>(null);
+  const [uploads, setUploads] = useState<MediaAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -44,7 +44,7 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
     setContent("");
     setTranscript("");
     setLinkUrl("");
-    setMedia(null);
+    setUploads([]);
   };
 
   const blobToBase64 = async (blob: Blob) => {
@@ -78,44 +78,70 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
     }
   };
 
-  const handleFile = async (file?: File) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+  const getAttachmentType = (file: File): MediaAttachment["type"] | null => {
+    if (file.type.startsWith("image/")) return "image";
+    if (file.type.startsWith("video/")) return "video";
+    if (file.type.startsWith("audio/")) return "audio";
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) return "pdf";
+    if (
+      file.type.includes("word") ||
+      file.type.includes("document") ||
+      file.type.includes("text") ||
+      /\.(docx?|txt|rtf|odt)$/i.test(file.name)
+    ) return "document";
+    return null;
+  };
+
+  const handleFiles = async (files?: FileList | null) => {
+    if (!files?.length) return;
+    const pendingFiles = Array.from(files);
+    const invalid = pendingFiles.find((file) => !getAttachmentType(file));
+    if (invalid) {
       toast({ variant: "destructive", title: t("error"), description: t("mediaTypeError") });
       return;
     }
-    if (file.size > 100 * 1024 * 1024) {
+    if (pendingFiles.some((file) => file.size > 100 * 1024 * 1024)) {
       toast({ variant: "destructive", title: t("error"), description: t("mediaSizeError") });
+      return;
+    }
+    if (uploads.length + pendingFiles.length > 10) {
+      toast({ variant: "destructive", title: t("error"), description: t("uploadLimit") });
       return;
     }
 
     setIsUploading(true);
     try {
-      const request = await fetch("/api/storage/uploads/request-url", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-      });
-      if (!request.ok) throw new Error("Upload URL failed");
-      const { uploadURL, objectPath } = await request.json() as { uploadURL: string; objectPath: string };
-      const upload = await fetch(uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!upload.ok) throw new Error("Upload failed");
-      setMedia({
-        type: file.type.startsWith("video/") ? "video" : "image",
-        url: `/api/storage${objectPath}`,
-        name: file.name,
-        mimeType: file.type,
-      });
-      if (!content) setContent(file.name);
+      const completed: MediaAttachment[] = [];
+      for (const file of pendingFiles) {
+        const attachmentType = getAttachmentType(file)!;
+        const request = await fetch("/api/storage/uploads/request-url", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+        });
+        if (!request.ok) throw new Error("Upload URL failed");
+        const { uploadURL, objectPath } = await request.json() as { uploadURL: string; objectPath: string };
+        const upload = await fetch(uploadURL, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        if (!upload.ok) throw new Error("Upload failed");
+        completed.push({
+          type: attachmentType,
+          url: `/api/storage${objectPath}`,
+          name: file.name,
+          mimeType: file.type || "application/octet-stream",
+        });
+      }
+      setUploads((current) => [...current, ...completed]);
+      if (!content && completed.length) setContent(completed.map((item) => item.name).join(", "));
     } catch {
       toast({ variant: "destructive", title: t("error"), description: t("uploadFailed") });
     } finally {
       setIsUploading(false);
+      if (fileInput.current) fileInput.current.value = "";
     }
   };
 
@@ -123,14 +149,14 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
     let source: (typeof IdeaInputSource)[keyof typeof IdeaInputSource] = IdeaInputSource.text;
     const attachments = [];
     if (activeTab === "voice") source = IdeaInputSource.voice;
-    if (activeTab === "media" && media) {
-      source = media.type === "video" ? IdeaInputSource.video : IdeaInputSource.image;
-      attachments.push({
-        type: media.type === "video" ? IdeaAttachmentType.video : IdeaAttachmentType.image,
-        url: media.url,
-        name: media.name,
-        mimeType: media.mimeType,
-      });
+    if (activeTab === "media" && uploads.length) {
+      source = IdeaInputSource[uploads[0].type];
+      attachments.push(...uploads.map((upload) => ({
+        type: IdeaAttachmentType[upload.type],
+        url: upload.url,
+        name: upload.name,
+        mimeType: upload.mimeType,
+      })));
     }
     if (activeTab === "link") {
       try {
@@ -142,8 +168,8 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
         return;
       }
     }
-    const finalContent = content.trim() || (activeTab === "link" ? linkUrl : media?.name || "");
-    if (!finalContent || (activeTab === "media" && !media)) return;
+    const finalContent = content.trim() || (activeTab === "link" ? linkUrl : uploads.map((item) => item.name).join(", "));
+    if (!finalContent || (activeTab === "media" && !uploads.length)) return;
 
     createIdea.mutate(
       { subjectId, data: { content: finalContent, source, attachments } },
@@ -198,17 +224,34 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
           </div>
         ) : activeTab === "media" ? (
           <div className="rounded-lg border border-dashed p-6 text-center">
-            <input ref={fileInput} className="hidden" type="file" accept="image/*,video/*" capture="environment" onChange={(event) => handleFile(event.target.files?.[0])} />
-            {media ? (
-              <div className="space-y-3">
-                {media.type === "image" ? <img src={media.url} alt={media.name} className="mx-auto max-h-56 rounded-lg object-contain" /> : <video src={media.url} controls className="mx-auto max-h-56 rounded-lg" />}
-                <p className="text-sm text-muted-foreground">{media.name}</p>
+            <input ref={fileInput} className="hidden" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.rtf,.odt" onChange={(event) => handleFiles(event.target.files)} />
+            {uploads.length > 0 && (
+              <div className="mb-4 grid gap-2 text-start sm:grid-cols-2">
+                {uploads.map((upload, index) => (
+                  <div key={`${upload.url}-${index}`} className="flex min-w-0 items-center gap-3 rounded-lg border bg-background p-2">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-primary">
+                      {upload.type === "image" ? <img src={upload.url} alt="" className="h-full w-full object-cover" /> :
+                        upload.type === "video" ? <Video className="h-6 w-6" /> :
+                        upload.type === "audio" ? <FileAudio className="h-6 w-6" /> :
+                        <FileText className="h-6 w-6" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{upload.name}</p>
+                      <p className="text-xs uppercase text-muted-foreground">{upload.type}</p>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={t("removeUpload")} onClick={() => setUploads((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <Button type="button" variant="outline" onClick={() => fileInput.current?.click()} disabled={isUploading}>
-                <Upload className="me-2 h-4 w-4" /> {isUploading ? t("uploading") : t("chooseMedia")}
-              </Button>
             )}
+            <div>
+              <Button type="button" variant="outline" onClick={() => fileInput.current?.click()} disabled={isUploading}>
+                <Upload className="me-2 h-4 w-4" /> {isUploading ? t("uploading") : uploads.length ? t("addMoreUploads") : t("chooseMedia")}
+              </Button>
+              <p className="mt-2 text-xs text-muted-foreground">{t("supportedUploads")}</p>
+            </div>
           </div>
         ) : activeTab === "link" ? (
           <div className="space-y-2">
@@ -225,8 +268,8 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
           disabled={busy}
         />
         <div className="flex justify-end">
-          <Button type="button" onClick={saveIdea} disabled={busy || (activeTab === "media" && !media) || (activeTab === "link" && !linkUrl)}>
-            {activeTab === "media" && media?.type === "video" ? <Video className="me-2 h-4 w-4" /> : <Send className="me-2 h-4 w-4" />}
+          <Button type="button" onClick={saveIdea} disabled={busy || (activeTab === "media" && !uploads.length) || (activeTab === "link" && !linkUrl)}>
+            <Send className="me-2 h-4 w-4" />
             {createIdea.isPending ? t("saving") : t("saveFragment")}
           </Button>
         </div>

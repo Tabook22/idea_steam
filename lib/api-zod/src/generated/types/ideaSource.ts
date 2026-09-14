@@ -14,5 +14,8 @@ export const IdeaSource = {
   voice: 'voice',
   image: 'image',
   video: 'video',
+  audio: 'audio',
+  pdf: 'pdf',
+  document: 'document',
   link: 'link',
 } as const;

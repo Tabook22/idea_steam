@@ -12,5 +12,8 @@ export type IdeaAttachmentType = typeof IdeaAttachmentType[keyof typeof IdeaAtta
 export const IdeaAttachmentType = {
   image: 'image',
   video: 'video',
+  audio: 'audio',
+  pdf: 'pdf',
+  document: 'document',
   link: 'link',
 } as const;

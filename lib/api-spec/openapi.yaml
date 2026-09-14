@@ -378,7 +378,7 @@ components:
       properties:
         type:
           type: string
-          enum: [image, video, link]
+          enum: [image, video, audio, pdf, document, link]
         url:
           type: string
           minLength: 1
@@ -399,7 +399,7 @@ components:
           type: string
         source:
           type: string
-          enum: [text, voice, image, video, link]
+          enum: [text, voice, image, video, audio, pdf, document, link]
         attachments:
           type: array
           items:
@@ -416,7 +416,7 @@ components:
           minLength: 1
         source:
           type: string
-          enum: [text, voice, image, video, link]
+          enum: [text, voice, image, video, audio, pdf, document, link]
           default: text
         attachments:
           type: array

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   type Idea,
+  type IdeaAttachment,
   IdeaSource,
   useUpdateIdea,
   useDeleteIdea,
@@ -10,7 +11,7 @@ import {
   useListIdeas,
 } from "@workspace/api-client-react";
 import { formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink } from "lucide-react";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +31,60 @@ import { useLanguage } from "@/lib/i18n";
 interface IdeaListProps {
   subjectId: number;
   initialIdeas: Idea[];
+}
+
+function getYoutubeId(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.hostname === "youtu.be") return url.pathname.slice(1).split("/")[0];
+    if (url.hostname.includes("youtube.com")) {
+      if (url.pathname.startsWith("/shorts/") || url.pathname.startsWith("/embed/")) return url.pathname.split("/")[2];
+      return url.searchParams.get("v");
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function AttachmentCard({ attachment }: { attachment: IdeaAttachment }) {
+  const youtubeId = attachment.type === "link" ? getYoutubeId(attachment.url) : null;
+  const label = youtubeId ? "YouTube" : attachment.type;
+  const icon = attachment.type === "audio" ? <FileAudio className="h-7 w-7" /> :
+    attachment.type === "pdf" ? <FileType className="h-7 w-7" /> :
+    attachment.type === "document" ? <FileText className="h-7 w-7" /> :
+    attachment.type === "video" ? <Video className="h-7 w-7" /> :
+    attachment.type === "image" ? <ImageIcon className="h-7 w-7" /> :
+    <Link2 className="h-7 w-7" />;
+
+  return (
+    <div className="overflow-hidden rounded-lg border bg-muted/15">
+      <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="group/attachment block">
+        <div className="relative flex h-32 items-center justify-center overflow-hidden bg-muted">
+          {attachment.type === "image" ? (
+            <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover transition-transform group-hover/attachment:scale-105" />
+          ) : youtubeId ? (
+            <>
+              <img src={`https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`} alt={attachment.name} className="h-full w-full object-cover" />
+              <span className="absolute rounded-full bg-red-600 p-2 text-white"><Play className="h-5 w-5 fill-current" /></span>
+            </>
+          ) : (
+            <div className="text-primary">{icon}</div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 p-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{attachment.name}</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+          </div>
+          <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </div>
+      </a>
+      {attachment.type === "audio" && (
+        <div className="border-t px-2 py-2"><audio src={attachment.url} controls preload="metadata" className="h-9 w-full" /></div>
+      )}
+    </div>
+  );
 }
 
 export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
@@ -137,11 +192,17 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
               {idea.source === IdeaSource.voice ? <Mic className="h-3 w-3" /> :
                 idea.source === IdeaSource.image ? <ImageIcon className="h-3 w-3" /> :
                 idea.source === IdeaSource.video ? <Video className="h-3 w-3" /> :
+                idea.source === IdeaSource.audio ? <FileAudio className="h-3 w-3" /> :
+                idea.source === IdeaSource.pdf ? <FileType className="h-3 w-3" /> :
+                idea.source === IdeaSource.document ? <FileText className="h-3 w-3" /> :
                 idea.source === IdeaSource.link ? <Link2 className="h-3 w-3" /> :
                 <FileText className="h-3 w-3" />}
               {idea.source === IdeaSource.voice ? t("voiceNote") :
                 idea.source === IdeaSource.image ? t("imageNote") :
                 idea.source === IdeaSource.video ? t("videoNote") :
+                idea.source === IdeaSource.audio ? t("audioNote") :
+                idea.source === IdeaSource.pdf ? t("pdfNote") :
+                idea.source === IdeaSource.document ? t("documentNote") :
                 idea.source === IdeaSource.link ? t("linkNote") :
                 t("textNote")}
             </span>
@@ -181,25 +242,13 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
         </div>
         
         {idea.attachments.length > 0 && !isEditing && (
-          <div className="mb-4 space-y-3">
+          <div className="mb-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("attachedUploads")} ({idea.attachments.length})</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {idea.attachments.map((attachment, index) => (
-              attachment.type === "image" ? (
-                <a key={index} href={attachment.url} target="_blank" rel="noreferrer">
-                  <img src={attachment.url} alt={attachment.name} className="max-h-96 w-full rounded-lg bg-muted object-contain" />
-                </a>
-              ) : attachment.type === "video" ? (
-                <video key={index} src={attachment.url} controls preload="metadata" className="max-h-96 w-full rounded-lg bg-black" />
-              ) : (
-                <a key={index} href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-muted/20 p-4 transition-colors hover:bg-muted/50">
-                  <div className="rounded-full bg-primary/10 p-2 text-primary"><Link2 className="h-5 w-5" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{attachment.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{attachment.url}</p>
-                  </div>
-                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </a>
-              )
+              <AttachmentCard key={`${attachment.url}-${index}`} attachment={attachment} />
             ))}
+            </div>
           </div>
         )}
 

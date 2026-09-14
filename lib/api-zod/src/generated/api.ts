@@ -75,9 +75,9 @@ export const GetSubjectResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
-  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']),
   "attachments": zod.array(zod.object({
-  "type": zod.enum(['image', 'video', 'link']),
+  "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional()
@@ -138,9 +138,9 @@ export const createIdeaBodyAttachmentsDefault = [];
 
 export const CreateIdeaBody = zod.object({
   "content": zod.string().min(1),
-  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']).default(createIdeaBodySourceDefault),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']).default(createIdeaBodySourceDefault),
   "attachments": zod.array(zod.object({
-  "type": zod.enum(['image', 'video', 'link']),
+  "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional()
@@ -155,9 +155,9 @@ export const CreateIdeaResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
-  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']),
   "attachments": zod.array(zod.object({
-  "type": zod.enum(['image', 'video', 'link']),
+  "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional()
@@ -181,9 +181,9 @@ export const ListIdeasResponseItem = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
-  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']),
   "attachments": zod.array(zod.object({
-  "type": zod.enum(['image', 'video', 'link']),
+  "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional()
@@ -215,9 +215,9 @@ export const UpdateIdeaResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
-  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']),
   "attachments": zod.array(zod.object({
-  "type": zod.enum(['image', 'video', 'link']),
+  "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional()
