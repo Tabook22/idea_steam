@@ -474,8 +474,19 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
 
   return (
     <div className="relative group">
-      {/* Timeline dot */}
-      <div className="absolute -start-[1.375rem] sm:-start-8 top-5 w-3 h-3 rounded-full bg-background border-2 border-primary ring-4 ring-background z-10" />
+      <div className="absolute -start-[1.375rem] sm:-start-8 top-1.5 w-3 h-3 rounded-full bg-background border-2 border-primary ring-4 ring-background z-10" />
+      <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+        <time
+          dateTime={idea.createdAt}
+          className="flex items-center gap-1.5 text-xs font-semibold text-primary"
+          title={formatDateTime(idea.createdAt, language)}
+        >
+          <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+          {formatDateTime(idea.createdAt, language)}
+        </time>
+        <span className="text-xs text-muted-foreground/50">•</span>
+        <span className="text-xs text-muted-foreground">{formatTimeAgo(idea.createdAt, language)}</span>
+      </div>
       
       <div className="bg-card rounded-xl border border-border/60 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow group-hover:border-primary/20">
         <div className="flex items-start justify-between gap-2 mb-3">
@@ -498,16 +509,6 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
                 idea.source === IdeaSource.link ? t("linkNote") :
                 t("textNote")}
             </span>
-            <span className="text-xs text-muted-foreground/60">•</span>
-            <span className="text-xs text-muted-foreground/80">{formatTimeAgo(idea.createdAt, language)}</span>
-            <time
-              dateTime={idea.createdAt}
-              className="flex basis-full items-center gap-1 text-[11px] font-medium text-primary/75 sm:basis-auto"
-              title={formatDateTime(idea.createdAt, language)}
-            >
-              <CalendarClock className="h-3.5 w-3.5 shrink-0" />
-              {formatDateTime(idea.createdAt, language)}
-            </time>
           </div>
           
           {!isEditing && (
