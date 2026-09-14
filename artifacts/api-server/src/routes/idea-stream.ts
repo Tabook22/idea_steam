@@ -23,10 +23,44 @@ import {
   UpdateSubjectBody,
   UpdateSubjectParams,
   UpdateSubjectResponse,
+  TranscribeAudioBody,
+  TranscribeAudioResponse,
 } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import {
+  ensureCompatibleFormat,
+  speechToText,
+} from "@workspace/integrations-openai-ai-server/audio";
 
 const router: IRouter = Router();
+
+router.post("/transcriptions", async (req, res): Promise<void> => {
+  const body = TranscribeAudioBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  try {
+    const audio = Buffer.from(body.data.audioBase64, "base64");
+    if (audio.length === 0 || audio.length > 15 * 1024 * 1024) {
+      res.status(400).json({ error: "Recording must be between 1 byte and 15 MB" });
+      return;
+    }
+
+    const { buffer, format } = await ensureCompatibleFormat(audio);
+    const text = (await speechToText(buffer, format)).trim();
+    if (!text) {
+      res.status(422).json({ error: "No speech was detected in the recording" });
+      return;
+    }
+
+    res.json(TranscribeAudioResponse.parse({ text }));
+  } catch (error) {
+    console.error("Audio transcription failed", error);
+    res.status(502).json({ error: "The recording could not be transcribed" });
+  }
+});
 
 const serializeSubject = (
   subject: typeof subjectsTable.$inferSelect,

@@ -5,6 +5,26 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type TranscriptionInputLanguage = typeof TranscriptionInputLanguage[keyof typeof TranscriptionInputLanguage];
+
+
+export const TranscriptionInputLanguage = {
+  en: 'en',
+  ar: 'ar',
+} as const;
+
+export interface TranscriptionInput {
+  /** @minLength 1 */
+  audioBase64: string;
+  /** @minLength 1 */
+  mimeType: string;
+  language: TranscriptionInputLanguage;
+}
+
+export interface Transcription {
+  text: string;
+}
+
 export interface HealthStatus {
   status: string;
 }

@@ -209,3 +209,21 @@ export const CompileSubjectResponse = zod.object({
 })
 
 
+/**
+ * @summary Convert a voice recording to text
+ */
+
+
+
+
+export const TranscribeAudioBody = zod.object({
+  "audioBase64": zod.string().min(1),
+  "mimeType": zod.string().min(1),
+  "language": zod.enum(['en', 'ar'])
+})
+
+export const TranscribeAudioResponse = zod.object({
+  "text": zod.string()
+})
+
+

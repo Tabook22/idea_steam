@@ -16,6 +16,8 @@ tags:
     description: Timestamped idea notes
   - name: compilation
     description: Turning collected ideas into drafts
+  - name: transcription
+    description: Converting recorded audio into editable text
 paths:
   /healthz:
     get:
@@ -189,6 +191,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Compilation"
+  /transcriptions:
+    post:
+      operationId: transcribeAudio
+      tags: [transcription]
+      summary: Convert a voice recording to text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscriptionInput"
+      responses:
+        "200":
+          description: Audio transcript
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transcription"
 components:
   parameters:
     SubjectId:
@@ -204,6 +224,25 @@ components:
       schema:
         type: integer
   schemas:
+    TranscriptionInput:
+      type: object
+      required: [audioBase64, mimeType, language]
+      properties:
+        audioBase64:
+          type: string
+          minLength: 1
+        mimeType:
+          type: string
+          minLength: 1
+        language:
+          type: string
+          enum: [en, ar]
+    Transcription:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
     HealthStatus:
       type: object
       properties:

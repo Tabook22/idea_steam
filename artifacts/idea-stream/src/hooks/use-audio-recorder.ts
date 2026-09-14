@@ -1,77 +1,82 @@
-import * as React from "react";
-import { useState, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useAudioRecorder(language: "en" | "ar" = "en") {
+const preferredMimeTypes = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4",
+];
+
+export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
-  const [transcript, setTranscript] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
-  React.useEffect(() => {
-    // Check if SpeechRecognition is supported
-    if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-      setIsSupported(false);
-    }
+  useEffect(() => {
+    setIsSupported(
+      Boolean(navigator.mediaDevices?.getUserMedia) &&
+        typeof window.MediaRecorder !== "undefined",
+    );
+
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
   }, []);
 
   const startRecording = useCallback(async () => {
-    if (!isSupported) return;
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = language === "ar" ? "ar-SA" : "en-US";
-        
-        recognitionRef.current.onresult = (event: any) => {
-          let currentTranscript = "";
-          for (let i = 0; i < event.results.length; i++) {
-            currentTranscript += event.results[i][0].transcript;
-          }
-          setTranscript(currentTranscript);
-        };
-
-        recognitionRef.current.start();
-      }
-
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Error accessing microphone:", err);
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setIsSupported(false);
+      throw new Error("Audio recording is not supported");
     }
-  }, [isSupported, language]);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-    }
-    
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
-    
-    setIsRecording(false);
-    return transcript;
-  }, [isRecording, transcript]);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    streamRef.current = stream;
+    chunksRef.current = [];
 
-  const resetTranscript = useCallback(() => {
-    setTranscript("");
+    const mimeType = preferredMimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    mediaRecorderRef.current = recorder;
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunksRef.current.push(event.data);
+    };
+    recorder.start(250);
+    setIsRecording(true);
+  }, []);
+
+  const stopRecording = useCallback(async (): Promise<Blob> => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      throw new Error("No active recording");
+    }
+
+    return new Promise<Blob>((resolve, reject) => {
+      recorder.onerror = () => reject(new Error("Recording failed"));
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        mediaRecorderRef.current = null;
+        chunksRef.current = [];
+        setIsRecording(false);
+        resolve(blob);
+      };
+      recorder.stop();
+    });
   }, []);
 
   return {
     isRecording,
     isSupported,
-    transcript,
     startRecording,
     stopRecording,
-    resetTranscript
   };
 }

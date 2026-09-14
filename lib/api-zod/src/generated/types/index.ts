@@ -19,3 +19,6 @@ export * from './subject';
 export * from './subjectDetail';
 export * from './subjectInput';
 export * from './subjectUpdate';
+export * from './transcription';
+export * from './transcriptionInput';
+export * from './transcriptionInputLanguage';

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   IdeaInputSource,
   useCreateIdea,
+  useTranscribeAudio,
   getGetSubjectQueryKey,
   getListIdeasQueryKey,
 } from "@workspace/api-client-react";
@@ -39,16 +40,9 @@ export function CreateIdeaForm({ subjectId }: CreateIdeaFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { language, t } = useLanguage();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  const { 
-    isRecording, 
-    isSupported, 
-    transcript, 
-    startRecording, 
-    stopRecording, 
-    resetTranscript 
-  } = useAudioRecorder(language);
+  const [transcript, setTranscript] = useState("");
+  const { isRecording, isSupported, startRecording, stopRecording } = useAudioRecorder();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -58,13 +52,7 @@ export function CreateIdeaForm({ subjectId }: CreateIdeaFormProps) {
   });
 
   const createIdea = useCreateIdea();
-
-  // Sync transcript to form when recording stops and transcript exists
-  useEffect(() => {
-    if (!isRecording && transcript && activeTab === "voice") {
-      form.setValue("content", transcript);
-    }
-  }, [isRecording, transcript, activeTab, form]);
+  const transcribeAudio = useTranscribeAudio();
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     const source = activeTab === "voice" && transcript 
@@ -87,7 +75,7 @@ export function CreateIdeaForm({ subjectId }: CreateIdeaFormProps) {
             title: t("fragmentAdded"),
           });
           form.reset();
-          resetTranscript();
+          setTranscript("");
         },
         onError: () => {
           toast({
@@ -100,8 +88,50 @@ export function CreateIdeaForm({ subjectId }: CreateIdeaFormProps) {
     );
   };
 
-  const handleStopRecording = () => {
-    stopRecording();
+  const blobToBase64 = async (blob: Blob) => {
+    const buffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let offset = 0; offset < bytes.length; offset += 8192) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
+    }
+    return btoa(binary);
+  };
+
+  const handleStartRecording = async () => {
+    setTranscript("");
+    form.setValue("content", "");
+    try {
+      await startRecording();
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("error"),
+        description: t("microphoneFailed"),
+      });
+    }
+  };
+
+  const handleStopRecording = async () => {
+    try {
+      const audio = await stopRecording();
+      const audioBase64 = await blobToBase64(audio);
+      const result = await transcribeAudio.mutateAsync({
+        data: {
+          audioBase64,
+          mimeType: audio.type || "audio/webm",
+          language,
+        },
+      });
+      setTranscript(result.text);
+      form.setValue("content", result.text, { shouldValidate: true });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("error"),
+        description: t("transcriptionFailed"),
+      });
+    }
   };
 
   return (
@@ -171,11 +201,14 @@ export function CreateIdeaForm({ subjectId }: CreateIdeaFormProps) {
                         type="button" 
                         variant="outline" 
                         className="h-16 w-16 rounded-full mb-4 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground transition-all shadow-sm group"
-                        onClick={startRecording}
+                        onClick={handleStartRecording}
+                        disabled={transcribeAudio.isPending}
                       >
                         <Mic className="h-7 w-7 group-hover:scale-110 transition-transform" />
                       </Button>
-                      <p className="text-sm font-medium">{t("tapToSpeak")}</p>
+                      <p className="text-sm font-medium">
+                        {transcribeAudio.isPending ? t("transcribing") : t("tapToSpeak")}
+                      </p>
                       {transcript && (
                         <p className="text-xs text-muted-foreground mt-2">
                           {t("reviewTranscript")}
@@ -196,7 +229,7 @@ export function CreateIdeaForm({ subjectId }: CreateIdeaFormProps) {
                         placeholder={activeTab === "text" ? t("thoughtPlaceholder") : t("transcriptPlaceholder")}
                         className="min-h-[120px] resize-y bg-transparent border-input focus-visible:ring-primary/20 text-base" 
                         {...field} 
-                        disabled={isRecording}
+                        disabled={isRecording || transcribeAudio.isPending}
                       />
                     </FormControl>
                     <FormMessage />
@@ -207,10 +240,10 @@ export function CreateIdeaForm({ subjectId }: CreateIdeaFormProps) {
               <div className="flex justify-end pt-2">
                 <Button 
                   type="submit" 
-                  disabled={createIdea.isPending || isRecording || !form.formState.isValid}
+                  disabled={createIdea.isPending || isRecording || transcribeAudio.isPending || !form.formState.isValid}
                   className="px-6 shadow-sm"
                 >
-                  <Send className="mr-2 h-4 w-4" />
+                  <Send className="me-2 h-4 w-4" />
                   {createIdea.isPending ? t("saving") : t("saveFragment")}
                 </Button>
               </div>
