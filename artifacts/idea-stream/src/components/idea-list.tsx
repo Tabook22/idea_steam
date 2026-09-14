@@ -13,7 +13,7 @@ import {
   useExtractYoutubeTranscript,
 } from "@workspace/api-client-react";
 import { formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2 } from "lucide-react";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,6 +68,7 @@ function AttachmentCard({
   const [transcriptTranslation, setTranscriptTranslation] = useState<{ text: string; language: "en" | "ar" } | null>(null);
   const [isEditingTranscript, setIsEditingTranscript] = useState(false);
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = useState(false);
   const queryClient = useQueryClient();
   const updateIdea = useUpdateIdea();
   const translateNote = useTranslateNote();
@@ -76,6 +77,7 @@ function AttachmentCard({
   const { t } = useLanguage();
   const youtubeId = attachment.type === "link" ? getYoutubeId(attachment.url) : null;
   const label = youtubeId ? "YouTube" : attachment.type;
+  const canPreviewDocument = attachment.type === "pdf" || attachment.type === "document";
   const icon = attachment.type === "audio" ? <FileAudio className="h-7 w-7" /> :
     attachment.type === "pdf" ? <FileType className="h-7 w-7" /> :
     attachment.type === "document" ? <FileText className="h-7 w-7" /> :
@@ -189,6 +191,20 @@ function AttachmentCard({
         </div>
       )}
       <div className="overflow-hidden rounded-lg border bg-muted/15">
+      {canPreviewDocument ? (
+        <button type="button" onClick={() => setIsDocumentViewerOpen(true)} className="group/attachment block w-full text-start">
+          <div className="relative flex h-32 items-center justify-center overflow-hidden bg-muted">
+            <div className="text-primary">{icon}</div>
+          </div>
+          <div className="flex items-center gap-2 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{attachment.name}</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+            </div>
+            <Maximize2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </div>
+        </button>
+      ) : (
       <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="group/attachment block">
         <div className="relative flex h-32 items-center justify-center overflow-hidden bg-muted">
           {attachment.type === "image" ? (
@@ -210,6 +226,32 @@ function AttachmentCard({
           <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
         </div>
       </a>
+      )}
+      {canPreviewDocument && (
+        <Dialog open={isDocumentViewerOpen} onOpenChange={setIsDocumentViewerOpen}>
+          <DialogContent className="flex h-[80vh] w-[80vw] max-w-none flex-col gap-3 p-4">
+            <DialogHeader className="shrink-0 pe-8 text-start">
+              <DialogTitle className="truncate">{attachment.name}</DialogTitle>
+              <DialogDescription>{t("documentPreviewHelp")}</DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-white">
+              <iframe
+                src={attachment.url}
+                title={attachment.name}
+                className="h-full min-h-[600px] w-full min-w-[700px] border-0"
+              />
+            </div>
+            <div className="flex shrink-0 justify-end">
+              <Button asChild type="button" variant="outline" size="sm">
+                <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="me-2 h-4 w-4" />
+                  {t("openInNewTab")}
+                </a>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       {attachment.type === "audio" && (
         <div className="border-t px-2 py-2"><audio src={attachment.url} controls preload="metadata" className="h-9 w-full" /></div>
       )}
