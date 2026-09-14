@@ -65,6 +65,7 @@ function AttachmentCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [translation, setTranslation] = useState<{ text: string; language: "en" | "ar" } | null>(null);
   const [transcript, setTranscript] = useState(attachment.transcript ?? "");
+  const [transcriptTranslation, setTranscriptTranslation] = useState<{ text: string; language: "en" | "ar" } | null>(null);
   const [isEditingTranscript, setIsEditingTranscript] = useState(false);
   const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const queryClient = useQueryClient();
@@ -120,10 +121,43 @@ function AttachmentCard({
           ) : transcript ? (
             <>
               <p className={`whitespace-pre-wrap text-sm leading-relaxed ${isTranscriptExpanded ? "" : "line-clamp-[12]"}`}>{transcript}</p>
-              <Button type="button" variant="ghost" size="sm" className="mt-2 h-8 px-2 text-xs text-primary" onClick={() => setIsTranscriptExpanded((value) => !value)}>
-                {isTranscriptExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
-                {isTranscriptExpanded ? t("showLess") : t("showMore")}
-              </Button>
+              {transcriptTranslation && (
+                <div className="mt-3 rounded-md bg-primary/5 p-3" dir={transcriptTranslation.language === "ar" ? "rtl" : "ltr"}>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                    {transcriptTranslation.language === "ar" ? t("arabicTranslation") : t("englishTranslation")}
+                  </p>
+                  <p className={`whitespace-pre-wrap text-sm leading-relaxed ${isTranscriptExpanded ? "" : "line-clamp-[12]"}`}>{transcriptTranslation.text}</p>
+                </div>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs text-primary" onClick={() => setIsTranscriptExpanded((value) => !value)}>
+                  {isTranscriptExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
+                  {isTranscriptExpanded ? t("showLess") : t("showMore")}
+                </Button>
+                {(["ar", "en"] as const).map((targetLanguage) => (
+                  <Button
+                    key={targetLanguage}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-xs"
+                    disabled={translateNote.isPending}
+                    onClick={() => translateNote.mutate(
+                      { data: { text: transcript, targetLanguage } },
+                      {
+                        onSuccess: (result) => {
+                          setTranscriptTranslation(result);
+                          setIsTranscriptExpanded(true);
+                        },
+                        onError: () => toast({ variant: "destructive", title: t("error"), description: t("transcriptTranslationFailed") }),
+                      },
+                    )}
+                  >
+                    {translateNote.isPending ? <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" /> : <Languages className="me-1 h-3.5 w-3.5" />}
+                    {targetLanguage === "ar" ? t("translateArabic") : t("translateEnglish")}
+                  </Button>
+                ))}
+              </div>
             </>
           ) : (
             <div className="space-y-2">
