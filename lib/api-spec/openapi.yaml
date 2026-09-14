@@ -229,6 +229,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NoteTranslation"
+  /youtube-transcripts:
+    post:
+      operationId: extractYoutubeTranscript
+      tags: [transcription]
+      summary: Extract captions from a YouTube video
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/YoutubeTranscriptInput"
+      responses:
+        "200":
+          description: YouTube transcript
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YoutubeTranscript"
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -352,6 +370,19 @@ components:
         language:
           type: string
           enum: [en, ar]
+    YoutubeTranscriptInput:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+    YoutubeTranscript:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
     HealthStatus:
       type: object
       properties:
@@ -425,6 +456,8 @@ components:
         mimeType:
           type: string
         note:
+          type: string
+        transcript:
           type: string
     Idea:
       type: object

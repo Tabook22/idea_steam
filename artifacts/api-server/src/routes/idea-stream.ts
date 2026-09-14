@@ -1,4 +1,9 @@
 import { Router, type IRouter } from "express";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { getAuth } from "@clerk/express";
 import { count, desc, eq } from "drizzle-orm";
 import { db, ideasTable, subjectsTable } from "@workspace/db";
@@ -28,6 +33,8 @@ import {
   TranscribeAudioResponse,
   TranslateNoteBody,
   TranslateNoteResponse,
+  ExtractYoutubeTranscriptBody,
+  ExtractYoutubeTranscriptResponse,
 } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
@@ -36,6 +43,7 @@ import {
 } from "@workspace/integrations-openai-ai-server/audio";
 
 const router: IRouter = Router();
+const execFileAsync = promisify(execFile);
 
 router.use((req, res, next) => {
   if (!getAuth(req).userId) {
@@ -102,6 +110,78 @@ router.post("/note-translations", async (req, res): Promise<void> => {
   } catch (error) {
     console.error("Note translation failed", error);
     res.status(502).json({ error: "The note could not be translated" });
+  }
+});
+
+router.post("/youtube-transcripts", async (req, res): Promise<void> => {
+  const body = ExtractYoutubeTranscriptBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const workingDir = await mkdtemp(join(tmpdir(), "idea-stream-youtube-"));
+  try {
+    try {
+      await execFileAsync(
+        "yt-dlp",
+        [
+          "--skip-download",
+          "--write-subs",
+          "--write-auto-subs",
+          "--sub-langs", "en-orig,en,ar",
+          "--sub-format", "vtt",
+          "--no-playlist",
+          "-o", join(workingDir, "%(id)s"),
+          body.data.url,
+        ],
+        { timeout: 90_000, maxBuffer: 2 * 1024 * 1024 },
+      );
+    } catch {
+      // yt-dlp may report one unavailable language after successfully saving another.
+    }
+
+    const files = (await readdir(workingDir)).filter((name) => name.endsWith(".vtt"));
+    const preferredFile =
+      files.find((name) => name.endsWith(".en-orig.vtt")) ??
+      files.find((name) => name.endsWith(".en.vtt")) ??
+      files.find((name) => name.endsWith(".ar.vtt")) ??
+      files[0];
+    if (!preferredFile) {
+      res.status(422).json({ error: "No captions are available for this video" });
+      return;
+    }
+
+    const vtt = await readFile(join(workingDir, preferredFile), "utf8");
+    const seen = new Set<string>();
+    const text = vtt
+      .split(/\r?\n/)
+      .filter((line) =>
+        line.trim() &&
+        line.trim() !== "WEBVTT" &&
+        !line.includes("-->") &&
+        !/^(Kind|Language):/.test(line),
+      )
+      .map((line) => line.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim())
+      .filter((line) => {
+        if (!line || seen.has(line)) return false;
+        seen.add(line);
+        return true;
+      })
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!text) {
+      res.status(422).json({ error: "The available captions were empty" });
+      return;
+    }
+    res.json(ExtractYoutubeTranscriptResponse.parse({ text }));
+  } catch (error) {
+    console.error("YouTube transcript extraction failed", error);
+    res.status(502).json({ error: "The YouTube transcript could not be extracted" });
+  } finally {
+    await rm(workingDir, { recursive: true, force: true });
   }
 });
 

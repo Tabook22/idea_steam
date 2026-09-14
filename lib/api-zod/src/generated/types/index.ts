@@ -30,3 +30,5 @@ export * from './transcriptionInput';
 export * from './transcriptionInputLanguage';
 export * from './uploadUrlRequest';
 export * from './uploadUrlResponse';
+export * from './youtubeTranscript';
+export * from './youtubeTranscriptInput';

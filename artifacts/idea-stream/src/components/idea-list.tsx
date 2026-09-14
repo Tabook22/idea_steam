@@ -10,6 +10,7 @@ import {
   getGetSubjectQueryKey,
   useListIdeas,
   useTranslateNote,
+  useExtractYoutubeTranscript,
 } from "@workspace/api-client-react";
 import { formatTimeAgo } from "@/lib/formatters";
 import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2 } from "lucide-react";
@@ -63,9 +64,13 @@ function AttachmentCard({
   const [note, setNote] = useState(attachment.note ?? "");
   const [isExpanded, setIsExpanded] = useState(false);
   const [translation, setTranslation] = useState<{ text: string; language: "en" | "ar" } | null>(null);
+  const [transcript, setTranscript] = useState(attachment.transcript ?? "");
+  const [isEditingTranscript, setIsEditingTranscript] = useState(false);
+  const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(false);
   const queryClient = useQueryClient();
   const updateIdea = useUpdateIdea();
   const translateNote = useTranslateNote();
+  const extractTranscript = useExtractYoutubeTranscript();
   const { toast } = useToast();
   const { t } = useLanguage();
   const youtubeId = attachment.type === "link" ? getYoutubeId(attachment.url) : null;
@@ -77,8 +82,70 @@ function AttachmentCard({
     attachment.type === "image" ? <ImageIcon className="h-7 w-7" /> :
     <Link2 className="h-7 w-7" />;
 
+  const saveTranscript = (value: string) => {
+    const attachments = idea.attachments.map((item, index) => index === attachmentIndex ? { ...item, transcript: value.trim() || undefined } : item);
+    updateIdea.mutate(
+      { ideaId: idea.id, data: { attachments } },
+      {
+        onSuccess: () => {
+          setTranscript(value.trim());
+          setIsEditingTranscript(false);
+          queryClient.invalidateQueries({ queryKey: getListIdeasQueryKey(subjectId) });
+          queryClient.invalidateQueries({ queryKey: getGetSubjectQueryKey(subjectId) });
+          toast({ title: t("transcriptSaved") });
+        },
+        onError: () => toast({ variant: "destructive", title: t("error"), description: t("transcriptSaveFailed") }),
+      },
+    );
+  };
+
   return (
-    <div className="overflow-hidden rounded-lg border bg-muted/15">
+    <div className={youtubeId ? "grid items-start gap-3 sm:col-span-2 md:grid-cols-[minmax(0,1fr)_17rem] lg:col-span-3" : ""}>
+      {youtubeId && (
+        <div className="rounded-lg border bg-muted/10 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-primary">{t("videoTranscript")}</p>
+            {transcript && !isEditingTranscript && (
+              <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setIsEditingTranscript(true)}>{t("edit")}</Button>
+            )}
+          </div>
+          {isEditingTranscript ? (
+            <div className="space-y-2">
+              <Textarea value={transcript} onChange={(event) => setTranscript(event.target.value)} className="min-h-64 bg-background text-sm" />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setTranscript(attachment.transcript ?? ""); setIsEditingTranscript(false); }}>{t("cancel")}</Button>
+                <Button type="button" size="sm" disabled={updateIdea.isPending} onClick={() => saveTranscript(transcript)}>{t("save")}</Button>
+              </div>
+            </div>
+          ) : transcript ? (
+            <>
+              <p className={`whitespace-pre-wrap text-sm leading-relaxed ${isTranscriptExpanded ? "" : "line-clamp-[12]"}`}>{transcript}</p>
+              <Button type="button" variant="ghost" size="sm" className="mt-2 h-8 px-2 text-xs text-primary" onClick={() => setIsTranscriptExpanded((value) => !value)}>
+                {isTranscriptExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
+                {isTranscriptExpanded ? t("showLess") : t("showMore")}
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={extractTranscript.isPending || updateIdea.isPending}
+              onClick={() => extractTranscript.mutate(
+                { data: { url: attachment.url } },
+                {
+                  onSuccess: (result) => saveTranscript(result.text),
+                  onError: () => toast({ variant: "destructive", title: t("transcriptUnavailable"), description: t("transcriptUnavailableDetail") }),
+                },
+              )}
+            >
+              {extractTranscript.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <FileText className="me-2 h-4 w-4" />}
+              {extractTranscript.isPending ? t("extractingTranscript") : t("extractTranscript")}
+            </Button>
+          )}
+        </div>
+      )}
+      <div className="overflow-hidden rounded-lg border bg-muted/15">
       <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="group/attachment block">
         <div className="relative flex h-32 items-center justify-center overflow-hidden bg-muted">
           {attachment.type === "image" ? (
@@ -180,6 +247,7 @@ function AttachmentCard({
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

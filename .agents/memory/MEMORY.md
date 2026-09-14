@@ -1,0 +1,1 @@
+- [YouTube transcript extraction](youtube-transcript-extraction.md) — use yt-dlp captions; direct timed-text URLs can return empty bodies in this environment.

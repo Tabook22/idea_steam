@@ -35,7 +35,9 @@ import type {
   Transcription,
   TranscriptionInput,
   UploadUrlRequest,
-  UploadUrlResponse
+  UploadUrlResponse,
+  YoutubeTranscript,
+  YoutubeTranscriptInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1140,6 +1142,94 @@ export const useTranslateNote = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getTranslateNoteMutationOptions(options));
+    }
+
+export const getExtractYoutubeTranscriptUrl = () => {
+
+
+
+
+  return `/api/youtube-transcripts`
+}
+
+/**
+ * @summary Extract captions from a YouTube video
+ */
+export const extractYoutubeTranscript = async (youtubeTranscriptInput: YoutubeTranscriptInput, options?: Parameters<typeof customFetch>[1]): Promise<YoutubeTranscript> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<YoutubeTranscript>(getExtractYoutubeTranscriptUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(youtubeTranscriptInput)
+  }
+);}
+
+
+
+
+
+export const getExtractYoutubeTranscriptMutationKey = () => ['extractYoutubeTranscript'] as const;
+
+export const getExtractYoutubeTranscriptMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractYoutubeTranscript>>, TError,ExtractYoutubeTranscriptMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extractYoutubeTranscript>>, TError,ExtractYoutubeTranscriptMutationVariables, TContext> => {
+
+const mutationKey = getExtractYoutubeTranscriptMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractYoutubeTranscript>>, ExtractYoutubeTranscriptMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  extractYoutubeTranscript(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtractYoutubeTranscriptMutationResult = NonNullable<Awaited<ReturnType<typeof extractYoutubeTranscript>>>
+    export type ExtractYoutubeTranscriptMutationBody = BodyType<YoutubeTranscriptInput>
+    export type ExtractYoutubeTranscriptMutationError = ErrorType<unknown>
+    export type ExtractYoutubeTranscriptMutationVariables = {data: BodyType<YoutubeTranscriptInput>}
+
+    /**
+ * @summary Extract captions from a YouTube video
+ */
+export const useExtractYoutubeTranscript = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractYoutubeTranscript>>, TError,ExtractYoutubeTranscriptMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extractYoutubeTranscript>>,
+        TError,
+        ExtractYoutubeTranscriptMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExtractYoutubeTranscriptMutationOptions(options));
     }
 
 export const getRequestUploadUrlUrl = () => {

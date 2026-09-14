@@ -24,6 +24,7 @@ export const ideasTable = pgTable("ideas", {
       name: string;
       mimeType?: string;
       note?: string;
+      transcript?: string;
     }>>()
     .notNull()
     .default([]),

@@ -81,7 +81,8 @@ export const GetSubjectResponse = zod.object({
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
-  "note": zod.string().optional()
+  "note": zod.string().optional(),
+  "transcript": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })),
@@ -145,7 +146,8 @@ export const CreateIdeaBody = zod.object({
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
-  "note": zod.string().optional()
+  "note": zod.string().optional(),
+  "transcript": zod.string().optional()
 })).default(createIdeaBodyAttachmentsDefault)
 })
 
@@ -163,7 +165,8 @@ export const CreateIdeaResponse = zod.object({
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
-  "note": zod.string().optional()
+  "note": zod.string().optional(),
+  "transcript": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -190,7 +193,8 @@ export const ListIdeasResponseItem = zod.object({
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
-  "note": zod.string().optional()
+  "note": zod.string().optional(),
+  "transcript": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -216,7 +220,8 @@ export const UpdateIdeaBody = zod.object({
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
-  "note": zod.string().optional()
+  "note": zod.string().optional(),
+  "transcript": zod.string().optional()
 })).optional()
 })
 
@@ -234,7 +239,8 @@ export const UpdateIdeaResponse = zod.object({
   "url": zod.string().min(1),
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
-  "note": zod.string().optional()
+  "note": zod.string().optional(),
+  "transcript": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -303,6 +309,18 @@ export const TranslateNoteBody = zod.object({
 export const TranslateNoteResponse = zod.object({
   "text": zod.string(),
   "language": zod.enum(['en', 'ar'])
+})
+
+
+/**
+ * @summary Extract captions from a YouTube video
+ */
+export const ExtractYoutubeTranscriptBody = zod.object({
+  "url": zod.string().url()
+})
+
+export const ExtractYoutubeTranscriptResponse = zod.object({
+  "text": zod.string()
 })
 
 

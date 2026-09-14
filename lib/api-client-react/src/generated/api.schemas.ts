@@ -69,6 +69,14 @@ export interface NoteTranslation {
   language: NoteTranslationLanguage;
 }
 
+export interface YoutubeTranscriptInput {
+  url: string;
+}
+
+export interface YoutubeTranscript {
+  text: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -116,6 +124,7 @@ export interface IdeaAttachment {
   name: string;
   mimeType?: string;
   note?: string;
+  transcript?: string;
 }
 
 export interface Idea {
