@@ -33,21 +33,21 @@ export function SubjectList({ subjects }: SubjectListProps) {
       </div>
 
       {filteredSubjects.length === 0 ? (
-        <div className="text-center py-12 px-4 border border-dashed rounded-xl border-border">
-          <BookType className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground font-serif text-lg">{t("noSubjects")}</p>
-          <p className="text-sm text-muted-foreground mt-1">
+        <div className="text-center py-10 sm:py-12 px-4 border border-dashed rounded-xl border-border">
+          <BookType className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground/50 mb-3" />
+          <p className="text-muted-foreground font-serif text-base sm:text-lg">{t("noSubjects")}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             {searchQuery ? t("trySearch") : t("createFirst")}
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredSubjects.map(subject => (
             <Link key={subject.id} href={`/subjects/${subject.id}`}>
               <Card className="h-full hover-elevate transition-all duration-300 border-border hover:border-primary/30 group cursor-pointer overflow-hidden bg-card/50 hover:bg-card">
-                <CardContent className="p-5 h-full flex flex-col relative">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-serif font-semibold text-lg line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                <CardContent className="p-4 sm:p-5 h-full flex flex-col relative">
+                  <div className="flex justify-between items-start mb-2 sm:mb-3">
+                    <h3 className="font-serif font-semibold text-base sm:text-lg line-clamp-2 leading-tight group-hover:text-primary transition-colors pe-2">
                       {subject.title}
                     </h3>
                     <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center shrink-0 ms-2 group-hover:bg-primary/10 transition-colors">

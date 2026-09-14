@@ -113,12 +113,12 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
 
   if (!draft && !compileSubject.isPending) {
     return (
-      <Card className="h-full border-primary/20 bg-card/80 shadow-md flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-          <Wand2 className="h-8 w-8 text-primary" />
+      <Card className="h-full border-primary/20 bg-card/80 shadow-md flex flex-col items-center justify-center p-6 md:p-8 text-center min-h-[400px]">
+        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 md:mb-6">
+          <Wand2 className="h-6 w-6 md:h-8 md:w-8 text-primary" />
         </div>
-        <CardTitle className="font-serif text-2xl mb-2">{t("shapeDraft")}</CardTitle>
-        <CardDescription className="text-base max-w-sm mx-auto mb-8 font-serif leading-relaxed">
+        <CardTitle className="font-serif text-xl md:text-2xl mb-2">{t("shapeDraft")}</CardTitle>
+        <CardDescription className="text-sm md:text-base max-w-sm mx-auto mb-6 md:mb-8 font-serif leading-relaxed">
           {t("shapeDraftDetail")}
         </CardDescription>
         
@@ -145,7 +145,7 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
             onClick={handleCompile}
             disabled={!hasIdeas || compileSubject.isPending}
           >
-            <Sparkles className="mr-2 h-4 w-4" />
+            <Sparkles className="me-2 h-4 w-4" />
             {t("compileFragments")}
           </Button>
         </div>
@@ -154,14 +154,14 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
   }
 
   return (
-    <Card className="h-full flex flex-col shadow-lg border-primary/30 bg-card overflow-hidden">
-      <CardHeader className="border-b border-border/50 bg-primary/5 py-4 px-6 flex flex-row items-center justify-between space-y-0 sticky top-0 z-10">
+    <Card className="h-full flex flex-col shadow-lg border-primary/30 bg-card overflow-hidden min-h-[500px]">
+      <CardHeader className="border-b border-border/50 bg-primary/5 py-3 md:py-4 px-4 md:px-6 flex flex-row items-center justify-between space-y-0 sticky top-0 z-10 gap-2 flex-wrap sm:flex-nowrap">
         <div className="flex items-center gap-2">
-          <BookText className="h-5 w-5 text-primary" />
-          <CardTitle className="font-serif text-xl">{t("compiledDraft")}</CardTitle>
+          <BookText className="h-4 w-4 md:h-5 md:w-5 text-primary shrink-0" />
+          <CardTitle className="font-serif text-lg md:text-xl truncate">{t("compiledDraft")}</CardTitle>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           {!isEditing && (
             <Select 
               value={tone} 
@@ -198,9 +198,9 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
               className="h-8 border-primary/20 text-primary hover:bg-primary/10"
             >
               {compileSubject.isPending ? (
-                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="me-2 h-3.5 w-3.5 animate-spin" />
               ) : (
-                <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                <RefreshCw className="me-2 h-3.5 w-3.5" />
               )}
               {t("recompile")}
             </Button>

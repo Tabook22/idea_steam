@@ -8,20 +8,20 @@ export default function LandingPage() {
   const { isArabic, t } = useLanguage();
 
   return (
-    <main className="min-h-[100dvh] bg-[#e8e8e4] px-6 py-24 flex items-center">
-      <div className="mx-auto max-w-5xl w-full grid gap-12 lg:grid-cols-2 lg:items-center">
+    <main className="min-h-[100dvh] bg-[#e8e8e4] px-4 py-16 md:px-6 md:py-24 flex items-center">
+      <div className="mx-auto max-w-5xl w-full grid gap-10 md:gap-12 lg:grid-cols-2 lg:items-center">
         <div>
-          <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-primary">Idea Stream</p>
-          <h1 className="font-serif text-5xl font-semibold leading-tight md:text-6xl">{t("shapeThoughts")}</h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">{t("heroSubtitle")}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button size="lg" onClick={() => setLocation("/sign-up")}>
+          <p className="mb-4 text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-primary">Idea Stream</p>
+          <h1 className="font-serif text-4xl sm:text-5xl font-semibold leading-tight md:text-6xl text-balance">{t("shapeThoughts")}</h1>
+          <p className="mt-4 sm:mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-muted-foreground">{t("heroSubtitle")}</p>
+          <div className="mt-6 sm:mt-8 flex flex-wrap gap-3">
+            <Button size="lg" className="w-full sm:w-auto" onClick={() => setLocation("/sign-up")}>
               {t("getStarted")} <ArrowRight className={`ms-2 h-4 w-4 ${isArabic ? "rotate-180" : ""}`} />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => setLocation("/sign-in")}>{t("signIn")}</Button>
+            <Button size="lg" variant="outline" className="w-full sm:w-auto" onClick={() => setLocation("/sign-in")}>{t("signIn")}</Button>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {[
             [Mic, t("voice")],
             [Image, t("images")],

@@ -206,45 +206,46 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
             key={tab}
             type="button"
             onClick={() => { setActiveTab(tab); reset(); }}
-            className={`flex items-center justify-center gap-1.5 px-2 py-3 text-xs font-medium sm:text-sm ${activeTab === tab ? "border-b-2 border-primary bg-card text-foreground" : "bg-muted/30 text-muted-foreground"}`}
+            className={`flex items-center justify-center gap-1.5 px-1 py-3 text-[10px] sm:text-xs md:text-sm font-medium transition-colors ${activeTab === tab ? "border-b-2 border-primary bg-card text-foreground" : "bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
           >
-            <Icon className="h-4 w-4" /> {label}
+            <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" /> 
+            <span className="truncate">{label}</span>
           </button>
         ))}
       </div>
 
       <CardContent className="space-y-4 bg-card p-4 sm:p-6">
         {activeTab === "voice" && !isSupported ? (
-          <div className="flex flex-col items-center rounded-lg border border-destructive/20 bg-destructive/5 py-8 text-center text-destructive">
-            <AlertCircle className="mb-3 h-8 w-8" />
-            <p>{t("voiceUnsupported")}</p>
+          <div className="flex flex-col items-center rounded-lg border border-destructive/20 bg-destructive/5 py-6 sm:py-8 px-4 text-center text-destructive">
+            <AlertCircle className="mb-3 h-6 w-6 sm:h-8 sm:w-8" />
+            <p className="text-sm sm:text-base">{t("voiceUnsupported")}</p>
           </div>
         ) : activeTab === "voice" ? (
-          <div className="flex flex-col items-center rounded-lg border bg-muted/20 p-6">
-            <Button type="button" size="icon" variant={isRecording ? "destructive" : "outline"} className="mb-3 h-16 w-16 rounded-full" onClick={isRecording ? handleStopRecording : handleStartRecording} disabled={transcribeAudio.isPending}>
-              {isRecording ? <Square className="h-6 w-6 fill-current" /> : <Mic className="h-7 w-7" />}
+          <div className="flex flex-col items-center rounded-lg border bg-muted/20 py-8 px-4 sm:p-6">
+            <Button type="button" size="icon" variant={isRecording ? "destructive" : "outline"} className="mb-4 h-20 w-20 sm:h-16 sm:w-16 rounded-full shadow-sm hover:scale-105 transition-transform" onClick={isRecording ? handleStopRecording : handleStartRecording} disabled={transcribeAudio.isPending}>
+              {isRecording ? <Square className="h-8 w-8 sm:h-6 sm:w-6 fill-current" /> : <Mic className="h-8 w-8 sm:h-7 sm:w-7" />}
             </Button>
             <p className="text-sm font-medium">{isRecording ? t("recording") : transcribeAudio.isPending ? t("transcribing") : t("tapToSpeak")}</p>
           </div>
         ) : activeTab === "media" ? (
-          <div className="rounded-lg border border-dashed p-6 text-center">
+          <div className="rounded-lg border border-dashed p-4 sm:p-6 text-center bg-muted/10">
             <input ref={fileInput} className="hidden" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.rtf,.odt" onChange={(event) => handleFiles(event.target.files)} />
             {uploads.length > 0 && (
-              <div className="mb-4 grid gap-2 text-start sm:grid-cols-2">
+              <div className="mb-4 grid gap-2 text-start grid-cols-1 sm:grid-cols-2">
                 {uploads.map((upload, index) => (
-                  <div key={`${upload.url}-${index}`} className="rounded-lg border bg-background p-2">
-                    <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-primary">
+                  <div key={`${upload.url}-${index}`} className="rounded-lg border bg-background p-2.5 shadow-sm">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-primary">
                       {upload.type === "image" ? <img src={upload.url} alt="" className="h-full w-full object-cover" /> :
-                        upload.type === "video" ? <Video className="h-6 w-6" /> :
-                        upload.type === "audio" ? <FileAudio className="h-6 w-6" /> :
-                        <FileText className="h-6 w-6" />}
+                        upload.type === "video" ? <Video className="h-5 w-5 sm:h-6 sm:w-6" /> :
+                        upload.type === "audio" ? <FileAudio className="h-5 w-5 sm:h-6 sm:w-6" /> :
+                        <FileText className="h-5 w-5 sm:h-6 sm:w-6" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{upload.name}</p>
-                      <p className="text-xs uppercase text-muted-foreground">{upload.type}</p>
+                      <p className="text-[10px] sm:text-xs uppercase text-muted-foreground">{upload.type}</p>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={t("removeUpload")} onClick={() => setUploads((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={t("removeUpload")} onClick={() => setUploads((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
                       <X className="h-4 w-4" />
                     </Button>
                     </div>
@@ -252,23 +253,23 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
                       value={upload.note ?? ""}
                       onChange={(event) => setUploads((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, note: event.target.value } : item))}
                       placeholder={t("attachmentNotePlaceholder")}
-                      className="mt-2 h-9"
+                      className="mt-2 h-9 text-sm"
                     />
                   </div>
                 ))}
               </div>
             )}
             <div>
-              <Button type="button" variant="outline" onClick={() => fileInput.current?.click()} disabled={isUploading}>
+              <Button type="button" variant="outline" className="w-full sm:w-auto h-11 sm:h-9" onClick={() => fileInput.current?.click()} disabled={isUploading}>
                 <Upload className="me-2 h-4 w-4" /> {isUploading ? t("uploading") : uploads.length ? t("addMoreUploads") : t("chooseMedia")}
               </Button>
-              <p className="mt-2 text-xs text-muted-foreground">{t("supportedUploads")}</p>
+              <p className="mt-3 sm:mt-2 text-xs text-muted-foreground">{t("supportedUploads")}</p>
             </div>
           </div>
         ) : activeTab === "link" ? (
-          <div className="space-y-2">
-            <Input type="url" value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} placeholder={t("linkPlaceholder")} />
-            <Input value={linkNote} onChange={(event) => setLinkNote(event.target.value)} placeholder={t("attachmentNotePlaceholder")} />
+          <div className="space-y-3">
+            <Input type="url" value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} placeholder={t("linkPlaceholder")} className="h-11 sm:h-9" />
+            <Input value={linkNote} onChange={(event) => setLinkNote(event.target.value)} placeholder={t("attachmentNotePlaceholder")} className="h-11 sm:h-9" />
             <p className="text-xs text-muted-foreground">{t("linkHelp")}</p>
           </div>
         ) : null}
@@ -277,11 +278,11 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
           value={content}
           onChange={(event) => setContent(event.target.value)}
           placeholder={activeTab === "voice" ? t("transcriptPlaceholder") : activeTab === "media" ? t("mediaCaption") : activeTab === "link" ? t("linkCaption") : t("thoughtPlaceholder")}
-          className="min-h-[110px] resize-y bg-transparent text-base"
+          className="min-h-[110px] resize-y bg-transparent text-base p-3 sm:p-4"
           disabled={busy}
         />
         <div className="flex justify-end">
-          <Button type="button" onClick={saveIdea} disabled={busy || (activeTab === "media" && !uploads.length) || (activeTab === "link" && !linkUrl)}>
+          <Button type="button" size="lg" className="w-full sm:w-auto sm:h-9 sm:px-4 sm:py-2" onClick={saveIdea} disabled={busy || (activeTab === "media" && !uploads.length) || (activeTab === "link" && !linkUrl)}>
             <Send className="me-2 h-4 w-4" />
             {createIdea.isPending ? t("saving") : t("saveFragment")}
           </Button>

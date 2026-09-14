@@ -161,7 +161,7 @@ function AttachmentCard({
                 </div>
               )}
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs text-primary" onClick={() => setIsTranscriptExpanded((value) => !value)}>
+                <Button type="button" variant="ghost" size="sm" className="h-9 sm:h-8 px-3 sm:px-2 text-xs text-primary" onClick={() => setIsTranscriptExpanded((value) => !value)}>
                   {isTranscriptExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
                   {isTranscriptExpanded ? t("showLess") : t("showMore")}
                 </Button>
@@ -171,7 +171,7 @@ function AttachmentCard({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2 text-xs"
+                    className="h-9 sm:h-8 px-3 sm:px-2 text-xs"
                     disabled={translateNote.isPending}
                     onClick={() => translateNote.mutate(
                       { data: { text: transcript, targetLanguage } },
@@ -259,30 +259,30 @@ function AttachmentCard({
       {canPreviewDocument && (
         <Dialog open={isDocumentViewerOpen} onOpenChange={(open) => { setIsDocumentViewerOpen(open); if (!open) setDocumentViewerSize(null); }}>
           <DialogContent
-            className="flex h-[80vh] min-h-[360px] max-h-[95vh] w-[80vw] min-w-[320px] max-w-[95vw] flex-col gap-3 overflow-hidden p-4"
+            className="flex h-[100dvh] w-[100vw] max-w-none sm:h-[85vh] sm:min-h-[360px] sm:max-h-[95vh] sm:w-[85vw] sm:min-w-[320px] sm:max-w-[95vw] flex-col gap-3 overflow-hidden p-3 sm:p-4 rounded-none sm:rounded-xl border-0 sm:border"
             style={documentViewerSize ?? undefined}
           >
-            <div onPointerDown={(event) => startDocumentResize("n", event)} className="absolute inset-x-3 top-0 z-20 h-2 cursor-n-resize touch-none" />
-            <div onPointerDown={(event) => startDocumentResize("s", event)} className="absolute inset-x-3 bottom-0 z-20 h-2 cursor-s-resize touch-none" />
-            <div onPointerDown={(event) => startDocumentResize("w", event)} className="absolute inset-y-3 left-0 z-20 w-2 cursor-w-resize touch-none" />
-            <div onPointerDown={(event) => startDocumentResize("e", event)} className="absolute inset-y-3 right-0 z-20 w-2 cursor-e-resize touch-none" />
-            <div onPointerDown={(event) => startDocumentResize("nw", event)} className="absolute left-0 top-0 z-30 h-4 w-4 cursor-nw-resize touch-none" />
-            <div onPointerDown={(event) => startDocumentResize("ne", event)} className="absolute right-0 top-0 z-30 h-4 w-4 cursor-ne-resize touch-none" />
-            <div onPointerDown={(event) => startDocumentResize("sw", event)} className="absolute bottom-0 left-0 z-30 h-4 w-4 cursor-sw-resize touch-none" />
-            <div onPointerDown={(event) => startDocumentResize("se", event)} className="absolute bottom-0 right-0 z-30 h-4 w-4 cursor-se-resize touch-none" />
-            <DialogHeader className="shrink-0 pe-8 text-start">
-              <DialogTitle className="truncate">{attachment.name}</DialogTitle>
-              <DialogDescription>{t("documentPreviewHelp")}</DialogDescription>
+            <div onPointerDown={(event) => startDocumentResize("n", event)} className="hidden sm:block absolute inset-x-3 top-0 z-20 h-2 cursor-n-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("s", event)} className="hidden sm:block absolute inset-x-3 bottom-0 z-20 h-2 cursor-s-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("w", event)} className="hidden sm:block absolute inset-y-3 left-0 z-20 w-2 cursor-w-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("e", event)} className="hidden sm:block absolute inset-y-3 right-0 z-20 w-2 cursor-e-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("nw", event)} className="hidden sm:block absolute left-0 top-0 z-30 h-4 w-4 cursor-nw-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("ne", event)} className="hidden sm:block absolute right-0 top-0 z-30 h-4 w-4 cursor-ne-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("sw", event)} className="hidden sm:block absolute bottom-0 left-0 z-30 h-4 w-4 cursor-sw-resize touch-none" />
+            <div onPointerDown={(event) => startDocumentResize("se", event)} className="hidden sm:block absolute bottom-0 right-0 z-30 h-4 w-4 cursor-se-resize touch-none" />
+            <DialogHeader className="shrink-0 pe-8 text-start mt-8 sm:mt-0">
+              <DialogTitle className="truncate text-lg">{attachment.name}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">{t("documentPreviewHelp")}</DialogDescription>
             </DialogHeader>
             <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-white">
               <iframe
                 src={attachment.url}
                 title={attachment.name}
-                className="h-full min-h-[600px] w-full min-w-[700px] border-0"
+                className="h-full min-h-0 sm:min-h-[600px] w-full min-w-0 sm:min-w-[700px] border-0"
               />
             </div>
-            <div className="flex shrink-0 justify-end">
-              <Button asChild type="button" variant="outline" size="sm">
+            <div className="flex shrink-0 justify-end mb-2 sm:mb-0">
+              <Button asChild type="button" variant="outline" size="sm" className="w-full sm:w-auto h-11 sm:h-9">
                 <a href={attachment.url} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="me-2 h-4 w-4" />
                   {t("openInNewTab")}
@@ -338,11 +338,11 @@ function AttachmentCard({
                   </div>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setIsExpanded((value) => !value)}>
+                  <Button type="button" variant="ghost" size="sm" className="h-9 sm:h-8 px-3 sm:px-2 text-xs" onClick={() => setIsExpanded((value) => !value)}>
                     {isExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
                     {isExpanded ? t("showLess") : t("showMore")}
                   </Button>
-                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setIsEditingNote(true)}>
+                  <Button type="button" variant="ghost" size="sm" className="h-9 sm:h-8 px-3 sm:px-2 text-xs" onClick={() => setIsEditingNote(true)}>
                     {t("editAttachmentNote")}
                   </Button>
                   {(["ar", "en"] as const).map((targetLanguage) => (
@@ -351,7 +351,7 @@ function AttachmentCard({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 px-2 text-xs"
+                      className="h-9 sm:h-8 px-3 sm:px-2 text-xs"
                       disabled={translateNote.isPending}
                       onClick={() => translateNote.mutate(
                         { data: { text: attachment.note!, targetLanguage } },
@@ -408,7 +408,7 @@ export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
   }
 
   return (
-    <div className="space-y-6 relative before:absolute before:inset-y-0 before:left-4 before:w-px before:bg-border/60 ml-2 sm:ml-0 pl-10 sm:pl-0 sm:before:left-6">
+    <div className="space-y-6 relative before:absolute before:inset-y-0 before:start-[1.125rem] sm:before:start-6 before:w-px before:bg-border/60 ms-0 ps-10 sm:ps-14">
       {ideas.map((idea) => (
         <IdeaItem key={idea.id} idea={idea} subjectId={subjectId} />
       ))}
@@ -473,11 +473,11 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
   };
 
   return (
-    <div className="relative sm:pl-12 group">
+    <div className="relative group">
       {/* Timeline dot */}
-      <div className="absolute left-[-2.8rem] sm:left-4 top-5 w-3 h-3 rounded-full bg-background border-2 border-primary ring-4 ring-background z-10" />
+      <div className="absolute -start-[1.375rem] sm:-start-8 top-5 w-3 h-3 rounded-full bg-background border-2 border-primary ring-4 ring-background z-10" />
       
-      <div className="bg-card rounded-xl border border-border/60 p-5 shadow-sm hover:shadow-md transition-shadow group-hover:border-primary/20">
+      <div className="bg-card rounded-xl border border-border/60 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow group-hover:border-primary/20">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded-md">
@@ -503,27 +503,27 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           </div>
           
           {!isEditing && (
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => setIsEditing(true)}>
+            <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1 sm:mt-0">
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground" onClick={() => setIsEditing(true)}>
                 <Edit3 className="h-4 w-4" />
               </Button>
               
               <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="w-[95vw] sm:w-full max-w-md rounded-xl">
                   <DialogHeader>
                     <DialogTitle>{t("deleteFragment")}</DialogTitle>
                     <DialogDescription>
                       {t("deleteFragmentConfirm")}
                     </DialogDescription>
                   </DialogHeader>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>{t("cancel")}</Button>
-                    <Button variant="destructive" onClick={handleDelete} disabled={deleteIdea.isPending}>
+                  <DialogFooter className="gap-2 sm:gap-0 mt-4 sm:mt-0">
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsDeleteDialogOpen(false)}>{t("cancel")}</Button>
+                    <Button variant="destructive" className="w-full sm:w-auto" onClick={handleDelete} disabled={deleteIdea.isPending}>
                       {deleteIdea.isPending ? t("deleting") : t("delete")}
                     </Button>
                   </DialogFooter>

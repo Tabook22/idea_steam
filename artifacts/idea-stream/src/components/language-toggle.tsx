@@ -11,7 +11,7 @@ export function LanguageToggle() {
       variant="outline"
       size="sm"
       onClick={() => setLanguage(language === "en" ? "ar" : "en")}
-      className="fixed end-4 top-4 z-50 gap-2 bg-background/90 shadow-sm backdrop-blur data-[signed-in=true]:end-16"
+      className="gap-2 bg-background/90 shadow-sm backdrop-blur"
       aria-label={language === "en" ? "التبديل إلى العربية" : "Switch to English"}
     >
       <Languages className="h-4 w-4" />

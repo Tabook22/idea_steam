@@ -52,9 +52,10 @@ function Protected({ children }: { children: ReactNode }) {
   );
 }
 
-function AccountControl() {
+function TopNav() {
   return (
-    <div className="fixed end-32 top-4 z-50">
+    <div className="fixed end-4 top-4 z-50 flex items-center gap-3">
+      <LanguageToggle />
       <Show when="signed-in"><UserButton /></Show>
     </div>
   );
@@ -108,8 +109,7 @@ function ClerkApp() {
       <LanguageProvider>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
-            <LanguageToggle />
-            <AccountControl />
+            <TopNav />
             <Router />
             <Toaster />
           </TooltipProvider>
