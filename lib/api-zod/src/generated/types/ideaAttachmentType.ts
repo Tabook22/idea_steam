@@ -6,12 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type IdeaSource = typeof IdeaSource[keyof typeof IdeaSource];
+export type IdeaAttachmentType = typeof IdeaAttachmentType[keyof typeof IdeaAttachmentType];
 
 
-export const IdeaSource = {
-  text: 'text',
-  voice: 'voice',
+export const IdeaAttachmentType = {
   image: 'image',
   video: 'video',
   link: 'link',

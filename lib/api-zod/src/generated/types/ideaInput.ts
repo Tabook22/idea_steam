@@ -5,10 +5,12 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { IdeaAttachment } from './ideaAttachment';
 import type { IdeaInputSource } from './ideaInputSource';
 
 export interface IdeaInput {
   /** @minLength 1 */
   content: string;
   source?: IdeaInputSource;
+  attachments?: IdeaAttachment[];
 }

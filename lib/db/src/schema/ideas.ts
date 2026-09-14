@@ -1,5 +1,6 @@
 import {
   integer,
+  jsonb,
   pgTable,
   serial,
   text,
@@ -15,7 +16,16 @@ export const ideasTable = pgTable("ideas", {
     .notNull()
     .references(() => subjectsTable.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
-  source: text("source", { enum: ["text", "voice"] }).notNull().default("text"),
+  source: text("source", { enum: ["text", "voice", "image", "video", "link"] }).notNull().default("text"),
+  attachments: jsonb("attachments")
+    .$type<Array<{
+      type: "image" | "video" | "link";
+      url: string;
+      name: string;
+      mimeType?: string;
+    }>>()
+    .notNull()
+    .default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

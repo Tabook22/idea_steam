@@ -59,6 +59,10 @@ export const GetSubjectParams = zod.object({
   "subjectId": zod.coerce.number().int()
 })
 
+
+
+
+
 export const GetSubjectResponse = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
@@ -71,7 +75,13 @@ export const GetSubjectResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
-  "source": zod.enum(['text', 'voice']),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']),
+  "attachments": zod.array(zod.object({
+  "type": zod.enum(['image', 'video', 'link']),
+  "url": zod.string().min(1),
+  "name": zod.string().min(1),
+  "mimeType": zod.string().optional()
+})),
   "createdAt": zod.coerce.date()
 })),
   "draft": zod.string().nullish()
@@ -124,16 +134,34 @@ export const CreateIdeaParams = zod.object({
 
 export const createIdeaBodySourceDefault = `text`;
 
+export const createIdeaBodyAttachmentsDefault = [];
+
 export const CreateIdeaBody = zod.object({
   "content": zod.string().min(1),
-  "source": zod.enum(['text', 'voice']).default(createIdeaBodySourceDefault)
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']).default(createIdeaBodySourceDefault),
+  "attachments": zod.array(zod.object({
+  "type": zod.enum(['image', 'video', 'link']),
+  "url": zod.string().min(1),
+  "name": zod.string().min(1),
+  "mimeType": zod.string().optional()
+})).default(createIdeaBodyAttachmentsDefault)
 })
+
+
+
+
 
 export const CreateIdeaResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
-  "source": zod.enum(['text', 'voice']),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']),
+  "attachments": zod.array(zod.object({
+  "type": zod.enum(['image', 'video', 'link']),
+  "url": zod.string().min(1),
+  "name": zod.string().min(1),
+  "mimeType": zod.string().optional()
+})),
   "createdAt": zod.coerce.date()
 })
 
@@ -145,11 +173,21 @@ export const ListIdeasParams = zod.object({
   "subjectId": zod.coerce.number().int()
 })
 
+
+
+
+
 export const ListIdeasResponseItem = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
-  "source": zod.enum(['text', 'voice']),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']),
+  "attachments": zod.array(zod.object({
+  "type": zod.enum(['image', 'video', 'link']),
+  "url": zod.string().min(1),
+  "name": zod.string().min(1),
+  "mimeType": zod.string().optional()
+})),
   "createdAt": zod.coerce.date()
 })
 export const ListIdeasResponse = zod.array(ListIdeasResponseItem)
@@ -169,11 +207,21 @@ export const UpdateIdeaBody = zod.object({
   "content": zod.string().min(1).optional()
 })
 
+
+
+
+
 export const UpdateIdeaResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
-  "source": zod.enum(['text', 'voice']),
+  "source": zod.enum(['text', 'voice', 'image', 'video', 'link']),
+  "attachments": zod.array(zod.object({
+  "type": zod.enum(['image', 'video', 'link']),
+  "url": zod.string().min(1),
+  "name": zod.string().min(1),
+  "mimeType": zod.string().optional()
+})),
   "createdAt": zod.coerce.date()
 })
 
@@ -225,5 +273,55 @@ export const TranscribeAudioBody = zod.object({
 export const TranscribeAudioResponse = zod.object({
   "text": zod.string()
 })
+
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+
+
+
+
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().int().min(1),
+  "contentType": zod.string().min(1)
+})
+
+
+
+
+
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string().url(),
+  "objectPath": zod.string(),
+  "metadata": zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().int().min(1),
+  "contentType": zod.string().min(1)
+}).optional()
+})
+
+
+/**
+ * @summary Serve a public asset
+ */
+export const GetPublicObjectParams = zod.object({
+  "filePath": zod.coerce.string()
+})
+
+export const GetPublicObjectResponse = zod.unknown()
+
+
+/**
+ * @summary Serve an uploaded object
+ */
+export const GetStorageObjectParams = zod.object({
+  "objectPath": zod.coerce.string()
+})
+
+export const GetStorageObjectResponse = zod.unknown()
 
 

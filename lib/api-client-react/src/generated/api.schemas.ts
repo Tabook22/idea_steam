@@ -5,6 +5,21 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
 export type TranscriptionInputLanguage = typeof TranscriptionInputLanguage[keyof typeof TranscriptionInputLanguage];
 
 
@@ -44,13 +59,35 @@ export type IdeaSource = typeof IdeaSource[keyof typeof IdeaSource];
 export const IdeaSource = {
   text: 'text',
   voice: 'voice',
+  image: 'image',
+  video: 'video',
+  link: 'link',
 } as const;
+
+export type IdeaAttachmentType = typeof IdeaAttachmentType[keyof typeof IdeaAttachmentType];
+
+
+export const IdeaAttachmentType = {
+  image: 'image',
+  video: 'video',
+  link: 'link',
+} as const;
+
+export interface IdeaAttachment {
+  type: IdeaAttachmentType;
+  /** @minLength 1 */
+  url: string;
+  /** @minLength 1 */
+  name: string;
+  mimeType?: string;
+}
 
 export interface Idea {
   id: number;
   subjectId: number;
   content: string;
   source: IdeaSource;
+  attachments: IdeaAttachment[];
   createdAt: string;
 }
 
@@ -80,12 +117,16 @@ export type IdeaInputSource = typeof IdeaInputSource[keyof typeof IdeaInputSourc
 export const IdeaInputSource = {
   text: 'text',
   voice: 'voice',
+  image: 'image',
+  video: 'video',
+  link: 'link',
 } as const;
 
 export interface IdeaInput {
   /** @minLength 1 */
   content: string;
   source?: IdeaInputSource;
+  attachments?: IdeaAttachment[];
 }
 
 export interface IdeaUpdate {

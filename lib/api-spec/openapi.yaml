@@ -18,6 +18,8 @@ tags:
     description: Turning collected ideas into drafts
   - name: transcription
     description: Converting recorded audio into editable text
+  - name: Storage
+    description: Object storage upload and serving endpoints
 paths:
   /healthz:
     get:
@@ -209,6 +211,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Transcription"
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an uploaded object
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content
 components:
   parameters:
     SubjectId:
@@ -224,6 +272,30 @@ components:
       schema:
         type: integer
   schemas:
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"
     TranscriptionInput:
       type: object
       required: [audioBase64, mimeType, language]
@@ -300,9 +372,24 @@ components:
           type: string
         draft:
           type: ["string", "null"]
+    IdeaAttachment:
+      type: object
+      required: [type, url, name]
+      properties:
+        type:
+          type: string
+          enum: [image, video, link]
+        url:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        mimeType:
+          type: string
     Idea:
       type: object
-      required: [id, subjectId, content, source, createdAt]
+      required: [id, subjectId, content, source, attachments, createdAt]
       properties:
         id:
           type: integer
@@ -312,7 +399,11 @@ components:
           type: string
         source:
           type: string
-          enum: [text, voice]
+          enum: [text, voice, image, video, link]
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/IdeaAttachment"
         createdAt:
           type: string
           format: date-time
@@ -325,8 +416,13 @@ components:
           minLength: 1
         source:
           type: string
-          enum: [text, voice]
+          enum: [text, voice, image, video, link]
           default: text
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/IdeaAttachment"
+          default: []
     IdeaUpdate:
       type: object
       properties:

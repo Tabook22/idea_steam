@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { IdeaAttachment } from './ideaAttachment';
 import type { IdeaSource } from './ideaSource';
 
 export interface Idea {
@@ -12,5 +13,6 @@ export interface Idea {
   subjectId: number;
   content: string;
   source: IdeaSource;
+  attachments: IdeaAttachment[];
   createdAt: Date;
 }

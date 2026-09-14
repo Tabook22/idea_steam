@@ -12,4 +12,7 @@ export type IdeaInputSource = typeof IdeaInputSource[keyof typeof IdeaInputSourc
 export const IdeaInputSource = {
   text: 'text',
   voice: 'voice',
+  image: 'image',
+  video: 'video',
+  link: 'link',
 } as const;

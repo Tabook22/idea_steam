@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { getAuth } from "@clerk/express";
 import { count, desc, eq } from "drizzle-orm";
 import { db, ideasTable, subjectsTable } from "@workspace/db";
 import {
@@ -33,6 +34,14 @@ import {
 } from "@workspace/integrations-openai-ai-server/audio";
 
 const router: IRouter = Router();
+
+router.use((req, res, next) => {
+  if (!getAuth(req).userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+});
 
 router.post("/transcriptions", async (req, res): Promise<void> => {
   const body = TranscribeAudioBody.safeParse(req.body);
@@ -79,6 +88,7 @@ const serializeIdea = (idea: typeof ideasTable.$inferSelect) => ({
   subjectId: idea.subjectId,
   content: idea.content,
   source: idea.source,
+  attachments: idea.attachments,
   createdAt: idea.createdAt.toISOString(),
 });
 
@@ -240,6 +250,7 @@ router.post("/subjects/:subjectId/ideas", async (req, res): Promise<void> => {
       subjectId: params.data.subjectId,
       content: body.data.content.trim(),
       source: body.data.source ?? "text",
+      attachments: body.data.attachments ?? [],
     })
     .returning();
 

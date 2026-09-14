@@ -10,7 +10,7 @@ import {
   useListIdeas,
 } from "@workspace/api-client-react";
 import { formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X } from "lucide-react";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -134,8 +134,16 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded-md">
-              {idea.source === IdeaSource.voice ? <Mic className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-              {idea.source === IdeaSource.voice ? t("voiceNote") : t("textNote")}
+              {idea.source === IdeaSource.voice ? <Mic className="h-3 w-3" /> :
+                idea.source === IdeaSource.image ? <ImageIcon className="h-3 w-3" /> :
+                idea.source === IdeaSource.video ? <Video className="h-3 w-3" /> :
+                idea.source === IdeaSource.link ? <Link2 className="h-3 w-3" /> :
+                <FileText className="h-3 w-3" />}
+              {idea.source === IdeaSource.voice ? t("voiceNote") :
+                idea.source === IdeaSource.image ? t("imageNote") :
+                idea.source === IdeaSource.video ? t("videoNote") :
+                idea.source === IdeaSource.link ? t("linkNote") :
+                t("textNote")}
             </span>
             <span className="text-xs text-muted-foreground/60">•</span>
             <span className="text-xs text-muted-foreground/80">{formatTimeAgo(idea.createdAt, language)}</span>
@@ -172,6 +180,29 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           )}
         </div>
         
+        {idea.attachments.length > 0 && !isEditing && (
+          <div className="mb-4 space-y-3">
+            {idea.attachments.map((attachment, index) => (
+              attachment.type === "image" ? (
+                <a key={index} href={attachment.url} target="_blank" rel="noreferrer">
+                  <img src={attachment.url} alt={attachment.name} className="max-h-96 w-full rounded-lg bg-muted object-contain" />
+                </a>
+              ) : attachment.type === "video" ? (
+                <video key={index} src={attachment.url} controls preload="metadata" className="max-h-96 w-full rounded-lg bg-black" />
+              ) : (
+                <a key={index} href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-lg border bg-muted/20 p-4 transition-colors hover:bg-muted/50">
+                  <div className="rounded-full bg-primary/10 p-2 text-primary"><Link2 className="h-5 w-5" /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{attachment.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{attachment.url}</p>
+                  </div>
+                  <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </a>
+              )
+            ))}
+          </div>
+        )}
+
         {isEditing ? (
           <div className="space-y-3 mt-2">
             <Textarea
