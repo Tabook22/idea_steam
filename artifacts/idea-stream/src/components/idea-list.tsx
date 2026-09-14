@@ -12,8 +12,8 @@ import {
   useTranslateNote,
   useExtractYoutubeTranscript,
 } from "@workspace/api-client-react";
-import { formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2 } from "lucide-react";
+import { formatDateTime, formatTimeAgo } from "@/lib/formatters";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -478,8 +478,8 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
       <div className="absolute -start-[1.375rem] sm:-start-8 top-5 w-3 h-3 rounded-full bg-background border-2 border-primary ring-4 ring-background z-10" />
       
       <div className="bg-card rounded-xl border border-border/60 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow group-hover:border-primary/20">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 bg-muted/50 px-2 py-0.5 rounded-md">
               {idea.source === IdeaSource.voice ? <Mic className="h-3 w-3" /> :
                 idea.source === IdeaSource.image ? <ImageIcon className="h-3 w-3" /> :
@@ -500,6 +500,14 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
             </span>
             <span className="text-xs text-muted-foreground/60">•</span>
             <span className="text-xs text-muted-foreground/80">{formatTimeAgo(idea.createdAt, language)}</span>
+            <time
+              dateTime={idea.createdAt}
+              className="flex basis-full items-center gap-1 text-[11px] font-medium text-primary/75 sm:basis-auto"
+              title={formatDateTime(idea.createdAt, language)}
+            >
+              <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+              {formatDateTime(idea.createdAt, language)}
+            </time>
           </div>
           
           {!isEditing && (
