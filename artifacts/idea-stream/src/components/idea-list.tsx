@@ -111,7 +111,7 @@ function AttachmentCard({
           </div>
           {isEditingTranscript ? (
             <div className="space-y-2">
-              <Textarea value={transcript} onChange={(event) => setTranscript(event.target.value)} className="min-h-64 bg-background text-sm" />
+              <Textarea value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder={t("transcriptPlaceholderManual")} className="min-h-64 bg-background text-sm" />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" onClick={() => { setTranscript(attachment.transcript ?? ""); setIsEditingTranscript(false); }}>{t("cancel")}</Button>
                 <Button type="button" size="sm" disabled={updateIdea.isPending} onClick={() => saveTranscript(transcript)}>{t("save")}</Button>
@@ -126,22 +126,31 @@ function AttachmentCard({
               </Button>
             </>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={extractTranscript.isPending || updateIdea.isPending}
-              onClick={() => extractTranscript.mutate(
-                { data: { url: attachment.url } },
-                {
-                  onSuccess: (result) => saveTranscript(result.text),
-                  onError: () => toast({ variant: "destructive", title: t("transcriptUnavailable"), description: t("transcriptUnavailableDetail") }),
-                },
-              )}
-            >
-              {extractTranscript.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <FileText className="me-2 h-4 w-4" />}
-              {extractTranscript.isPending ? t("extractingTranscript") : t("extractTranscript")}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={extractTranscript.isPending || updateIdea.isPending}
+                onClick={() => extractTranscript.mutate(
+                  { data: { url: attachment.url } },
+                  {
+                    onSuccess: (result) => saveTranscript(result.text),
+                    onError: () => {
+                      setIsEditingTranscript(true);
+                      toast({ variant: "destructive", title: t("transcriptUnavailable"), description: t("transcriptUnavailableDetail") });
+                    },
+                  },
+                )}
+              >
+                {extractTranscript.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <FileText className="me-2 h-4 w-4" />}
+                {extractTranscript.isPending ? t("extractingTranscript") : t("extractTranscript")}
+              </Button>
+              <Button type="button" variant="ghost" className="w-full text-primary" onClick={() => setIsEditingTranscript(true)}>
+                {t("addTranscriptManually")}
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">{t("transcriptOptionsHelp")}</p>
+            </div>
           )}
         </div>
       )}
