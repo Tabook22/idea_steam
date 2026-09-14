@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { formatTimeAgo } from "@/lib/formatters";
+import { formatDateTime } from "@/lib/formatters";
 import { type Subject } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Search, ArrowRight, BookType } from "lucide-react";
+import { BookOpen, Search, ArrowRight, BookType, CalendarClock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 
@@ -63,6 +63,11 @@ export function SubjectList({ subjects }: SubjectListProps) {
                     <div className="flex-1"></div>
                   )}
                   
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+                    <span>{formatDateTime(subject.createdAt, language)}</span>
+                  </div>
+
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto pt-4 border-t border-border/50">
                     <span className="flex items-center gap-1.5">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent/80"></span>

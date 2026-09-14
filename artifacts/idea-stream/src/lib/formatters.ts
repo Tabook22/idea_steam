@@ -15,6 +15,20 @@ export function formatDate(dateString: string, language = "en"): string {
   }
 }
 
+export function formatDateTime(dateString: string, language = "en"): string {
+  try {
+    return new Intl.DateTimeFormat(language, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(dateString));
+  } catch {
+    return dateString;
+  }
+}
+
 export function formatTimeAgo(dateString: string, language = "en"): string {
   try {
     const elapsedSeconds = Math.round((new Date(dateString).getTime() - Date.now()) / 1000);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Edit2, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarClock, Edit2, Trash2 } from "lucide-react";
 
 import { 
   useGetSubject, 
@@ -30,6 +30,7 @@ import { IdeaList } from "@/components/idea-list";
 import { CreateIdeaForm } from "@/components/create-idea-form";
 import { CompilationView } from "@/components/compilation-view";
 import { useLanguage } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/formatters";
 
 export default function SubjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +38,7 @@ export default function SubjectDetailPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isArabic, t } = useLanguage();
+  const { language, isArabic, t } = useLanguage();
 
   const { data: subjectDetail, isLoading, error } = useGetSubject(subjectId, {
     query: {
@@ -238,6 +239,13 @@ export default function SubjectDetailPage() {
                 <Edit2 className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </h1>
             )}
+
+            <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <CalendarClock className="h-4 w-4 shrink-0" />
+              <span>
+                {t("subjectCreatedAt")}: {formatDateTime(subjectDetail.createdAt, language)}
+              </span>
+            </div>
 
             {isEditingIntro ? (
               <div className="space-y-2 mt-4">
