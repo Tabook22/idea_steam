@@ -80,7 +80,8 @@ export const GetSubjectResponse = zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
-  "mimeType": zod.string().optional()
+  "mimeType": zod.string().optional(),
+  "note": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })),
@@ -143,7 +144,8 @@ export const CreateIdeaBody = zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
-  "mimeType": zod.string().optional()
+  "mimeType": zod.string().optional(),
+  "note": zod.string().optional()
 })).default(createIdeaBodyAttachmentsDefault)
 })
 
@@ -160,7 +162,8 @@ export const CreateIdeaResponse = zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
-  "mimeType": zod.string().optional()
+  "mimeType": zod.string().optional(),
+  "note": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -186,7 +189,8 @@ export const ListIdeasResponseItem = zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
-  "mimeType": zod.string().optional()
+  "mimeType": zod.string().optional(),
+  "note": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -203,8 +207,17 @@ export const UpdateIdeaParams = zod.object({
 
 
 
+
+
 export const UpdateIdeaBody = zod.object({
-  "content": zod.string().min(1).optional()
+  "content": zod.string().min(1).optional(),
+  "attachments": zod.array(zod.object({
+  "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
+  "url": zod.string().min(1),
+  "name": zod.string().min(1),
+  "mimeType": zod.string().optional(),
+  "note": zod.string().optional()
+})).optional()
 })
 
 
@@ -220,7 +233,8 @@ export const UpdateIdeaResponse = zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
   "name": zod.string().min(1),
-  "mimeType": zod.string().optional()
+  "mimeType": zod.string().optional(),
+  "note": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -263,10 +277,9 @@ export const CompileSubjectResponse = zod.object({
 
 
 
-
 export const TranscribeAudioBody = zod.object({
   "audioBase64": zod.string().min(1),
-  "mimeType": zod.string().min(1),
+  "mimeType": zod.string(),
   "language": zod.enum(['en', 'ar'])
 })
 

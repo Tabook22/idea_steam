@@ -10,7 +10,6 @@ import type { TranscriptionInputLanguage } from './transcriptionInputLanguage';
 export interface TranscriptionInput {
   /** @minLength 1 */
   audioBase64: string;
-  /** @minLength 1 */
   mimeType: string;
   language: TranscriptionInputLanguage;
 }

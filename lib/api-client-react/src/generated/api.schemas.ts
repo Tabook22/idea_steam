@@ -31,7 +31,6 @@ export const TranscriptionInputLanguage = {
 export interface TranscriptionInput {
   /** @minLength 1 */
   audioBase64: string;
-  /** @minLength 1 */
   mimeType: string;
   language: TranscriptionInputLanguage;
 }
@@ -86,6 +85,7 @@ export interface IdeaAttachment {
   /** @minLength 1 */
   name: string;
   mimeType?: string;
+  note?: string;
 }
 
 export interface Idea {
@@ -141,6 +141,7 @@ export interface IdeaInput {
 export interface IdeaUpdate {
   /** @minLength 1 */
   content?: string;
+  attachments?: IdeaAttachment[];
 }
 
 export type CompilationInputTone = typeof CompilationInputTone[keyof typeof CompilationInputTone];

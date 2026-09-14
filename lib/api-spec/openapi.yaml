@@ -305,7 +305,6 @@ components:
           minLength: 1
         mimeType:
           type: string
-          minLength: 1
         language:
           type: string
           enum: [en, ar]
@@ -387,6 +386,8 @@ components:
           minLength: 1
         mimeType:
           type: string
+        note:
+          type: string
     Idea:
       type: object
       required: [id, subjectId, content, source, attachments, createdAt]
@@ -429,6 +430,10 @@ components:
         content:
           type: string
           minLength: 1
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/IdeaAttachment"
     CompilationInput:
       type: object
       properties:

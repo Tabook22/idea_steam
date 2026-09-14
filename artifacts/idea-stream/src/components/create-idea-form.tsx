@@ -23,6 +23,7 @@ type MediaAttachment = {
   url: string;
   name: string;
   mimeType?: string;
+  note?: string;
 };
 
 export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
@@ -30,6 +31,7 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
   const [content, setContent] = useState("");
   const [transcript, setTranscript] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkNote, setLinkNote] = useState("");
   const [uploads, setUploads] = useState<MediaAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -44,6 +46,7 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
     setContent("");
     setTranscript("");
     setLinkUrl("");
+    setLinkNote("");
     setUploads([]);
   };
 
@@ -156,13 +159,14 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
         url: upload.url,
         name: upload.name,
         mimeType: upload.mimeType,
+          note: upload.note?.trim() || undefined,
       })));
     }
     if (activeTab === "link") {
       try {
         const url = new URL(linkUrl);
         source = IdeaInputSource.link;
-        attachments.push({ type: IdeaAttachmentType.link, url: url.toString(), name: url.hostname });
+        attachments.push({ type: IdeaAttachmentType.link, url: url.toString(), name: url.hostname, note: linkNote.trim() || undefined });
       } catch {
         toast({ variant: "destructive", title: t("error"), description: t("invalidLink") });
         return;
@@ -228,7 +232,8 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
             {uploads.length > 0 && (
               <div className="mb-4 grid gap-2 text-start sm:grid-cols-2">
                 {uploads.map((upload, index) => (
-                  <div key={`${upload.url}-${index}`} className="flex min-w-0 items-center gap-3 rounded-lg border bg-background p-2">
+                  <div key={`${upload.url}-${index}`} className="rounded-lg border bg-background p-2">
+                    <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-primary">
                       {upload.type === "image" ? <img src={upload.url} alt="" className="h-full w-full object-cover" /> :
                         upload.type === "video" ? <Video className="h-6 w-6" /> :
@@ -242,6 +247,13 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={t("removeUpload")} onClick={() => setUploads((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
                       <X className="h-4 w-4" />
                     </Button>
+                    </div>
+                    <Input
+                      value={upload.note ?? ""}
+                      onChange={(event) => setUploads((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, note: event.target.value } : item))}
+                      placeholder={t("attachmentNotePlaceholder")}
+                      className="mt-2 h-9"
+                    />
                   </div>
                 ))}
               </div>
@@ -256,6 +268,7 @@ export function CreateIdeaForm({ subjectId }: { subjectId: number }) {
         ) : activeTab === "link" ? (
           <div className="space-y-2">
             <Input type="url" value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} placeholder={t("linkPlaceholder")} />
+            <Input value={linkNote} onChange={(event) => setLinkNote(event.target.value)} placeholder={t("attachmentNotePlaceholder")} />
             <p className="text-xs text-muted-foreground">{t("linkHelp")}</p>
           </div>
         ) : null}

@@ -14,4 +14,5 @@ export interface IdeaAttachment {
   /** @minLength 1 */
   name: string;
   mimeType?: string;
+  note?: string;
 }

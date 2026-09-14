@@ -47,7 +47,23 @@ function getYoutubeId(value: string) {
   return null;
 }
 
-function AttachmentCard({ attachment }: { attachment: IdeaAttachment }) {
+function AttachmentCard({
+  attachment,
+  attachmentIndex,
+  idea,
+  subjectId,
+}: {
+  attachment: IdeaAttachment;
+  attachmentIndex: number;
+  idea: Idea;
+  subjectId: number;
+}) {
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [note, setNote] = useState(attachment.note ?? "");
+  const queryClient = useQueryClient();
+  const updateIdea = useUpdateIdea();
+  const { toast } = useToast();
+  const { t } = useLanguage();
   const youtubeId = attachment.type === "link" ? getYoutubeId(attachment.url) : null;
   const label = youtubeId ? "YouTube" : attachment.type;
   const icon = attachment.type === "audio" ? <FileAudio className="h-7 w-7" /> :
@@ -83,6 +99,50 @@ function AttachmentCard({ attachment }: { attachment: IdeaAttachment }) {
       {attachment.type === "audio" && (
         <div className="border-t px-2 py-2"><audio src={attachment.url} controls preload="metadata" className="h-9 w-full" /></div>
       )}
+      <div className="border-t p-3">
+        {isEditingNote ? (
+          <div className="space-y-2">
+            <Textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder={t("attachmentNotePlaceholder")} className="min-h-20 bg-background text-sm" autoFocus />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setNote(attachment.note ?? ""); setIsEditingNote(false); }}>{t("cancel")}</Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={updateIdea.isPending}
+                onClick={() => {
+                  const attachments = idea.attachments.map((item, index) => index === attachmentIndex ? { ...item, note: note.trim() || undefined } : item);
+                  updateIdea.mutate(
+                    { ideaId: idea.id, data: { attachments } },
+                    {
+                      onSuccess: () => {
+                        queryClient.invalidateQueries({ queryKey: getListIdeasQueryKey(subjectId) });
+                        queryClient.invalidateQueries({ queryKey: getGetSubjectQueryKey(subjectId) });
+                        setIsEditingNote(false);
+                        toast({ title: t("noteSaved") });
+                      },
+                      onError: () => toast({ variant: "destructive", title: t("error"), description: t("noteSaveFailed") }),
+                    },
+                  );
+                }}
+              >
+                {t("save")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setIsEditingNote(true)} className="w-full text-start">
+            {attachment.note ? (
+              <>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t("attachmentNote")}</p>
+                <p className="whitespace-pre-wrap text-sm">{attachment.note}</p>
+                <p className="mt-2 text-xs font-medium text-primary">{t("editAttachmentNote")}</p>
+              </>
+            ) : (
+              <p className="text-sm font-medium text-primary">+ {t("addAttachmentNote")}</p>
+            )}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -246,7 +306,7 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("attachedUploads")} ({idea.attachments.length})</p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {idea.attachments.map((attachment, index) => (
-              <AttachmentCard key={`${attachment.url}-${index}`} attachment={attachment} />
+              <AttachmentCard key={`${attachment.url}-${index}`} attachment={attachment} attachmentIndex={index} idea={idea} subjectId={subjectId} />
             ))}
             </div>
           </div>
