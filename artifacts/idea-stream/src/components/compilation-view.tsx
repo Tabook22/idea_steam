@@ -36,6 +36,20 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { t } = useLanguage();
+  const outputOptions = [
+    [CompilationInputTone.clear, t("clearDirect")],
+    [CompilationInputTone.conversational, t("conversational")],
+    [CompilationInputTone.academic, t("academic")],
+    [CompilationInputTone.cinematic, t("cinematic")],
+    [CompilationInputTone.newspaper_article, t("newspaperArticle")],
+    [CompilationInputTone.advertisement, t("advertisement")],
+    [CompilationInputTone.discussion_invitation, t("discussionInvitation")],
+    [CompilationInputTone.official_letter, t("officialLetter")],
+    [CompilationInputTone.masters_proposal, t("mastersProposal")],
+    [CompilationInputTone.phd_proposal, t("phdProposal")],
+    [CompilationInputTone.summary_only, t("summaryOnly")],
+    [CompilationInputTone.objectives_goals, t("objectivesGoals")],
+  ] as const;
   
   const compileSubject = useCompileSubject();
   const updateSubject = useUpdateSubject();
@@ -132,10 +146,9 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
               <SelectValue placeholder={t("selectTone")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={CompilationInputTone.clear}>{t("clearDirect")}</SelectItem>
-              <SelectItem value={CompilationInputTone.conversational}>{t("conversational")}</SelectItem>
-              <SelectItem value={CompilationInputTone.academic}>{t("academic")}</SelectItem>
-              <SelectItem value={CompilationInputTone.cinematic}>{t("cinematic")}</SelectItem>
+              {outputOptions.map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           
@@ -172,10 +185,9 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
                 <SelectValue placeholder={t("selectTone")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={CompilationInputTone.clear}>{t("clearDirect")}</SelectItem>
-                <SelectItem value={CompilationInputTone.conversational}>{t("conversational")}</SelectItem>
-                <SelectItem value={CompilationInputTone.academic}>{t("academic")}</SelectItem>
-                <SelectItem value={CompilationInputTone.cinematic}>{t("cinematic")}</SelectItem>
+                 {outputOptions.map(([value, label]) => (
+                   <SelectItem key={value} value={value}>{label}</SelectItem>
+                 ))}
               </SelectContent>
             </Select>
           )}

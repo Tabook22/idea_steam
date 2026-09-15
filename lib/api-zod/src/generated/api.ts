@@ -332,7 +332,7 @@ export const CompileSubjectParams = zod.object({
 export const compileSubjectBodyToneDefault = `clear`;
 
 export const CompileSubjectBody = zod.object({
-  "tone": zod.enum(['clear', 'conversational', 'academic', 'cinematic']).default(compileSubjectBodyToneDefault)
+  "tone": zod.enum(['clear', 'conversational', 'academic', 'cinematic', 'newspaper_article', 'advertisement', 'discussion_invitation', 'official_letter', 'masters_proposal', 'phd_proposal', 'summary_only', 'objectives_goals']).default(compileSubjectBodyToneDefault)
 })
 
 export const CompileSubjectResponse = zod.object({

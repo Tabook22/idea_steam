@@ -591,7 +591,19 @@ components:
       properties:
         tone:
           type: string
-          enum: [clear, conversational, academic, cinematic]
+          enum:
+            - clear
+            - conversational
+            - academic
+            - cinematic
+            - newspaper_article
+            - advertisement
+            - discussion_invitation
+            - official_letter
+            - masters_proposal
+            - phd_proposal
+            - summary_only
+            - objectives_goals
           default: clear
     Compilation:
       type: object

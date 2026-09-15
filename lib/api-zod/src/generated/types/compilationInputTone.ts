@@ -14,4 +14,12 @@ export const CompilationInputTone = {
   conversational: 'conversational',
   academic: 'academic',
   cinematic: 'cinematic',
+  newspaper_article: 'newspaper_article',
+  advertisement: 'advertisement',
+  discussion_invitation: 'discussion_invitation',
+  official_letter: 'official_letter',
+  masters_proposal: 'masters_proposal',
+  phd_proposal: 'phd_proposal',
+  summary_only: 'summary_only',
+  objectives_goals: 'objectives_goals',
 } as const;

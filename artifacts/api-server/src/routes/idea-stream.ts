@@ -722,6 +722,22 @@ router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {
     return;
   }
 
+  const outputInstructions: Record<string, string> = {
+    clear: "Create a clear, direct, well-structured draft.",
+    conversational: "Create a natural, engaging conversational draft.",
+    academic: "Create a rigorous academic draft with formal reasoning and clear sections. Do not invent citations.",
+    cinematic: "Create a vivid, cinematic, descriptive draft while preserving the source meaning.",
+    newspaper_article: "Write a professional newspaper article with a strong headline, lead paragraph, logical body, and concise conclusion. Distinguish facts from interpretation and do not invent quotations or evidence.",
+    advertisement: "Write a persuasive advertisement with a clear value proposition, audience-focused benefits, memorable message, and call to action. Do not make unsupported claims.",
+    discussion_invitation: "Write an invitation for discussion that introduces the topic, explains why it matters, presents key questions, and ends with a clear invitation to participate.",
+    official_letter: "Write a formal official letter with an appropriate subject line, salutation, concise purpose, supporting details, requested action, and professional closing. Use placeholders where recipient details are unavailable.",
+    masters_proposal: "Create a structured master's degree research proposal with a working title, background, problem statement, research questions, objectives, proposed methodology, expected contribution, scope, and preliminary timeline. Do not invent sources or results.",
+    phd_proposal: "Create a rigorous PhD research proposal with a working title, research context and gap, problem statement, research questions, objectives, conceptual direction, methodology, originality and expected contribution, scope, ethics considerations, and preliminary timeline. Do not invent sources or results.",
+    summary_only: "Return only a faithful, concise summary of the supplied material. Preserve the central meaning and do not add recommendations or new facts.",
+    objectives_goals: "Extract and organize only the main objective, supporting objectives, goals, intended outcomes, and success indicators that are supported by the supplied material. Clearly label anything that is implied rather than explicit.",
+  };
+  const requestedOutput = body.data.tone ?? "clear";
+
   const response = await openai.chat.completions.create({
     model: "gpt-5.6-luna",
     max_completion_tokens: 8192,
@@ -729,11 +745,11 @@ router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {
       {
         role: "system",
         content:
-          "You are an expert editor. Turn the user's accumulated idea fragments into one coherent, polished draft. Preserve the author's meaning, remove repetition, create a logical progression, and do not invent unsupported facts. Return only the finished draft.",
+          `You are an expert editor. Transform the user's accumulated idea fragments into the requested output. Preserve the author's meaning, remove unnecessary repetition, create a logical progression, and do not invent unsupported facts. Match the primary language of the supplied material. Return only the finished output.\n\nRequired format: ${outputInstructions[requestedOutput] ?? outputInstructions.clear}`,
       },
       {
         role: "user",
-        content: `Title: ${subject.title}\nIntroduction: ${subject.intro || "None"}\nRequested tone: ${body.data.tone ?? "clear"}\n\nIdea fragments in chronological order:\n${ideas.map((idea, index) => `${index + 1}. ${idea.content}`).join("\n")}`,
+        content: `Title: ${subject.title}\nIntroduction: ${subject.intro || "None"}\nRequested output type: ${requestedOutput}\n\nIdea fragments in chronological order:\n${ideas.map((idea, index) => `${index + 1}. ${idea.content}`).join("\n")}`,
       },
     ],
   });
