@@ -14,6 +14,8 @@ tags:
     description: Idea subjects and their note streams
   - name: ideas
     description: Timestamped idea notes
+  - name: idea-chat
+    description: AI conversations grounded in an individual idea
   - name: compilation
     description: Turning collected ideas into drafts
   - name: transcription
@@ -173,6 +175,51 @@ paths:
       responses:
         "204":
           description: Deleted
+  /ideas/{ideaId}/chat:
+    get:
+      operationId: listIdeaChatMessages
+      tags: [idea-chat]
+      summary: List the persistent AI chat for an idea
+      parameters:
+        - $ref: "#/components/parameters/IdeaId"
+      responses:
+        "200":
+          description: Chat messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IdeaChatMessage"
+    delete:
+      operationId: clearIdeaChat
+      tags: [idea-chat]
+      summary: Clear the AI chat for an idea
+      parameters:
+        - $ref: "#/components/parameters/IdeaId"
+      responses:
+        "204":
+          description: Chat cleared
+  /ideas/{ideaId}/chat/messages:
+    post:
+      operationId: sendIdeaChatMessage
+      tags: [idea-chat]
+      summary: Send a message about an idea
+      parameters:
+        - $ref: "#/components/parameters/IdeaId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdeaChatMessageInput"
+      responses:
+        "201":
+          description: User and assistant messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdeaChatExchange"
   /subjects/{subjectId}/compile:
     post:
       operationId: compileSubject
@@ -459,6 +506,8 @@ components:
           type: string
         transcript:
           type: string
+        extractedText:
+          type: string
     Idea:
       type: object
       required: [id, subjectId, content, source, attachments, createdAt]
@@ -479,6 +528,38 @@ components:
         createdAt:
           type: string
           format: date-time
+    IdeaChatMessage:
+      type: object
+      required: [id, ideaId, role, content, createdAt]
+      properties:
+        id:
+          type: integer
+        ideaId:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    IdeaChatMessageInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 8000
+    IdeaChatExchange:
+      type: object
+      required: [userMessage, assistantMessage]
+      properties:
+        userMessage:
+          $ref: "#/components/schemas/IdeaChatMessage"
+        assistantMessage:
+          $ref: "#/components/schemas/IdeaChatMessage"
     IdeaInput:
       type: object
       required: [content]

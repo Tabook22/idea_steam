@@ -82,7 +82,8 @@ export const GetSubjectResponse = zod.object({
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
-  "transcript": zod.string().optional()
+  "transcript": zod.string().optional(),
+  "extractedText": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })),
@@ -147,7 +148,8 @@ export const CreateIdeaBody = zod.object({
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
-  "transcript": zod.string().optional()
+  "transcript": zod.string().optional(),
+  "extractedText": zod.string().optional()
 })).default(createIdeaBodyAttachmentsDefault)
 })
 
@@ -166,7 +168,8 @@ export const CreateIdeaResponse = zod.object({
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
-  "transcript": zod.string().optional()
+  "transcript": zod.string().optional(),
+  "extractedText": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -194,7 +197,8 @@ export const ListIdeasResponseItem = zod.object({
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
-  "transcript": zod.string().optional()
+  "transcript": zod.string().optional(),
+  "extractedText": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -221,7 +225,8 @@ export const UpdateIdeaBody = zod.object({
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
-  "transcript": zod.string().optional()
+  "transcript": zod.string().optional(),
+  "extractedText": zod.string().optional()
 })).optional()
 })
 
@@ -240,7 +245,8 @@ export const UpdateIdeaResponse = zod.object({
   "name": zod.string().min(1),
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
-  "transcript": zod.string().optional()
+  "transcript": zod.string().optional(),
+  "extractedText": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
 })
@@ -254,6 +260,66 @@ export const DeleteIdeaParams = zod.object({
 })
 
 export const DeleteIdeaResponse = zod.void()
+
+
+/**
+ * @summary List the persistent AI chat for an idea
+ */
+export const ListIdeaChatMessagesParams = zod.object({
+  "ideaId": zod.coerce.number().int()
+})
+
+export const ListIdeaChatMessagesResponseItem = zod.object({
+  "id": zod.number().int(),
+  "ideaId": zod.number().int(),
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListIdeaChatMessagesResponse = zod.array(ListIdeaChatMessagesResponseItem)
+
+
+/**
+ * @summary Clear the AI chat for an idea
+ */
+export const ClearIdeaChatParams = zod.object({
+  "ideaId": zod.coerce.number().int()
+})
+
+export const ClearIdeaChatResponse = zod.void()
+
+
+/**
+ * @summary Send a message about an idea
+ */
+export const SendIdeaChatMessageParams = zod.object({
+  "ideaId": zod.coerce.number().int()
+})
+
+export const sendIdeaChatMessageBodyContentMax = 8000;
+
+
+
+export const SendIdeaChatMessageBody = zod.object({
+  "content": zod.string().min(1).max(sendIdeaChatMessageBodyContentMax)
+})
+
+export const SendIdeaChatMessageResponse = zod.object({
+  "userMessage": zod.object({
+  "id": zod.number().int(),
+  "ideaId": zod.number().int(),
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date()
+}),
+  "assistantMessage": zod.object({
+  "id": zod.number().int(),
+  "ideaId": zod.number().int(),
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+})
 
 
 /**

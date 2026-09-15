@@ -1,12 +1,17 @@
 import { Router, type IRouter } from "express";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { getAuth } from "@clerk/express";
-import { count, desc, eq } from "drizzle-orm";
-import { db, ideasTable, subjectsTable } from "@workspace/db";
+import { asc, count, desc, eq } from "drizzle-orm";
+import {
+  db,
+  ideaChatMessagesTable,
+  ideasTable,
+  subjectsTable,
+} from "@workspace/db";
 import {
   CompileSubjectBody,
   CompileSubjectParams,
@@ -35,15 +40,142 @@ import {
   TranslateNoteResponse,
   ExtractYoutubeTranscriptBody,
   ExtractYoutubeTranscriptResponse,
+  ClearIdeaChatParams,
+  ListIdeaChatMessagesParams,
+  ListIdeaChatMessagesResponse,
+  SendIdeaChatMessageBody,
+  SendIdeaChatMessageParams,
+  SendIdeaChatMessageResponse,
 } from "@workspace/api-zod";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   ensureCompatibleFormat,
   speechToText,
 } from "@workspace/integrations-openai-ai-server/audio";
+import { ObjectStorageService } from "../lib/objectStorage";
 
 const router: IRouter = Router();
 const execFileAsync = promisify(execFile);
+const objectStorageService = new ObjectStorageService();
+
+function serializeChatMessage(
+  message: typeof ideaChatMessagesTable.$inferSelect,
+) {
+  return {
+    ...message,
+    createdAt: message.createdAt.toISOString(),
+  };
+}
+
+function normalizeExtractedText(value: string) {
+  return value
+    .replace(/\u0000/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 120_000);
+}
+
+async function extractAttachmentText(attachment: {
+  type: string;
+  url: string;
+  name: string;
+  mimeType?: string;
+}) {
+  if (!attachment.url.startsWith("/api/storage/objects/")) return "";
+
+  const objectPath = attachment.url.slice("/api/storage".length);
+  const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+  const response = await objectStorageService.downloadObject(objectFile, 0);
+  const declaredSize = Number(response.headers.get("content-length") || "0");
+  if (declaredSize > 25 * 1024 * 1024) {
+    throw new Error("Document is too large to extract");
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length > 25 * 1024 * 1024) {
+    throw new Error("Document is too large to extract");
+  }
+
+  const fileName = attachment.name.toLowerCase();
+  const mimeType = attachment.mimeType?.toLowerCase() ?? "";
+  if (
+    mimeType.startsWith("text/") ||
+    fileName.endsWith(".txt") ||
+    fileName.endsWith(".md") ||
+    fileName.endsWith(".rtf")
+  ) {
+    return normalizeExtractedText(bytes.toString("utf8"));
+  }
+
+  const tempDirectory = await mkdtemp(join(tmpdir(), "idea-document-"));
+  const inputPath = join(tempDirectory, fileName.replace(/[^a-z0-9._-]/g, "_") || "document");
+  try {
+    await writeFile(inputPath, bytes);
+    if (attachment.type === "pdf" || mimeType === "application/pdf" || fileName.endsWith(".pdf")) {
+      const { stdout } = await execFileAsync("pdftotext", [inputPath, "-"], {
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      return normalizeExtractedText(stdout);
+    }
+    if (fileName.endsWith(".doc")) {
+      const { stdout } = await execFileAsync("antiword", [inputPath], {
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      return normalizeExtractedText(stdout);
+    }
+    if (fileName.endsWith(".docx") || fileName.endsWith(".odt")) {
+      const innerPath = fileName.endsWith(".docx") ? "word/document.xml" : "content.xml";
+      const { stdout } = await execFileAsync("unzip", ["-p", inputPath, innerPath], {
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      return normalizeExtractedText(
+        stdout
+          .replace(/<w:tab\/>/g, "\t")
+          .replace(/<\/w:p>|<\/text:p>/g, "\n")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, "\"")
+          .replace(/&apos;/g, "'"),
+      );
+    }
+    return "";
+  } finally {
+    await rm(tempDirectory, { recursive: true, force: true });
+  }
+}
+
+async function buildIdeaContext(idea: typeof ideasTable.$inferSelect) {
+  const attachmentSections = await Promise.all(
+    idea.attachments.map(async (attachment, index) => {
+      let extractedText = attachment.extractedText ?? "";
+      if (
+        !extractedText &&
+        (attachment.type === "pdf" || attachment.type === "document")
+      ) {
+        try {
+          extractedText = await extractAttachmentText(attachment);
+        } catch (error) {
+          console.error(`Text extraction failed for ${attachment.name}`, error);
+        }
+      }
+
+      const availableContent = [
+        attachment.note ? `User note:\n${attachment.note}` : "",
+        attachment.transcript ? `Transcript:\n${attachment.transcript}` : "",
+        extractedText ? `Extracted document text:\n${extractedText}` : "",
+      ].filter(Boolean);
+      if (availableContent.length === 0) return "";
+
+      return `Attachment ${index + 1} (${attachment.name}, ${attachment.type}):\n${availableContent.join("\n\n")}`;
+    }),
+  );
+
+  const attachmentContext = attachmentSections.filter(Boolean).join("\n\n");
+
+  return `IDEA TEXT:\n${idea.content}\n\nATTACHMENT CONTENT:\n${attachmentContext || "No additional text is available."}`.slice(0, 120_000);
+}
 
 router.use((req, res, next) => {
   if (!getAuth(req).userId) {
@@ -421,6 +553,141 @@ router.delete("/ideas/:ideaId", async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
+});
+
+router.get("/ideas/:ideaId/chat", async (req, res): Promise<void> => {
+  const params = ListIdeaChatMessagesParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [idea] = await db
+    .select({ id: ideasTable.id })
+    .from(ideasTable)
+    .where(eq(ideasTable.id, params.data.ideaId));
+  if (!idea) {
+    res.status(404).json({ error: "Idea not found" });
+    return;
+  }
+
+  const messages = await db
+    .select()
+    .from(ideaChatMessagesTable)
+    .where(eq(ideaChatMessagesTable.ideaId, idea.id))
+    .orderBy(asc(ideaChatMessagesTable.createdAt), asc(ideaChatMessagesTable.id));
+
+  res.json(
+    ListIdeaChatMessagesResponse.parse(messages.map(serializeChatMessage)),
+  );
+});
+
+router.delete("/ideas/:ideaId/chat", async (req, res): Promise<void> => {
+  const params = ClearIdeaChatParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [idea] = await db
+    .select({ id: ideasTable.id })
+    .from(ideasTable)
+    .where(eq(ideasTable.id, params.data.ideaId));
+  if (!idea) {
+    res.status(404).json({ error: "Idea not found" });
+    return;
+  }
+
+  await db
+    .delete(ideaChatMessagesTable)
+    .where(eq(ideaChatMessagesTable.ideaId, idea.id));
+  res.sendStatus(204);
+});
+
+router.post("/ideas/:ideaId/chat/messages", async (req, res): Promise<void> => {
+  const params = SendIdeaChatMessageParams.safeParse(req.params);
+  const body = SendIdeaChatMessageBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    const error = !params.success
+      ? params.error.message
+      : !body.success
+        ? body.error.message
+        : "Invalid request";
+    res.status(400).json({ error });
+    return;
+  }
+
+  const [idea] = await db
+    .select()
+    .from(ideasTable)
+    .where(eq(ideasTable.id, params.data.ideaId));
+  if (!idea) {
+    res.status(404).json({ error: "Idea not found" });
+    return;
+  }
+
+  try {
+    const history = await db
+      .select()
+      .from(ideaChatMessagesTable)
+      .where(eq(ideaChatMessagesTable.ideaId, idea.id))
+      .orderBy(desc(ideaChatMessagesTable.createdAt), desc(ideaChatMessagesTable.id))
+      .limit(20);
+    history.reverse();
+
+    const ideaContext = await buildIdeaContext(idea);
+    const response = await openai.chat.completions.create({
+      model: "gpt-5.6-luna",
+      max_completion_tokens: 4096,
+      messages: [
+        {
+          role: "system",
+          content:
+            `You are an expert thinking partner and editor helping the user develop one specific idea. Ground every answer in the supplied idea and attachment content. Help clarify, challenge, organize, summarize, expand, rewrite, or reshape it according to the user's request. Do not claim to have read content that is not included. Clearly flag uncertainty and avoid inventing facts. Reply in the same language as the user's latest message unless they request another language.\n\n${ideaContext}`,
+        },
+        ...history.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+        { role: "user" as const, content: body.data.content.trim() },
+      ],
+    });
+    const assistantContent = response.choices[0]?.message.content?.trim();
+    if (!assistantContent) {
+      res.status(502).json({ error: "The assistant did not return a response" });
+      return;
+    }
+
+    const [userMessage, assistantMessage] = await db.transaction(async (tx) => {
+      const [savedUserMessage] = await tx
+        .insert(ideaChatMessagesTable)
+        .values({
+          ideaId: idea.id,
+          role: "user",
+          content: body.data.content.trim(),
+        })
+        .returning();
+      const [savedAssistantMessage] = await tx
+        .insert(ideaChatMessagesTable)
+        .values({
+          ideaId: idea.id,
+          role: "assistant",
+          content: assistantContent,
+        })
+        .returning();
+      return [savedUserMessage, savedAssistantMessage];
+    });
+
+    res.status(201).json(
+      SendIdeaChatMessageResponse.parse({
+        userMessage: serializeChatMessage(userMessage),
+        assistantMessage: serializeChatMessage(assistantMessage),
+      }),
+    );
+  } catch (error) {
+    console.error("Idea chat failed", error);
+    res.status(502).json({ error: "The idea chat could not respond" });
+  }
 });
 
 router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
+import { IdeaChatDialog } from "@/components/idea-chat-dialog";
 
 interface IdeaListProps {
   subjectId: number;
@@ -513,6 +514,7 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           
           {!isEditing && (
             <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1 sm:mt-0">
+              <IdeaChatDialog ideaId={idea.id} />
               <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground" onClick={() => setIsEditing(true)}>
                 <Edit3 className="h-4 w-4" />
               </Button>

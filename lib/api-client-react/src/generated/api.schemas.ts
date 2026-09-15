@@ -125,6 +125,7 @@ export interface IdeaAttachment {
   mimeType?: string;
   note?: string;
   transcript?: string;
+  extractedText?: string;
 }
 
 export interface Idea {
@@ -154,6 +155,35 @@ export interface SubjectUpdate {
   intro?: string;
   /** @nullable */
   draft?: string | null;
+}
+
+export type IdeaChatMessageRole = typeof IdeaChatMessageRole[keyof typeof IdeaChatMessageRole];
+
+
+export const IdeaChatMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface IdeaChatMessage {
+  id: number;
+  ideaId: number;
+  role: IdeaChatMessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface IdeaChatMessageInput {
+  /**
+     * @minLength 1
+     * @maxLength 8000
+     */
+  content: string;
+}
+
+export interface IdeaChatExchange {
+  userMessage: IdeaChatMessage;
+  assistantMessage: IdeaChatMessage;
 }
 
 export type IdeaInputSource = typeof IdeaInputSource[keyof typeof IdeaInputSource];

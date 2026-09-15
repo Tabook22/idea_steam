@@ -19,3 +19,4 @@
 
 export * from "./subjects";
 export * from "./ideas";
+export * from "./idea-chat-messages";

@@ -24,6 +24,9 @@ import type {
   CompilationInput,
   HealthStatus,
   Idea,
+  IdeaChatExchange,
+  IdeaChatMessage,
+  IdeaChatMessageInput,
   IdeaInput,
   IdeaUpdate,
   NoteTranslation,
@@ -877,6 +880,246 @@ export const useDeleteIdea = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteIdeaMutationOptions(options));
+    }
+
+export const getListIdeaChatMessagesUrl = (ideaId: number,) => {
+
+
+
+
+  return `/api/ideas/${ideaId}/chat`
+}
+
+/**
+ * @summary List the persistent AI chat for an idea
+ */
+export const listIdeaChatMessages = async (ideaId: number, options?: Parameters<typeof customFetch>[1]): Promise<IdeaChatMessage[]> => {
+
+  return customFetch<IdeaChatMessage[]>(getListIdeaChatMessagesUrl(ideaId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListIdeaChatMessagesQueryKey = (ideaId: number,) => {
+    return [
+    `/api/ideas/${ideaId}/chat`
+    ] as const;
+    }
+
+
+export const getListIdeaChatMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listIdeaChatMessages>>, TError = ErrorType<unknown>>(ideaId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIdeaChatMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListIdeaChatMessagesQueryKey(ideaId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listIdeaChatMessages>>> = ({ signal }) => listIdeaChatMessages(ideaId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ideaId !== null && ideaId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listIdeaChatMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListIdeaChatMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listIdeaChatMessages>>>
+export type ListIdeaChatMessagesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the persistent AI chat for an idea
+ */
+
+export function useListIdeaChatMessages<TData = Awaited<ReturnType<typeof listIdeaChatMessages>>, TError = ErrorType<unknown>>(
+ ideaId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listIdeaChatMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListIdeaChatMessagesQueryOptions(ideaId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClearIdeaChatUrl = (ideaId: number,) => {
+
+
+
+
+  return `/api/ideas/${ideaId}/chat`
+}
+
+/**
+ * @summary Clear the AI chat for an idea
+ */
+export const clearIdeaChat = async (ideaId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getClearIdeaChatUrl(ideaId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getClearIdeaChatMutationKey = () => ['clearIdeaChat'] as const;
+
+export const getClearIdeaChatMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearIdeaChat>>, TError,ClearIdeaChatMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearIdeaChat>>, TError,ClearIdeaChatMutationVariables, TContext> => {
+
+const mutationKey = getClearIdeaChatMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearIdeaChat>>, ClearIdeaChatMutationVariables> = (props) => {
+          const {ideaId} = props ?? {};
+
+          return  clearIdeaChat(ideaId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearIdeaChatMutationResult = NonNullable<Awaited<ReturnType<typeof clearIdeaChat>>>
+
+    export type ClearIdeaChatMutationError = ErrorType<unknown>
+    export type ClearIdeaChatMutationVariables = {ideaId: number}
+
+    /**
+ * @summary Clear the AI chat for an idea
+ */
+export const useClearIdeaChat = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearIdeaChat>>, TError,ClearIdeaChatMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clearIdeaChat>>,
+        TError,
+        ClearIdeaChatMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClearIdeaChatMutationOptions(options));
+    }
+
+export const getSendIdeaChatMessageUrl = (ideaId: number,) => {
+
+
+
+
+  return `/api/ideas/${ideaId}/chat/messages`
+}
+
+/**
+ * @summary Send a message about an idea
+ */
+export const sendIdeaChatMessage = async (ideaId: number,
+    ideaChatMessageInput: IdeaChatMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<IdeaChatExchange> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<IdeaChatExchange>(getSendIdeaChatMessageUrl(ideaId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(ideaChatMessageInput)
+  }
+);}
+
+
+
+
+
+export const getSendIdeaChatMessageMutationKey = () => ['sendIdeaChatMessage'] as const;
+
+export const getSendIdeaChatMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendIdeaChatMessage>>, TError,SendIdeaChatMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendIdeaChatMessage>>, TError,SendIdeaChatMessageMutationVariables, TContext> => {
+
+const mutationKey = getSendIdeaChatMessageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendIdeaChatMessage>>, SendIdeaChatMessageMutationVariables> = (props) => {
+          const {ideaId,data} = props ?? {};
+
+          return  sendIdeaChatMessage(ideaId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendIdeaChatMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendIdeaChatMessage>>>
+    export type SendIdeaChatMessageMutationBody = BodyType<IdeaChatMessageInput>
+    export type SendIdeaChatMessageMutationError = ErrorType<unknown>
+    export type SendIdeaChatMessageMutationVariables = {ideaId: number;data: BodyType<IdeaChatMessageInput>}
+
+    /**
+ * @summary Send a message about an idea
+ */
+export const useSendIdeaChatMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendIdeaChatMessage>>, TError,SendIdeaChatMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendIdeaChatMessage>>,
+        TError,
+        SendIdeaChatMessageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendIdeaChatMessageMutationOptions(options));
     }
 
 export const getCompileSubjectUrl = (subjectId: number,) => {

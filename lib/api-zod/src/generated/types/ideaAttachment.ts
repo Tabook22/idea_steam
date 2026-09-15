@@ -16,4 +16,5 @@ export interface IdeaAttachment {
   mimeType?: string;
   note?: string;
   transcript?: string;
+  extractedText?: string;
 }
