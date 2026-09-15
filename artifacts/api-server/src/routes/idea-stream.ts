@@ -4,7 +4,6 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { getAuth } from "@clerk/express";
 import { asc, count, desc, eq } from "drizzle-orm";
 import {
   db,
@@ -216,14 +215,6 @@ async function buildIdeaContext(idea: typeof ideasTable.$inferSelect) {
 
   return `IDEA TEXT:\n${idea.content}\n\nATTACHMENT CONTENT:\n${attachmentContext || "No additional text is available."}`.slice(0, 120_000);
 }
-
-router.use((req, res, next) => {
-  if (!getAuth(req).userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  next();
-});
 
 router.post("/transcriptions", async (req, res): Promise<void> => {
   const body = TranscribeAudioBody.safeParse(req.body);

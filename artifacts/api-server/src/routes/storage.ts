@@ -4,9 +4,7 @@ import {
   RequestUploadUrlResponse,
 } from '@workspace/api-zod';
 import { Router, type IRouter, type Request, type Response } from 'express';
-import { getAuth } from '@clerk/express';
 
-import { ObjectPermission } from '../lib/objectAcl';
 import {
   ObjectNotFoundError,
   ObjectStorageService,
@@ -21,17 +19,11 @@ const objectStorageService = new ObjectStorageService();
  * Request a presigned URL for file upload.
  * The client sends JSON metadata (name, size, contentType) — NOT the file.
  * Then uploads the file directly to the returned presigned URL.
- * Requires auth middleware so public callers cannot mint write-capable URLs.
+ * The app is intentionally open, so callers can request write-capable URLs.
  */
 router.post(
   '/storage/uploads/request-url',
   async (req: Request, res: Response) => {
-    if (!getAuth(req).userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-
-      return;
-    }
-
     const parsed = RequestUploadUrlBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: 'Missing or invalid required fields' });
@@ -102,15 +94,10 @@ router.get(
  * GET /storage/objects/*
  *
  * Serve object entities from PRIVATE_OBJECT_DIR.
- * These are served from a separate path from /public-objects and can optionally
- * be protected with authentication or ACL checks based on the use case.
+ * These are served from a separate path from /public-objects.
  */
 router.get('/storage/objects/*path', async (req: Request, res: Response) => {
   try {
-    if (!getAuth(req).userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join('/') : raw;
     const objectPath = `/objects/${wildcardPath}`;

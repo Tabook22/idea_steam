@@ -1,2 +1,1 @@
 - [YouTube transcript extraction](youtube-transcript-extraction.md) — use yt-dlp captions; direct timed-text URLs can return empty bodies in this environment.
-- [Single-user tenancy](single-user-tenancy.md) — Clerk is an authentication gate for one personal workspace; ownership fields are intentionally absent until multi-user sharing is added.
