@@ -9,6 +9,7 @@
 export * from './compilation';
 export * from './compilationInput';
 export * from './compilationInputTone';
+export * from './compilationUpdate';
 export * from './healthStatus';
 export * from './idea';
 export * from './ideaAttachment';

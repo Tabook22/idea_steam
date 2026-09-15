@@ -22,6 +22,7 @@ import type {
 import type {
   Compilation,
   CompilationInput,
+  CompilationUpdate,
   HealthStatus,
   Idea,
   IdeaChatExchange,
@@ -1209,6 +1210,250 @@ export const useCompileSubject = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCompileSubjectMutationOptions(options));
+    }
+
+export const getListSubjectCompilationsUrl = (subjectId: number,) => {
+
+
+
+
+  return `/api/subjects/${subjectId}/compilations`
+}
+
+/**
+ * @summary List every compiled draft for a subject
+ */
+export const listSubjectCompilations = async (subjectId: number, options?: Parameters<typeof customFetch>[1]): Promise<Compilation[]> => {
+
+  return customFetch<Compilation[]>(getListSubjectCompilationsUrl(subjectId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSubjectCompilationsQueryKey = (subjectId: number,) => {
+    return [
+    `/api/subjects/${subjectId}/compilations`
+    ] as const;
+    }
+
+
+export const getListSubjectCompilationsQueryOptions = <TData = Awaited<ReturnType<typeof listSubjectCompilations>>, TError = ErrorType<unknown>>(subjectId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSubjectCompilations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSubjectCompilationsQueryKey(subjectId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSubjectCompilations>>> = ({ signal }) => listSubjectCompilations(subjectId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: subjectId !== null && subjectId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSubjectCompilations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSubjectCompilationsQueryResult = NonNullable<Awaited<ReturnType<typeof listSubjectCompilations>>>
+export type ListSubjectCompilationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List every compiled draft for a subject
+ */
+
+export function useListSubjectCompilations<TData = Awaited<ReturnType<typeof listSubjectCompilations>>, TError = ErrorType<unknown>>(
+ subjectId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSubjectCompilations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSubjectCompilationsQueryOptions(subjectId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSubjectCompilationUrl = (subjectId: number,
+    compilationId: number,) => {
+
+
+
+
+  return `/api/subjects/${subjectId}/compilations/${compilationId}`
+}
+
+/**
+ * @summary Update a compiled draft
+ */
+export const updateSubjectCompilation = async (subjectId: number,
+    compilationId: number,
+    compilationUpdate: CompilationUpdate, options?: Parameters<typeof customFetch>[1]): Promise<Compilation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Compilation>(getUpdateSubjectCompilationUrl(subjectId,compilationId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(compilationUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSubjectCompilationMutationKey = () => ['updateSubjectCompilation'] as const;
+
+export const getUpdateSubjectCompilationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSubjectCompilation>>, TError,UpdateSubjectCompilationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSubjectCompilation>>, TError,UpdateSubjectCompilationMutationVariables, TContext> => {
+
+const mutationKey = getUpdateSubjectCompilationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSubjectCompilation>>, UpdateSubjectCompilationMutationVariables> = (props) => {
+          const {subjectId,compilationId,data} = props ?? {};
+
+          return  updateSubjectCompilation(subjectId,compilationId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSubjectCompilationMutationResult = NonNullable<Awaited<ReturnType<typeof updateSubjectCompilation>>>
+    export type UpdateSubjectCompilationMutationBody = BodyType<CompilationUpdate>
+    export type UpdateSubjectCompilationMutationError = ErrorType<void>
+    export type UpdateSubjectCompilationMutationVariables = {subjectId: number;compilationId: number;data: BodyType<CompilationUpdate>}
+
+    /**
+ * @summary Update a compiled draft
+ */
+export const useUpdateSubjectCompilation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSubjectCompilation>>, TError,UpdateSubjectCompilationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSubjectCompilation>>,
+        TError,
+        UpdateSubjectCompilationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateSubjectCompilationMutationOptions(options));
+    }
+
+export const getDeleteSubjectCompilationUrl = (subjectId: number,
+    compilationId: number,) => {
+
+
+
+
+  return `/api/subjects/${subjectId}/compilations/${compilationId}`
+}
+
+/**
+ * @summary Delete a compiled draft
+ */
+export const deleteSubjectCompilation = async (subjectId: number,
+    compilationId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteSubjectCompilationUrl(subjectId,compilationId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSubjectCompilationMutationKey = () => ['deleteSubjectCompilation'] as const;
+
+export const getDeleteSubjectCompilationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSubjectCompilation>>, TError,DeleteSubjectCompilationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSubjectCompilation>>, TError,DeleteSubjectCompilationMutationVariables, TContext> => {
+
+const mutationKey = getDeleteSubjectCompilationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSubjectCompilation>>, DeleteSubjectCompilationMutationVariables> = (props) => {
+          const {subjectId,compilationId} = props ?? {};
+
+          return  deleteSubjectCompilation(subjectId,compilationId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSubjectCompilationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSubjectCompilation>>>
+
+    export type DeleteSubjectCompilationMutationError = ErrorType<unknown>
+    export type DeleteSubjectCompilationMutationVariables = {subjectId: number;compilationId: number}
+
+    /**
+ * @summary Delete a compiled draft
+ */
+export const useDeleteSubjectCompilation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSubjectCompilation>>, TError,DeleteSubjectCompilationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSubjectCompilation>>,
+        TError,
+        DeleteSubjectCompilationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteSubjectCompilationMutationOptions(options));
     }
 
 export const getTranscribeAudioUrl = () => {

@@ -306,7 +306,6 @@ export default function SubjectDetailPage() {
           <div className="lg:sticky lg:top-40 h-[calc(100vh-12rem)] min-h-[500px]">
             <CompilationView 
               subjectId={subjectId} 
-              draft={subjectDetail.draft}
               hasIdeas={(subjectDetail.ideas?.length || 0) > 0} 
             />
           </div>

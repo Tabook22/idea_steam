@@ -4,11 +4,12 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
 import {
   db,
   ideaChatMessagesTable,
   ideasTable,
+  subjectCompilationsTable,
   subjectsTable,
 } from "@workspace/db";
 import {
@@ -27,12 +28,18 @@ import {
   ListIdeasParams,
   ListIdeasResponse,
   ListSubjectsResponse,
+  ListSubjectCompilationsParams,
+  ListSubjectCompilationsResponse,
   UpdateIdeaBody,
   UpdateIdeaParams,
   UpdateIdeaResponse,
   UpdateSubjectBody,
   UpdateSubjectParams,
   UpdateSubjectResponse,
+  UpdateSubjectCompilationBody,
+  UpdateSubjectCompilationParams,
+  UpdateSubjectCompilationResponse,
+  DeleteSubjectCompilationParams,
   TranscribeAudioBody,
   TranscribeAudioResponse,
   TranslateNoteBody,
@@ -103,6 +110,16 @@ function serializeChatMessage(
   return {
     ...message,
     createdAt: message.createdAt.toISOString(),
+  };
+}
+
+function serializeCompilation(
+  compilation: typeof subjectCompilationsTable.$inferSelect,
+) {
+  return {
+    ...compilation,
+    createdAt: compilation.createdAt.toISOString(),
+    updatedAt: compilation.updatedAt.toISOString(),
   };
 }
 
@@ -449,17 +466,9 @@ router.patch("/subjects/:subjectId", async (req, res): Promise<void> => {
     return;
   }
 
-  const updateData = {
-    ...body.data,
-    ...(body.data.draft !== undefined
-      ? { draft: body.data.draft === null ? null : sanitizeStoredDraft(body.data.draft) }
-      : {}),
-    updatedAt: new Date(),
-  };
-
   const [subject] = await db
     .update(subjectsTable)
-    .set(updateData)
+    .set({ ...body.data, updatedAt: new Date() })
     .where(eq(subjectsTable.id, params.data.subjectId))
     .returning();
 
@@ -729,6 +738,143 @@ router.post("/ideas/:ideaId/chat/messages", async (req, res): Promise<void> => {
   }
 });
 
+router.get("/subjects/:subjectId/compilations", async (req, res): Promise<void> => {
+  const params = ListSubjectCompilationsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  let compilations = await db
+    .select()
+    .from(subjectCompilationsTable)
+    .where(eq(subjectCompilationsTable.subjectId, params.data.subjectId))
+    .orderBy(desc(subjectCompilationsTable.createdAt));
+
+  if (compilations.length > 0) {
+    await db
+      .update(subjectsTable)
+      .set({ draft: null })
+      .where(
+        and(
+          eq(subjectsTable.id, params.data.subjectId),
+          isNotNull(subjectsTable.draft),
+        ),
+      );
+  } else {
+    const imported = await db.transaction(async (transaction) => {
+      const [legacySubject] = await transaction
+        .select({
+          id: subjectsTable.id,
+          draft: subjectsTable.draft,
+          updatedAt: subjectsTable.updatedAt,
+        })
+        .from(subjectsTable)
+        .where(
+          and(
+            eq(subjectsTable.id, params.data.subjectId),
+            isNotNull(subjectsTable.draft),
+          ),
+        )
+        .for("update");
+
+      if (!legacySubject?.draft?.trim()) return null;
+
+      await transaction
+        .update(subjectsTable)
+        .set({ draft: null })
+        .where(eq(subjectsTable.id, legacySubject.id));
+
+      const [legacyCompilation] = await transaction
+        .insert(subjectCompilationsTable)
+        .values({
+          subjectId: legacySubject.id,
+          tone: "clear",
+          content: legacySubject.draft,
+          createdAt: legacySubject.updatedAt,
+          updatedAt: legacySubject.updatedAt,
+        })
+        .returning();
+      return legacyCompilation;
+    });
+
+    if (imported) compilations = [imported];
+  }
+
+  res.json(
+    ListSubjectCompilationsResponse.parse(compilations.map(serializeCompilation)),
+  );
+});
+
+router.patch(
+  "/subjects/:subjectId/compilations/:compilationId",
+  async (req, res): Promise<void> => {
+    const params = UpdateSubjectCompilationParams.safeParse(req.params);
+    const body = UpdateSubjectCompilationBody.safeParse(req.body);
+    if (!params.success || !body.success) {
+      res.status(400).json({
+        error: !params.success
+          ? params.error.message
+          : !body.success
+            ? body.error.message
+            : "Invalid request",
+      });
+      return;
+    }
+
+    const [compilation] = await db
+      .update(subjectCompilationsTable)
+      .set({
+        content: sanitizeStoredDraft(body.data.content),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(subjectCompilationsTable.id, params.data.compilationId),
+          eq(subjectCompilationsTable.subjectId, params.data.subjectId),
+        ),
+      )
+      .returning();
+
+    if (!compilation) {
+      res.status(404).json({ error: "Compiled draft not found" });
+      return;
+    }
+
+    res.json(
+      UpdateSubjectCompilationResponse.parse(serializeCompilation(compilation)),
+    );
+  },
+);
+
+router.delete(
+  "/subjects/:subjectId/compilations/:compilationId",
+  async (req, res): Promise<void> => {
+    const params = DeleteSubjectCompilationParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const [deleted] = await db
+      .delete(subjectCompilationsTable)
+      .where(
+        and(
+          eq(subjectCompilationsTable.id, params.data.compilationId),
+          eq(subjectCompilationsTable.subjectId, params.data.subjectId),
+        ),
+      )
+      .returning({ id: subjectCompilationsTable.id });
+
+    if (!deleted) {
+      res.status(404).json({ error: "Compiled draft not found" });
+      return;
+    }
+
+    res.status(204).end();
+  },
+);
+
 router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {
   const params = CompileSubjectParams.safeParse(req.params);
   const body = CompileSubjectBody.safeParse(req.body ?? {});
@@ -799,18 +945,17 @@ router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {
     return;
   }
 
-  await db
-    .update(subjectsTable)
-    .set({ draft, updatedAt: new Date() })
-    .where(eq(subjectsTable.id, subject.id));
+  const [compilation] = await db
+    .insert(subjectCompilationsTable)
+    .values({
+      subjectId: subject.id,
+      tone: requestedOutput,
+      content: draft,
+    })
+    .returning();
 
   res.json(
-    CompileSubjectResponse.parse({
-      subjectId: subject.id,
-      title: subject.title,
-      draft,
-      generatedAt: new Date().toISOString(),
-    }),
+    CompileSubjectResponse.parse(serializeCompilation(compilation)),
   );
 });
 

@@ -20,3 +20,4 @@
 export * from "./subjects";
 export * from "./ideas";
 export * from "./idea-chat-messages";
+export * from "./subject-compilations";

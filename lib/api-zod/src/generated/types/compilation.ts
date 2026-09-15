@@ -7,8 +7,10 @@
  */
 
 export interface Compilation {
+  id: number;
   subjectId: number;
-  title: string;
-  draft: string;
-  generatedAt: Date;
+  tone: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

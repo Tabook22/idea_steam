@@ -240,6 +240,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Compilation"
+  /subjects/{subjectId}/compilations:
+    get:
+      operationId: listSubjectCompilations
+      tags: [compilation]
+      summary: List every compiled draft for a subject
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+      responses:
+        "200":
+          description: Compiled drafts, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Compilation"
+  /subjects/{subjectId}/compilations/{compilationId}:
+    patch:
+      operationId: updateSubjectCompilation
+      tags: [compilation]
+      summary: Update a compiled draft
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+        - $ref: "#/components/parameters/CompilationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompilationUpdate"
+      responses:
+        "200":
+          description: Updated compiled draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Compilation"
+        "404":
+          description: Compiled draft not found
+    delete:
+      operationId: deleteSubjectCompilation
+      tags: [compilation]
+      summary: Delete a compiled draft
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+        - $ref: "#/components/parameters/CompilationId"
+      responses:
+        "204":
+          description: Deleted
   /transcriptions:
     post:
       operationId: transcribeAudio
@@ -350,6 +399,12 @@ components:
         type: integer
     IdeaId:
       name: ideaId
+      in: path
+      required: true
+      schema:
+        type: integer
+    CompilationId:
+      name: compilationId
       in: path
       required: true
       schema:
@@ -465,8 +520,6 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/Idea"
-            draft:
-              type: ["string", "null"]
     SubjectInput:
       type: object
       required: [title]
@@ -485,8 +538,6 @@ components:
           minLength: 1
         intro:
           type: string
-        draft:
-          type: ["string", "null"]
     IdeaAttachment:
       type: object
       required: [type, url, name]
@@ -607,15 +658,27 @@ components:
           default: clear
     Compilation:
       type: object
-      required: [subjectId, title, draft, generatedAt]
+      required: [id, subjectId, tone, content, createdAt, updatedAt]
       properties:
+        id:
+          type: integer
         subjectId:
           type: integer
-        title:
+        tone:
           type: string
-        draft:
+        content:
           type: string
-        generatedAt:
+        createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CompilationUpdate:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
 

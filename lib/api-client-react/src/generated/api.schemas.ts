@@ -137,11 +137,9 @@ export interface Idea {
   createdAt: string;
 }
 
-export type SubjectDetail = Subject & ({
+export type SubjectDetail = Subject & {
   ideas: Idea[];
-  /** @nullable */
-  draft?: string | null;
-});
+};
 
 export interface SubjectInput {
   /** @minLength 1 */
@@ -153,8 +151,6 @@ export interface SubjectUpdate {
   /** @minLength 1 */
   title?: string;
   intro?: string;
-  /** @nullable */
-  draft?: string | null;
 }
 
 export type IdeaChatMessageRole = typeof IdeaChatMessageRole[keyof typeof IdeaChatMessageRole];
@@ -236,9 +232,16 @@ export interface CompilationInput {
 }
 
 export interface Compilation {
+  id: number;
   subjectId: number;
-  title: string;
-  draft: string;
-  generatedAt: string;
+  tone: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompilationUpdate {
+  /** @minLength 1 */
+  content: string;
 }
 

@@ -86,8 +86,7 @@ export const GetSubjectResponse = zod.object({
   "extractedText": zod.string().optional()
 })),
   "createdAt": zod.coerce.date()
-})),
-  "draft": zod.string().nullish()
+}))
 }))
 
 
@@ -103,8 +102,7 @@ export const UpdateSubjectParams = zod.object({
 
 export const UpdateSubjectBody = zod.object({
   "title": zod.string().min(1).optional(),
-  "intro": zod.string().optional(),
-  "draft": zod.string().nullish()
+  "intro": zod.string().optional()
 })
 
 export const UpdateSubjectResponse = zod.object({
@@ -336,11 +334,67 @@ export const CompileSubjectBody = zod.object({
 })
 
 export const CompileSubjectResponse = zod.object({
+  "id": zod.number().int(),
   "subjectId": zod.number().int(),
-  "title": zod.string(),
-  "draft": zod.string(),
-  "generatedAt": zod.coerce.date()
+  "tone": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary List every compiled draft for a subject
+ */
+export const ListSubjectCompilationsParams = zod.object({
+  "subjectId": zod.coerce.number().int()
+})
+
+export const ListSubjectCompilationsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "subjectId": zod.number().int(),
+  "tone": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListSubjectCompilationsResponse = zod.array(ListSubjectCompilationsResponseItem)
+
+
+/**
+ * @summary Update a compiled draft
+ */
+export const UpdateSubjectCompilationParams = zod.object({
+  "subjectId": zod.coerce.number().int(),
+  "compilationId": zod.coerce.number().int()
+})
+
+
+
+
+export const UpdateSubjectCompilationBody = zod.object({
+  "content": zod.string().min(1)
+})
+
+export const UpdateSubjectCompilationResponse = zod.object({
+  "id": zod.number().int(),
+  "subjectId": zod.number().int(),
+  "tone": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a compiled draft
+ */
+export const DeleteSubjectCompilationParams = zod.object({
+  "subjectId": zod.coerce.number().int(),
+  "compilationId": zod.coerce.number().int()
+})
+
+export const DeleteSubjectCompilationResponse = zod.void()
 
 
 /**

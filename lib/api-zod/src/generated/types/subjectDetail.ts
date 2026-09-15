@@ -8,8 +8,6 @@
 import type { Idea } from './idea';
 import type { Subject } from './subject';
 
-export type SubjectDetail = Subject & ({
+export type SubjectDetail = Subject & {
   ideas: Idea[];
-  /** @nullable */
-  draft?: string | null;
-});
+};
