@@ -53,10 +53,50 @@ import {
   speechToText,
 } from "@workspace/integrations-openai-ai-server/audio";
 import { ObjectStorageService } from "../lib/objectStorage";
+import sanitizeHtml from "sanitize-html";
 
 const router: IRouter = Router();
 const execFileAsync = promisify(execFile);
 const objectStorageService = new ObjectStorageService();
+const RICH_TEXT_MARKER = "<!--idea-stream-rich-text-->";
+
+function sanitizeStoredDraft(value: string) {
+  if (!value.startsWith(RICH_TEXT_MARKER)) return value;
+  const safeHtml = sanitizeHtml(value.slice(RICH_TEXT_MARKER.length), {
+    allowedTags: [
+      "p", "br", "h1", "h2", "h3", "strong", "b", "em", "i", "u", "s",
+      "strike", "ul", "ol", "li", "blockquote", "a", "img", "span", "div", "font",
+    ],
+    allowedAttributes: {
+      "*": ["dir", "style"],
+      a: ["href", "target", "rel"],
+      img: ["src", "alt"],
+      font: ["face", "size", "color"],
+    },
+    allowedStyles: {
+      "*": {
+        "text-align": [/^(left|right|center|justify)$/],
+        color: [/^#[0-9a-f]{3,8}$/i, /^rgb\([\d\s,.%]+\)$/i],
+        "font-family": [/^[\w\s,'"-]+$/],
+        "font-size": [/^[\d.]+(px|pt|em|rem|%)$/],
+      },
+    },
+    allowedSchemes: ["http", "https"],
+    allowedSchemesByTag: { img: ["http", "https"] },
+    allowProtocolRelative: false,
+    transformTags: {
+      a: (_tagName, attribs) => ({
+        tagName: "a",
+        attribs: {
+          ...attribs,
+          target: "_blank",
+          rel: "noopener noreferrer",
+        },
+      }),
+    },
+  });
+  return `${RICH_TEXT_MARKER}${safeHtml}`;
+}
 
 function serializeChatMessage(
   message: typeof ideaChatMessagesTable.$inferSelect,
@@ -418,9 +458,17 @@ router.patch("/subjects/:subjectId", async (req, res): Promise<void> => {
     return;
   }
 
+  const updateData = {
+    ...body.data,
+    ...(body.data.draft !== undefined
+      ? { draft: body.data.draft === null ? null : sanitizeStoredDraft(body.data.draft) }
+      : {}),
+    updatedAt: new Date(),
+  };
+
   const [subject] = await db
     .update(subjectsTable)
-    .set({ ...body.data, updatedAt: new Date() })
+    .set(updateData)
     .where(eq(subjectsTable.id, params.data.subjectId))
     .returning();
 

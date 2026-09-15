@@ -10,7 +10,6 @@ import {
 } from "@workspace/api-client-react";
 
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -21,6 +20,11 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useLanguage } from "@/lib/i18n";
+import {
+  normalizeDraftHtml,
+  RichTextEditor,
+  sanitizeDraftHtml,
+} from "@/components/rich-text-editor";
 
 interface CompilationViewProps {
   subjectId: number;
@@ -232,25 +236,19 @@ export function CompilationView({ subjectId, draft, hasIdeas }: CompilationViewP
         )}
         
         {isEditing ? (
-          <Textarea
+          <RichTextEditor
             value={editDraft}
-            onChange={(e) => setEditDraft(e.target.value)}
-            className="flex-1 resize-none rounded-none border-0 focus-visible:ring-0 p-6 text-[1.05rem] font-serif leading-relaxed"
-            autoFocus
+            onChange={setEditDraft}
           />
         ) : (
           <div 
-            className="flex-1 overflow-auto p-6 prose prose-p:my-3 prose-headings:font-serif max-w-none prose-p:font-serif prose-p:leading-relaxed text-[1.05rem] text-foreground cursor-text"
+            className="rich-text-content flex-1 overflow-auto p-6 text-foreground cursor-text"
             onClick={handleStartEdit}
             title="Click to edit"
-          >
-            {draft?.split('\n').map((paragraph, i) => (
-              paragraph.startsWith('# ') ? <h1 key={i} className="text-2xl font-bold mt-6 mb-4">{paragraph.substring(2)}</h1> :
-              paragraph.startsWith('## ') ? <h2 key={i} className="text-xl font-bold mt-5 mb-3">{paragraph.substring(3)}</h2> :
-              paragraph.startsWith('### ') ? <h3 key={i} className="text-lg font-bold mt-4 mb-2">{paragraph.substring(4)}</h3> :
-              paragraph ? <p key={i}>{paragraph}</p> : <br key={i} />
-            ))}
-          </div>
+            dangerouslySetInnerHTML={{
+              __html: sanitizeDraftHtml(normalizeDraftHtml(draft || "")),
+            }}
+          />
         )}
       </CardContent>
     </Card>
