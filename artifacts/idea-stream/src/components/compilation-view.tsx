@@ -221,153 +221,51 @@ export function CompilationView({ subjectId, hasIdeas }: CompilationViewProps) {
   if (isLoading) {
     return (
       <Card className="h-full flex flex-col shadow-lg border-primary/30 bg-card overflow-hidden min-h-[500px] animate-pulse">
-         <div className="h-16 bg-muted/50 w-full" />
-         <div className="flex-1 bg-muted/20" />
+         <div className="h-16 bg-muted/50 border-b border-border/50 shrink-0" />
+         <div className="h-24 bg-muted/20 border-b border-border/50 shrink-0" />
+         <div className="flex-1 bg-muted/10" />
       </Card>
     );
   }
-
-  if (isCreatingNew || (!selectedCompilation && compilations.length === 0)) {
-    return (
-      <Card className="h-full border-primary/20 bg-card/80 shadow-md flex flex-col items-center justify-center p-6 md:p-8 text-center min-h-[400px]">
-        {compilations.length > 0 && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="absolute top-4 start-4 text-muted-foreground"
-            onClick={() => setIsCreatingNew(false)}
-          >
-            <X className="h-4 w-4 me-2" />
-            {t("cancel")}
-          </Button>
-        )}
-        
-        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 md:mb-6">
-          <Wand2 className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-        </div>
-        <CardTitle className="font-serif text-xl md:text-2xl mb-2">{t("shapeDraft")}</CardTitle>
-        <CardDescription className="text-sm md:text-base max-w-sm mx-auto mb-6 md:mb-8 font-serif leading-relaxed">
-          {t("shapeDraftDetail")}
-        </CardDescription>
-        
-        <div className="w-full max-w-xs space-y-4">
-          <Select 
-            value={tone} 
-            onValueChange={(val) => setTone(val as CompilationInputTone)}
-            disabled={!hasIdeas}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("selectTone")} />
-            </SelectTrigger>
-            <SelectContent>
-              {outputOptions.map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Button 
-            className="w-full" 
-            size="lg" 
-            onClick={handleCompile}
-            disabled={!hasIdeas || compileSubject.isPending}
-          >
-            <Sparkles className="me-2 h-4 w-4" />
-            {t("compileFragments")}
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  if (!selectedCompilation) return null;
 
   return (
     <Card className="h-full flex flex-col shadow-lg border-primary/30 bg-card overflow-hidden min-h-[500px]">
-      <CardHeader className="border-b border-border/50 bg-primary/5 py-3 md:py-4 px-4 md:px-6 flex flex-col items-stretch space-y-0 sticky top-0 z-10 gap-3">
-        <div className="flex items-center gap-2">
+      <CardHeader className="border-b border-border/50 bg-primary/5 py-3 md:py-4 px-4 md:px-6 flex flex-row items-center justify-between space-y-0 shrink-0 gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <BookText className="h-4 w-4 md:h-5 md:w-5 text-primary shrink-0" />
           <CardTitle className="font-serif text-lg md:text-xl truncate">{t("compiledDraft")}</CardTitle>
         </div>
-        
-        <div className="flex items-center gap-2 w-full">
-          {!isEditing && (
-            <Select 
-              value={selectedId?.toString()} 
-              onValueChange={(val) => {
-                if (val === 'new') setIsCreatingNew(true);
-                else {
-                  setSelectedId(parseInt(val, 10));
-                  setIsEditing(false);
-                }
-              }}
-              disabled={compileSubject.isPending}
-            >
-              <SelectTrigger className="h-9 flex-1 min-w-0 text-xs bg-background/70">
-                <SelectValue placeholder={t("compilations")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new" className="text-primary font-medium">
-                  <span className="flex items-center">
-                    <Plus className="h-3.5 w-3.5 me-1.5" /> {t("newCompilation")}
-                  </span>
-                </SelectItem>
-                {compilations.map(c => (
-                  <SelectItem key={c.id} value={c.id.toString()}>
-                    {getToneLabel(c.tone)} • {formatDateTime(c.createdAt, language)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          {isEditing ? (
-            <>
-              <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="h-8">
-                {t("cancel")}
-              </Button>
-              <Button size="sm" onClick={handleSaveEdit} disabled={updateCompilation.isPending} className="h-8">
-                <Save className="me-2 h-3.5 w-3.5" /> {t("save")}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleStartEdit}
-                className="h-8 border-primary/20 hover:bg-primary/10"
-                title={t("edit")}
-              >
-                <Edit2 className="h-3.5 w-3.5" />
-              </Button>
-              
-              <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" title={t("delete")}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="w-[95vw] sm:w-full max-w-md rounded-xl">
-                  <DialogHeader>
-                    <DialogTitle>{t("deleteCompilation")}</DialogTitle>
-                    <DialogDescription>
-                      {t("deleteCompilationConfirm")}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter className="gap-2 sm:gap-0 mt-4 sm:mt-0">
-                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsDeleteDialogOpen(false)}>{t("cancel")}</Button>
-                    <Button variant="destructive" className="w-full sm:w-auto" onClick={handleDelete} disabled={deleteCompilation.isPending}>
-                      {deleteCompilation.isPending ? t("deleting") : t("delete")}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </>
-          )}
-        </div>
+        <Button 
+          size="sm" 
+          variant={isCreatingNew ? "secondary" : "outline"}
+          onClick={() => { setIsCreatingNew(true); setSelectedId(null); setIsEditing(false); }}
+          className="h-8 border-primary/20 shrink-0"
+        >
+          <Plus className="h-3.5 w-3.5 me-1.5" /> {t("newCompilation")}
+        </Button>
       </CardHeader>
-      
+
+      {compilations.length > 0 && (
+        <div className="shrink-0 border-b border-border/50 bg-muted/5 max-h-[25vh] overflow-y-auto p-2 space-y-1">
+          {compilations.map(c => (
+            <button
+              key={c.id}
+              onClick={() => { setSelectedId(c.id); setIsCreatingNew(false); setIsEditing(false); }}
+              className={`w-full text-start flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2.5 rounded-md transition-all ${
+                selectedId === c.id && !isCreatingNew
+                  ? "bg-primary/10 border border-primary/20 shadow-sm"
+                  : "hover:bg-muted border border-transparent"
+              }`}
+            >
+              <span className="font-medium text-sm text-foreground">{getToneLabel(c.tone)}</span>
+              <span className="text-xs text-muted-foreground flex items-center">
+                <Clock className="h-3 w-3 me-1" /> {formatDateTime(c.createdAt, language)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <CardContent className="flex-1 p-0 overflow-hidden flex flex-col relative">
         {compileSubject.isPending && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
@@ -378,22 +276,116 @@ export function CompilationView({ subjectId, hasIdeas }: CompilationViewProps) {
             <p className="mt-4 font-serif font-medium text-primary">{t("weaving")}</p>
           </div>
         )}
-        
-        {isEditing ? (
-          <RichTextEditor
-            value={editDraft}
-            onChange={setEditDraft}
-          />
-        ) : (
-          <div 
-            className="rich-text-content flex-1 overflow-auto p-6 text-foreground cursor-text"
-            onClick={handleStartEdit}
-            title={t("clickToEdit")}
-            dangerouslySetInnerHTML={{
-              __html: sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")),
-            }}
-          />
-        )}
+
+        {isCreatingNew || (compilations.length === 0 && !selectedCompilation) ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-8 text-center overflow-y-auto min-h-[400px]">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 md:mb-6 shrink-0">
+              <Wand2 className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+            </div>
+            <h3 className="font-serif text-xl md:text-2xl mb-2 font-semibold tracking-tight shrink-0">{t("shapeDraft")}</h3>
+            <p className="text-sm md:text-base text-muted-foreground max-w-sm mx-auto mb-6 md:mb-8 font-serif leading-relaxed shrink-0">
+              {t("shapeDraftDetail")}
+            </p>
+            
+            <div className="w-full max-w-xs space-y-4 shrink-0">
+              <Select 
+                value={tone} 
+                onValueChange={(val) => setTone(val as CompilationInputTone)}
+                disabled={!hasIdeas}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("selectTone")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {outputOptions.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                className="w-full" 
+                size="lg" 
+                onClick={handleCompile}
+                disabled={!hasIdeas || compileSubject.isPending}
+              >
+                <Sparkles className="me-2 h-4 w-4" />
+                {t("compileFragments")}
+              </Button>
+            </div>
+          </div>
+        ) : selectedCompilation ? (
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            <div className="shrink-0 flex items-center justify-between p-2 md:px-4 border-b border-border/30 bg-muted/5 min-h-[48px]">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium bg-primary/10 text-primary px-2.5 py-1 rounded-full">
+                  {getToneLabel(selectedCompilation.tone)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {isEditing ? (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="h-8 text-xs">
+                      {t("cancel")}
+                    </Button>
+                    <Button size="sm" onClick={handleSaveEdit} disabled={updateCompilation.isPending} className="h-8 text-xs">
+                      <Save className="me-1.5 h-3.5 w-3.5" /> {t("save")}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleStartEdit}
+                      className="h-8 border-primary/20 hover:bg-primary/10 text-xs"
+                      title={t("edit")}
+                    >
+                      <Edit2 className="me-1.5 h-3.5 w-3.5" /> {t("edit")}
+                    </Button>
+                    
+                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs" title={t("delete")}>
+                          <Trash2 className="me-1.5 h-3.5 w-3.5" /> {t("delete")}
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[95vw] sm:w-full max-w-md rounded-xl">
+                        <DialogHeader>
+                          <DialogTitle>{t("deleteCompilation")}</DialogTitle>
+                          <DialogDescription>
+                            {t("deleteCompilationConfirm")}
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="gap-2 sm:gap-0 mt-4 sm:mt-0">
+                          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsDeleteDialogOpen(false)}>{t("cancel")}</Button>
+                          <Button variant="destructive" className="w-full sm:w-auto" onClick={handleDelete} disabled={deleteCompilation.isPending}>
+                            {deleteCompilation.isPending ? t("deleting") : t("delete")}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                )}
+              </div>
+            </div>
+            {isEditing ? (
+              <RichTextEditor
+                value={editDraft}
+                onChange={setEditDraft}
+              />
+            ) : (
+              <div 
+                className="rich-text-content flex-1 overflow-auto p-6 text-foreground cursor-text"
+                onClick={handleStartEdit}
+                title={t("edit")}
+                dangerouslySetInnerHTML={{
+                  __html: sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")),
+                }}
+              />
+            )}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
