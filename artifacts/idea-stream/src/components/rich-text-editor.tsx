@@ -71,7 +71,7 @@ export function normalizeDraftHtml(value: string) {
 export function sanitizeDraftHtml(value: string) {
   if (typeof window === "undefined") return value;
   const documentValue = new DOMParser().parseFromString(value, "text/html");
-  documentValue.querySelectorAll("*").forEach((element) => {
+  documentValue.body.querySelectorAll("*").forEach((element) => {
     const tag = element.tagName.toLowerCase();
     if (!ALLOWED_TAGS.has(tag)) {
       if (["script", "style", "iframe", "object", "embed", "form"].includes(tag)) {
