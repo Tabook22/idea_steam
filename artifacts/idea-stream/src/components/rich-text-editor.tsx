@@ -166,6 +166,9 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectionRef = useRef<Range | null>(null);
+  const historyRef = useRef<string[]>([]);
+  const historyIndexRef = useRef(-1);
+  const lastEmittedValueRef = useRef("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -173,14 +176,35 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
+    if (value === lastEmittedValueRef.current) return;
     const nextValue = sanitizeDraftHtml(normalizeDraftHtml(value));
-    if (editor.innerHTML !== nextValue) editor.innerHTML = nextValue;
+    if (editor.innerHTML !== nextValue) {
+      editor.innerHTML = nextValue;
+      historyRef.current = [nextValue];
+      historyIndexRef.current = 0;
+    } else if (historyIndexRef.current < 0) {
+      historyRef.current = [nextValue];
+      historyIndexRef.current = 0;
+    }
   }, [value]);
 
   const emitChange = () => {
-    if (editorRef.current) {
-      onChange(`${RICH_TEXT_MARKER}${sanitizeDraftHtml(editorRef.current.innerHTML)}`);
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const html = editor.innerHTML;
+    const current = historyRef.current[historyIndexRef.current];
+    if (html !== current) {
+      historyRef.current = historyRef.current.slice(
+        0,
+        historyIndexRef.current + 1,
+      );
+      historyRef.current.push(html);
+      historyIndexRef.current = historyRef.current.length - 1;
     }
+    const nextValue = `${RICH_TEXT_MARKER}${html}`;
+    lastEmittedValueRef.current = nextValue;
+    onChange(nextValue);
   };
 
   const rememberSelection = () => {
@@ -209,14 +233,75 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   };
 
   const setDirection = (direction: "ltr" | "rtl") => {
-    editorRef.current?.focus();
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
     restoreSelection();
     const selection = window.getSelection();
-    const node = selection?.anchorNode;
-    const element = node instanceof Element ? node : node?.parentElement;
-    const block = element?.closest("p, div, h1, h2, h3, blockquote, li") as HTMLElement | null;
-    (block || editorRef.current)?.setAttribute("dir", direction);
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const blockSelector = "p, div, h1, h2, h3, blockquote, li";
+
+    if (range && !range.collapsed) {
+      const selectedBlocks = Array.from(
+        editor.querySelectorAll<HTMLElement>(blockSelector),
+      ).filter((block) => {
+        try {
+          return range.intersectsNode(block);
+        } catch {
+          return false;
+        }
+      });
+
+      if (selectedBlocks.length > 0) {
+        selectedBlocks.forEach((block) => block.setAttribute("dir", direction));
+      } else {
+        editor.setAttribute("dir", direction);
+      }
+    } else {
+      const node = selection?.anchorNode;
+      const element = node instanceof Element ? node : node?.parentElement;
+      const block = element?.closest(blockSelector) as HTMLElement | null;
+      (block && editor.contains(block) ? block : editor).setAttribute(
+        "dir",
+        direction,
+      );
+    }
+
     emitChange();
+    rememberSelection();
+  };
+
+  const restoreHistory = (nextIndex: number) => {
+    const editor = editorRef.current;
+    const html = historyRef.current[nextIndex];
+    if (!editor || html === undefined) return;
+    historyIndexRef.current = nextIndex;
+    editor.innerHTML = html;
+    const nextValue = `${RICH_TEXT_MARKER}${html}`;
+    lastEmittedValueRef.current = nextValue;
+    onChange(nextValue);
+    editor.focus();
+  };
+
+  const undo = () => {
+    if (historyIndexRef.current > 0) {
+      restoreHistory(historyIndexRef.current - 1);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndexRef.current < historyRef.current.length - 1) {
+      restoreHistory(historyIndexRef.current + 1);
+    }
+  };
+
+  const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "z") {
+      return;
+    }
+    event.preventDefault();
+    if (event.shiftKey) redo();
+    else undo();
   };
 
   const addLink = () => {
@@ -320,8 +405,8 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         <ToolbarButton label={t("removeLink")} onClick={() => command("unlink")}><Unlink className="h-4 w-4" /></ToolbarButton>
         <ToolbarButton label={t("addImage")} onClick={() => imageInputRef.current?.click()}><ImagePlus className={`h-4 w-4 ${isUploadingImage ? "animate-pulse" : ""}`} /></ToolbarButton>
         <ToolbarButton label={t("clearFormatting")} onClick={() => command("removeFormat")}><RemoveFormatting className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton label={t("undo")} onClick={() => command("undo")}><Undo2 className="h-4 w-4" /></ToolbarButton>
-        <ToolbarButton label={t("redo")} onClick={() => command("redo")}><Redo2 className="h-4 w-4" /></ToolbarButton>
+        <ToolbarButton label={t("undo")} onClick={undo}><Undo2 className="h-4 w-4" /></ToolbarButton>
+        <ToolbarButton label={t("redo")} onClick={redo}><Redo2 className="h-4 w-4" /></ToolbarButton>
         <input
           ref={imageInputRef}
           type="file"
@@ -336,6 +421,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         suppressContentEditableWarning
         className="rich-text-content min-h-[380px] flex-1 overflow-auto bg-background p-5 outline-none sm:p-7"
         onInput={emitChange}
+        onKeyDown={handleEditorKeyDown}
         onKeyUp={rememberSelection}
         onMouseUp={rememberSelection}
         onFocus={rememberSelection}
