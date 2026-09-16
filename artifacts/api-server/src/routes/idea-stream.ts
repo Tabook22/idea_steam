@@ -4,6 +4,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import htmlToDocx from "html-to-docx";
 import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
 import {
   compilationImagesTable,
@@ -131,6 +132,67 @@ function extractStoredCompilationImages(content: string) {
     });
   }
   return Array.from(images.values());
+}
+
+function escapeDocumentText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function embedStoredDraftImages(html: string) {
+  const sources = Array.from(
+    new Set(
+      Array.from(html.matchAll(/<img\b[^>]*\bsrc=(?:"([^"]*)"|'([^']*)')[^>]*>/gi))
+        .map((match) => match[1] ?? match[2] ?? "")
+        .filter((source) => source.startsWith("/api/storage/objects/")),
+    ),
+  );
+
+  let embeddedHtml = html;
+  for (const source of sources) {
+    try {
+      const objectPath = source.slice("/api/storage".length);
+      const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+      const response = await objectStorageService.downloadObject(objectFile, 0);
+      const contentType = response.headers.get("content-type") || "image/png";
+      const bytes = Buffer.from(await response.arrayBuffer());
+      const dataUrl = `data:${contentType};base64,${bytes.toString("base64")}`;
+      embeddedHtml = embeddedHtml.split(source).join(dataUrl);
+    } catch {
+      embeddedHtml = embeddedHtml.replace(
+        new RegExp(`<img\\b[^>]*\\bsrc=(["'])${source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\1[^>]*>`, "gi"),
+        "",
+      );
+    }
+  }
+  return embeddedHtml;
+}
+
+function buildExportDocument(title: string, content: string) {
+  const html = content.startsWith(RICH_TEXT_MARKER)
+    ? content.slice(RICH_TEXT_MARKER.length)
+    : `<p>${escapeDocumentText(content).replace(/\n/g, "<br>")}</p>`;
+  const direction = /[\u0600-\u06ff]/.test(html) ? "rtl" : "ltr";
+  return `<!doctype html>
+<html lang="${direction === "rtl" ? "ar" : "en"}" dir="${direction}">
+<head>
+  <meta charset="utf-8">
+  <title>${escapeDocumentText(title)}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body { color: #173f34; background: white; font: 16px/1.7 Arial, Tahoma, sans-serif; }
+    h1, h2, h3 { line-height: 1.25; page-break-after: avoid; }
+    p, blockquote { orphans: 3; widows: 3; }
+    img { max-width: 100%; height: auto; }
+    a { color: #176b55; }
+    blockquote { margin: 20px 0; padding-inline-start: 16px; border-inline-start: 3px solid #8aab9e; }
+  </style>
+</head>
+<body>${html}</body>
+</html>`;
 }
 
 function serializeChatMessage(
@@ -834,6 +896,96 @@ router.get("/subjects/:subjectId/compilations", async (req, res): Promise<void> 
     ListSubjectCompilationsResponse.parse(compilations.map(serializeCompilation)),
   );
 });
+
+router.post(
+  "/subjects/:subjectId/compilations/:compilationId/download",
+  async (req, res): Promise<void> => {
+    const subjectId = Number(req.params.subjectId);
+    const compilationId = Number(req.params.compilationId);
+    const format = req.body?.format;
+    if (
+      !Number.isInteger(subjectId) ||
+      !Number.isInteger(compilationId) ||
+      (format !== "pdf" && format !== "docx")
+    ) {
+      res.status(400).json({ error: "Invalid download request" });
+      return;
+    }
+
+    const [record] = await db
+      .select({
+        compilation: subjectCompilationsTable,
+        subjectTitle: subjectsTable.title,
+      })
+      .from(subjectCompilationsTable)
+      .innerJoin(subjectsTable, eq(subjectCompilationsTable.subjectId, subjectsTable.id))
+      .where(
+        and(
+          eq(subjectCompilationsTable.id, compilationId),
+          eq(subjectCompilationsTable.subjectId, subjectId),
+        ),
+      );
+    if (!record) {
+      res.status(404).json({ error: "Compiled draft not found" });
+      return;
+    }
+
+    const safeContent = sanitizeStoredDraft(record.compilation.content);
+    const documentHtml = await embedStoredDraftImages(
+      buildExportDocument(record.subjectTitle, safeContent),
+    );
+    const safeBaseName =
+      record.subjectTitle.replace(/[^\p{L}\p{N}\s_-]/gu, "").trim().slice(0, 80) ||
+      "compiled-draft";
+
+    if (format === "docx") {
+      const file = await htmlToDocx(documentHtml, null, {
+        title: record.subjectTitle,
+        creator: "Idea Stream",
+        description: "Compiled draft",
+      });
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(`${safeBaseName}.docx`)}`,
+      );
+      res.send(file);
+      return;
+    }
+
+    const tempDirectory = await mkdtemp(join(tmpdir(), "idea-stream-export-"));
+    try {
+      const htmlPath = join(tempDirectory, "article.html");
+      const pdfPath = join(tempDirectory, "article.pdf");
+      await writeFile(htmlPath, documentHtml);
+      await execFileAsync(
+        "chromium",
+        [
+          "--headless",
+          "--no-sandbox",
+          "--disable-gpu",
+          "--print-to-pdf-no-header",
+          "--no-pdf-header-footer",
+          `--print-to-pdf=${pdfPath}`,
+          `file://${htmlPath}`,
+        ],
+        { timeout: 60_000 },
+      );
+      const file = await readFile(pdfPath);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename*=UTF-8''${encodeURIComponent(`${safeBaseName}.pdf`)}`,
+      );
+      res.send(file);
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
+  },
+);
 
 router.patch(
   "/subjects/:subjectId/compilations/:compilationId",

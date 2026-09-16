@@ -289,6 +289,34 @@ paths:
       responses:
         "204":
           description: Deleted
+  /subjects/{subjectId}/compilations/{compilationId}/download:
+    post:
+      operationId: downloadSubjectCompilation
+      tags: [compilation]
+      summary: Download a compiled draft as PDF or DOCX
+      parameters:
+        - $ref: "#/components/parameters/SubjectId"
+        - $ref: "#/components/parameters/CompilationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompilationDownloadInput"
+      responses:
+        "200":
+          description: Generated document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Compiled draft not found
   /transcriptions:
     post:
       operationId: transcribeAudio
@@ -687,4 +715,11 @@ components:
         content:
           type: string
           minLength: 1
+    CompilationDownloadInput:
+      type: object
+      required: [format]
+      properties:
+        format:
+          type: string
+          enum: [pdf, docx]
 

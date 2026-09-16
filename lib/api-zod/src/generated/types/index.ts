@@ -7,6 +7,8 @@
  */
 
 export * from './compilation';
+export * from './compilationDownloadInput';
+export * from './compilationDownloadInputFormat';
 export * from './compilationInput';
 export * from './compilationInputTone';
 export * from './compilationUpdate';

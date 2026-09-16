@@ -398,6 +398,21 @@ export const DeleteSubjectCompilationResponse = zod.void()
 
 
 /**
+ * @summary Download a compiled draft as PDF or DOCX
+ */
+export const DownloadSubjectCompilationParams = zod.object({
+  "subjectId": zod.coerce.number().int(),
+  "compilationId": zod.coerce.number().int()
+})
+
+export const DownloadSubjectCompilationBody = zod.object({
+  "format": zod.enum(['pdf', 'docx'])
+})
+
+export const DownloadSubjectCompilationResponse = zod.unknown()
+
+
+/**
  * @summary Convert a voice recording to text
  */
 

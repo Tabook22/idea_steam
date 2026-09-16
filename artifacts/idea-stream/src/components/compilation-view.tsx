@@ -45,23 +45,6 @@ interface CompilationViewProps {
   hasIdeas: boolean;
 }
 
-function escapeHtmlText(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function blobToDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
-}
-
 export function CompilationView({ subjectId, subjectTitle, hasIdeas }: CompilationViewProps) {
   const [tone, setTone] = useState<CompilationInputTone>(CompilationInputTone.clear);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -71,6 +54,7 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadFormat, setDownloadFormat] = useState<"pdf" | "docx">("pdf");
   const [isUploadingDraftImage, setIsUploadingDraftImage] = useState(false);
 
   const queryClient = useQueryClient();
@@ -211,55 +195,16 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
 
     setIsDownloading(true);
     try {
-      const safeContent = sanitizeDraftHtml(
-        normalizeDraftHtml(selectedCompilation.content || ""),
+      const response = await fetch(
+        `/api/subjects/${subjectId}/compilations/${selectedCompilation.id}/download`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ format: downloadFormat }),
+        },
       );
-      const contentDocument = new DOMParser().parseFromString(
-        safeContent,
-        "text/html",
-      );
-
-      await Promise.all(
-        Array.from(contentDocument.body.querySelectorAll("img")).map(
-          async (image) => {
-            const source = image.getAttribute("src");
-            if (!source) return;
-            try {
-              const absoluteSource = new URL(source, window.location.origin).href;
-              const response = await fetch(absoluteSource);
-              if (!response.ok) throw new Error("Image download failed");
-              image.setAttribute("src", await blobToDataUrl(await response.blob()));
-            } catch {
-              image.setAttribute(
-                "src",
-                new URL(source, window.location.origin).href,
-              );
-            }
-          },
-        ),
-      );
-
-      const direction = language === "ar" ? "rtl" : "ltr";
-      const htmlDocument = `<!doctype html>
-<html lang="${language}" dir="${direction}">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtmlText(subjectTitle)}</title>
-  <style>
-    body { max-width: 820px; margin: 48px auto; padding: 0 24px; color: #173f34; background: #fffefa; font: 18px/1.75 Georgia, "Times New Roman", serif; }
-    h1, h2, h3 { line-height: 1.25; }
-    img { display: block; max-width: 100%; height: auto; margin: 24px auto; }
-    a { color: #176b55; }
-    blockquote { margin: 24px 0; padding-inline-start: 20px; border-inline-start: 4px solid #8aab9e; color: #49665d; }
-  </style>
-</head>
-<body>
-${contentDocument.body.innerHTML}
-</body>
-</html>`;
-      const file = new Blob([htmlDocument], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(file);
+      if (!response.ok) throw new Error("Download failed");
+      const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       const safeName =
         subjectTitle
@@ -268,11 +213,11 @@ ${contentDocument.body.innerHTML}
           .replace(/\s+/g, " ")
           .slice(0, 80) || "compiled-draft";
       link.href = url;
-      link.download = `${safeName}-${getToneLabel(selectedCompilation.tone)}.html`;
+      link.download = `${safeName}-${getToneLabel(selectedCompilation.tone)}.${downloadFormat}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
       toast({ title: t("draftDownloaded") });
     } catch {
       toast({
@@ -434,6 +379,18 @@ ${contentDocument.body.innerHTML}
                   </>
                 ) : (
                   <>
+                    <Select
+                      value={downloadFormat}
+                      onValueChange={(value) => setDownloadFormat(value as "pdf" | "docx")}
+                    >
+                      <SelectTrigger className="h-8 w-24 bg-background text-xs" aria-label={t("downloadFormat")}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pdf">{t("pdfFormat")}</SelectItem>
+                        <SelectItem value="docx">{t("docxFormat")}</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button
                       variant="outline"
                       size="sm"

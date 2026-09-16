@@ -255,3 +255,15 @@ export interface CompilationUpdate {
   content: string;
 }
 
+export type CompilationDownloadInputFormat = typeof CompilationDownloadInputFormat[keyof typeof CompilationDownloadInputFormat];
+
+
+export const CompilationDownloadInputFormat = {
+  pdf: 'pdf',
+  docx: 'docx',
+} as const;
+
+export interface CompilationDownloadInput {
+  format: CompilationDownloadInputFormat;
+}
+
