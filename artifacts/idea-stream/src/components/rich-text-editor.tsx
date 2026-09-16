@@ -97,7 +97,11 @@ export function sanitizeDraftHtml(value: string) {
 
     if (element.hasAttribute("style")) {
       const allowedStyles = Array.from((element as HTMLElement).style)
-        .filter((property) => ["text-align", "color", "font-family", "font-size"].includes(property))
+        .filter((property) => [
+          "text-align", "color", "font-family", "font-size",
+          "width", "max-width", "height", "display", "float",
+          "margin-left", "margin-right",
+        ].includes(property))
         .map((property) => `${property}: ${(element as HTMLElement).style.getPropertyValue(property)}`)
         .join("; ");
       if (allowedStyles) element.setAttribute("style", allowedStyles);
@@ -170,6 +174,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const historyIndexRef = useRef(-1);
   const lastEmittedValueRef = useRef("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
   const { t } = useLanguage();
   const { toast } = useToast();
 
@@ -276,6 +281,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     const html = historyRef.current[nextIndex];
     if (!editor || html === undefined) return;
     historyIndexRef.current = nextIndex;
+    setSelectedImage(null);
     editor.innerHTML = html;
     const nextValue = `${RICH_TEXT_MARKER}${html}`;
     lastEmittedValueRef.current = nextValue;
@@ -348,6 +354,29 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     }
   };
 
+  const selectImage = (image: HTMLImageElement | null) => {
+    setSelectedImage(image);
+  };
+
+  const resizeSelectedImage = (width: string) => {
+    if (!selectedImage || !editorRef.current?.contains(selectedImage)) return;
+    selectedImage.style.width = width;
+    selectedImage.style.maxWidth = "100%";
+    selectedImage.style.height = "auto";
+    emitChange();
+  };
+
+  const alignSelectedImage = (alignment: "left" | "center" | "right") => {
+    if (!selectedImage || !editorRef.current?.contains(selectedImage)) return;
+    selectedImage.style.float = alignment === "center" ? "none" : alignment;
+    selectedImage.style.display = "block";
+    selectedImage.style.marginLeft =
+      alignment === "center" || alignment === "right" ? "auto" : "0px";
+    selectedImage.style.marginRight =
+      alignment === "center" || alignment === "left" ? "auto" : "0px";
+    emitChange();
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-nowrap items-center gap-1 overflow-x-auto border-b bg-muted/40 p-2" data-testid="rich-text-toolbar">
@@ -415,6 +444,25 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
           onChange={(event) => event.target.files?.[0] && uploadImage(event.target.files[0])}
         />
       </div>
+      {selectedImage && (
+        <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-2 py-1.5" data-testid="image-edit-toolbar">
+          <span className="px-1 text-xs font-medium text-muted-foreground">{t("imageSize")}</span>
+          <Select onValueChange={resizeSelectedImage}>
+            <SelectTrigger className="h-8 w-24 bg-background text-xs" aria-label={t("imageSize")}>
+              <SelectValue placeholder={t("imageSize")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="25%">25%</SelectItem>
+              <SelectItem value="50%">50%</SelectItem>
+              <SelectItem value="75%">75%</SelectItem>
+              <SelectItem value="100%">100%</SelectItem>
+            </SelectContent>
+          </Select>
+          <ToolbarButton label={t("alignImageLeft")} onClick={() => alignSelectedImage("left")}><AlignLeft className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton label={t("alignImageCenter")} onClick={() => alignSelectedImage("center")}><AlignCenter className="h-4 w-4" /></ToolbarButton>
+          <ToolbarButton label={t("alignImageRight")} onClick={() => alignSelectedImage("right")}><AlignRight className="h-4 w-4" /></ToolbarButton>
+        </div>
+      )}
       <div
         ref={editorRef}
         contentEditable
@@ -425,6 +473,10 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         onKeyUp={rememberSelection}
         onMouseUp={rememberSelection}
         onFocus={rememberSelection}
+        onClick={(event) => {
+          const target = event.target;
+          selectImage(target instanceof HTMLImageElement ? target : null);
+        }}
         data-testid="rich-text-editor"
       />
     </div>
