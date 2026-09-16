@@ -166,6 +166,52 @@
     /* Soft noise texture */
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
   }
+
+  html.app-rtl,
+  html.app-rtl body,
+  html.app-rtl #root {
+    direction: rtl;
+    text-align: right;
+  }
+
+  html.app-rtl :where(
+    main,
+    section,
+    article,
+    header,
+    footer,
+    nav,
+    aside,
+    form,
+    dialog,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    p,
+    label,
+    input,
+    textarea,
+    select,
+    [role="dialog"],
+    [role="menu"],
+    [role="listbox"],
+    [contenteditable="true"]
+  ):not([dir="ltr"]) {
+    direction: rtl;
+    text-align: right;
+  }
+
+  html.app-rtl :where(input, textarea)::placeholder {
+    text-align: right;
+  }
+
+  html.app-rtl [dir="ltr"] {
+    direction: ltr;
+    text-align: left;
+  }
   
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif tracking-tight text-foreground;

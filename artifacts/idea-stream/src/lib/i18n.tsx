@@ -490,6 +490,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("idea-stream-language", language);
     document.documentElement.lang = language;
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
+    document.documentElement.classList.toggle("app-rtl", language === "ar");
+    document.body.dir = language === "ar" ? "rtl" : "ltr";
+    document.body.dataset.language = language;
   }, [language]);
 
   const value = useMemo<LanguageContextValue>(
