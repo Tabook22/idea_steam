@@ -31,9 +31,13 @@ router.post(
     }
 
     try {
-      const { name, size, contentType } = parsed.data;
+      const { name, size, contentType, purpose, compilationId } = parsed.data;
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const folder =
+        purpose === 'compiled-draft-image' && compilationId
+          ? `compiled-drafts/${compilationId}`
+          : 'uploads';
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL(folder);
       const objectPath =
         objectStorageService.normalizeObjectEntityPath(uploadURL);
 

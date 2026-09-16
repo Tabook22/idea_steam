@@ -5,6 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type UploadUrlRequestPurpose = typeof UploadUrlRequestPurpose[keyof typeof UploadUrlRequestPurpose];
+
+
+export const UploadUrlRequestPurpose = {
+  'compiled-draft-image': 'compiled-draft-image',
+} as const;
+
 export interface UploadUrlRequest {
   /** @minLength 1 */
   name: string;
@@ -12,6 +19,9 @@ export interface UploadUrlRequest {
   size: number;
   /** @minLength 1 */
   contentType: string;
+  purpose?: UploadUrlRequestPurpose;
+  /** @minimum 1 */
+  compilationId?: number;
 }
 
 export interface UploadUrlResponse {

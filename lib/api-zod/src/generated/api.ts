@@ -452,11 +452,15 @@ export const ExtractYoutubeTranscriptResponse = zod.object({
 
 
 
+
 export const RequestUploadUrlBody = zod.object({
   "name": zod.string().min(1),
   "size": zod.number().int().min(1),
-  "contentType": zod.string().min(1)
+  "contentType": zod.string().min(1),
+  "purpose": zod.enum(['compiled-draft-image']).optional(),
+  "compilationId": zod.number().int().min(1).optional()
 })
+
 
 
 
@@ -469,7 +473,9 @@ export const RequestUploadUrlResponse = zod.object({
   "metadata": zod.object({
   "name": zod.string().min(1),
   "size": zod.number().int().min(1),
-  "contentType": zod.string().min(1)
+  "contentType": zod.string().min(1),
+  "purpose": zod.enum(['compiled-draft-image']).optional(),
+  "compilationId": zod.number().int().min(1).optional()
 }).optional()
 })
 

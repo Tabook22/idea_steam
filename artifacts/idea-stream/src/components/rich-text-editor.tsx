@@ -34,6 +34,8 @@ import { useToast } from "@/hooks/use-toast";
 interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
+  compilationId: number;
+  onUploadingChange?: (isUploading: boolean) => void;
 }
 
 const RICH_TEXT_MARKER = "<!--idea-stream-rich-text-->";
@@ -166,7 +168,12 @@ function ToolbarButton({
   );
 }
 
-export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
+export function RichTextEditor({
+  value,
+  onChange,
+  compilationId,
+  onUploadingChange,
+}: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectionRef = useRef<Range | null>(null);
@@ -324,6 +331,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const uploadImage = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     setIsUploadingImage(true);
+    onUploadingChange?.(true);
     try {
       const request = await fetch("/api/storage/uploads/request-url", {
         method: "POST",
@@ -333,6 +341,8 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
           name: file.name,
           size: file.size,
           contentType: file.type,
+          purpose: "compiled-draft-image",
+          compilationId,
         }),
       });
       if (!request.ok) throw new Error("Upload URL failed");
@@ -351,8 +361,25 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
       toast({ variant: "destructive", title: t("error"), description: t("editorImageFailed") });
     } finally {
       setIsUploadingImage(false);
+      onUploadingChange?.(false);
       if (imageInputRef.current) imageInputRef.current.value = "";
     }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    const imageFiles = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+
+    if (imageFiles.length === 0) return;
+    event.preventDefault();
+    rememberSelection();
+    void (async () => {
+      for (const imageFile of imageFiles) {
+        await uploadImage(imageFile);
+      }
+    })();
   };
 
   const selectImage = (image: HTMLImageElement | null) => {
@@ -498,6 +525,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
         suppressContentEditableWarning
         className="rich-text-content min-h-[380px] flex-1 overflow-auto bg-background p-5 outline-none sm:p-7"
         onInput={emitChange}
+        onPaste={handlePaste}
         onKeyDown={handleEditorKeyDown}
         onKeyUp={rememberSelection}
         onMouseUp={rememberSelection}

@@ -71,6 +71,7 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isUploadingDraftImage, setIsUploadingDraftImage] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -169,6 +170,7 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   };
 
   const handleSaveEdit = () => {
+    if (isUploadingDraftImage) return;
     if (!selectedCompilation || editDraft === selectedCompilation.content) {
       setIsEditing(false);
       return;
@@ -510,7 +512,14 @@ ${contentDocument.body.innerHTML}
           </DialogHeader>
 
           <div className="flex min-h-0 flex-1 flex-col">
-            <RichTextEditor value={editDraft} onChange={setEditDraft} />
+            <RichTextEditor
+              value={editDraft}
+              onChange={setEditDraft}
+              compilationId={selectedCompilation?.id ?? 0}
+              onUploadingChange={(isUploading) => {
+                setIsUploadingDraftImage(isUploading);
+              }}
+            />
           </div>
 
           <DialogFooter className="shrink-0 gap-2 border-t border-border/50 bg-background px-5 py-3 sm:gap-2">
@@ -522,7 +531,7 @@ ${contentDocument.body.innerHTML}
             </Button>
             <Button
               onClick={handleSaveEdit}
-              disabled={updateCompilation.isPending}
+              disabled={updateCompilation.isPending || isUploadingDraftImage}
             >
               <Save className="me-2 h-4 w-4" />
               {updateCompilation.isPending ? t("saving") : t("save")}

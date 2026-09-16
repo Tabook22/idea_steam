@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
 import {
+  compilationImagesTable,
   db,
   ideaChatMessagesTable,
   ideasTable,
@@ -85,6 +86,16 @@ function sanitizeStoredDraft(value: string) {
         color: [/^#[0-9a-f]{3,8}$/i, /^rgb\([\d\s,.%]+\)$/i],
         "font-family": [/^[\w\s,'"-]+$/],
         "font-size": [/^[\d.]+(px|pt|em|rem|%)$/],
+        width: [/^[\d.]+(px|em|rem|%)$/],
+        "max-width": [/^[\d.]+(px|em|rem|%)$/],
+        height: [/^(auto|[\d.]+(px|em|rem|%))$/],
+        display: [/^(block|inline|inline-block)$/],
+        float: [/^(left|right|none)$/],
+        margin: [/^[\d.]+(px|em|rem|%)(\s+(auto|[\d.]+(px|em|rem|%))){0,3}$/],
+        "margin-top": [/^(auto|[\d.]+(px|em|rem|%))$/],
+        "margin-right": [/^(auto|[\d.]+(px|em|rem|%))$/],
+        "margin-bottom": [/^(auto|[\d.]+(px|em|rem|%))$/],
+        "margin-left": [/^(auto|[\d.]+(px|em|rem|%))$/],
       },
     },
     allowedSchemes: ["http", "https"],
@@ -102,6 +113,24 @@ function sanitizeStoredDraft(value: string) {
     },
   });
   return `${RICH_TEXT_MARKER}${safeHtml}`;
+}
+
+function extractStoredCompilationImages(content: string) {
+  if (!content.startsWith(RICH_TEXT_MARKER)) return [];
+  const images = new Map<string, { objectPath: string; altText: string }>();
+  const imagePattern = /<img\b([^>]*)>/gi;
+  for (const match of content.matchAll(imagePattern)) {
+    const attributes = match[1] ?? "";
+    const src = attributes.match(/\bsrc=(?:"([^"]*)"|'([^']*)')/i);
+    const alt = attributes.match(/\balt=(?:"([^"]*)"|'([^']*)')/i);
+    const objectPath = src?.[1] ?? src?.[2] ?? "";
+    if (!objectPath.startsWith("/api/storage/objects/")) continue;
+    images.set(objectPath, {
+      objectPath,
+      altText: (alt?.[1] ?? alt?.[2] ?? "").slice(0, 500),
+    });
+  }
+  return Array.from(images.values());
 }
 
 function serializeChatMessage(
@@ -822,19 +851,39 @@ router.patch(
       return;
     }
 
-    const [compilation] = await db
-      .update(subjectCompilationsTable)
-      .set({
-        content: sanitizeStoredDraft(body.data.content),
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(subjectCompilationsTable.id, params.data.compilationId),
-          eq(subjectCompilationsTable.subjectId, params.data.subjectId),
-        ),
-      )
-      .returning();
+    const safeContent = sanitizeStoredDraft(body.data.content);
+    const images = extractStoredCompilationImages(safeContent);
+    const compilation = await db.transaction(async (transaction) => {
+      const [updated] = await transaction
+        .update(subjectCompilationsTable)
+        .set({
+          content: safeContent,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(subjectCompilationsTable.id, params.data.compilationId),
+            eq(subjectCompilationsTable.subjectId, params.data.subjectId),
+          ),
+        )
+        .returning();
+
+      if (!updated) return undefined;
+
+      await transaction
+        .delete(compilationImagesTable)
+        .where(eq(compilationImagesTable.compilationId, updated.id));
+      if (images.length > 0) {
+        await transaction.insert(compilationImagesTable).values(
+          images.map((image) => ({
+            compilationId: updated.id,
+            objectPath: image.objectPath,
+            altText: image.altText,
+          })),
+        );
+      }
+      return updated;
+    });
 
     if (!compilation) {
       res.status(404).json({ error: "Compiled draft not found" });

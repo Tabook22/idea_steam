@@ -423,6 +423,12 @@ components:
         contentType:
           type: string
           minLength: 1
+        purpose:
+          type: string
+          enum: [compiled-draft-image]
+        compilationId:
+          type: integer
+          minimum: 1
     UploadUrlResponse:
       type: object
       required: [uploadURL, objectPath]
