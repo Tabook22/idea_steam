@@ -100,7 +100,7 @@ export function sanitizeDraftHtml(value: string) {
         .filter((property) => [
           "text-align", "color", "font-family", "font-size",
           "width", "max-width", "height", "display", "float",
-          "margin-left", "margin-right",
+          "margin", "margin-top", "margin-bottom", "margin-left", "margin-right",
         ].includes(property))
         .map((property) => `${property}: ${(element as HTMLElement).style.getPropertyValue(property)}`)
         .join("; ");
@@ -175,6 +175,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const lastEmittedValueRef = useRef("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [customImageWidth, setCustomImageWidth] = useState(100);
   const { t } = useLanguage();
   const { toast } = useToast();
 
@@ -355,6 +356,10 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   };
 
   const selectImage = (image: HTMLImageElement | null) => {
+    if (image) {
+      const currentWidth = Number.parseInt(image.style.width, 10);
+      setCustomImageWidth(Number.isFinite(currentWidth) ? currentWidth : 100);
+    }
     setSelectedImage(image);
   };
 
@@ -363,6 +368,11 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     selectedImage.style.width = width;
     selectedImage.style.maxWidth = "100%";
     selectedImage.style.height = "auto";
+    if (!selectedImage.style.marginLeft && !selectedImage.style.marginRight) {
+      selectedImage.style.margin = "5px";
+    }
+    const numericWidth = Number.parseInt(width, 10);
+    if (Number.isFinite(numericWidth)) setCustomImageWidth(numericWidth);
     emitChange();
   };
 
@@ -370,10 +380,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     if (!selectedImage || !editorRef.current?.contains(selectedImage)) return;
     selectedImage.style.float = alignment === "center" ? "none" : alignment;
     selectedImage.style.display = "block";
-    selectedImage.style.marginLeft =
-      alignment === "center" || alignment === "right" ? "auto" : "0px";
-    selectedImage.style.marginRight =
-      alignment === "center" || alignment === "left" ? "auto" : "0px";
+    selectedImage.style.margin = alignment === "center" ? "5px auto" : "5px";
     emitChange();
   };
 
@@ -458,6 +465,28 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
               <SelectItem value="100%">100%</SelectItem>
             </SelectContent>
           </Select>
+          <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span>{t("customImageWidth")}</span>
+            <input
+              type="number"
+              min={5}
+              max={100}
+              value={customImageWidth}
+              onChange={(event) => setCustomImageWidth(Math.min(100, Math.max(5, Number(event.target.value))))}
+              className="h-8 w-16 rounded-md border bg-background px-2 text-foreground"
+              aria-label={t("customImageWidth")}
+            />
+            <span>%</span>
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => resizeSelectedImage(`${customImageWidth}%`)}
+          >
+            {t("applyImageSize")}
+          </Button>
           <ToolbarButton label={t("alignImageLeft")} onClick={() => alignSelectedImage("left")}><AlignLeft className="h-4 w-4" /></ToolbarButton>
           <ToolbarButton label={t("alignImageCenter")} onClick={() => alignSelectedImage("center")}><AlignCenter className="h-4 w-4" /></ToolbarButton>
           <ToolbarButton label={t("alignImageRight")} onClick={() => alignSelectedImage("right")}><AlignRight className="h-4 w-4" /></ToolbarButton>
