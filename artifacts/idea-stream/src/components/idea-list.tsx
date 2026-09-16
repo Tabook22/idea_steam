@@ -78,7 +78,15 @@ function AttachmentCard({
   const { toast } = useToast();
   const { t } = useLanguage();
   const youtubeId = attachment.type === "link" ? getYoutubeId(attachment.url) : null;
-  const label = youtubeId ? "YouTube" : attachment.type;
+  const attachmentLabels = {
+    image: t("attachmentImage"),
+    video: t("attachmentVideo"),
+    audio: t("attachmentAudio"),
+    pdf: t("attachmentPdf"),
+    document: t("attachmentDocument"),
+    link: t("attachmentLink"),
+  };
+  const label = youtubeId ? "YouTube" : attachmentLabels[attachment.type];
   const canPreviewDocument = attachment.type === "pdf" || attachment.type === "document";
   const icon = attachment.type === "audio" ? <FileAudio className="h-7 w-7" /> :
     attachment.type === "pdf" ? <FileType className="h-7 w-7" /> :
