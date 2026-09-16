@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Wand2, Plus, Save, Sparkles, BookText, Edit2, Trash2, Clock, X } from "lucide-react";
+import { Wand2, Plus, Save, Sparkles, BookText, Edit2, Trash2, Clock, Download } from "lucide-react";
 
 import {
   Compilation,
@@ -41,10 +41,28 @@ import {
 
 interface CompilationViewProps {
   subjectId: number;
+  subjectTitle: string;
   hasIdeas: boolean;
 }
 
-export function CompilationView({ subjectId, hasIdeas }: CompilationViewProps) {
+function escapeHtmlText(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+export function CompilationView({ subjectId, subjectTitle, hasIdeas }: CompilationViewProps) {
   const [tone, setTone] = useState<CompilationInputTone>(CompilationInputTone.clear);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   
@@ -52,6 +70,7 @@ export function CompilationView({ subjectId, hasIdeas }: CompilationViewProps) {
   const [editDraft, setEditDraft] = useState("");
   
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -183,6 +202,85 @@ export function CompilationView({ subjectId, hasIdeas }: CompilationViewProps) {
     if (!selectedCompilation) return;
     setEditDraft(selectedCompilation.content);
     setIsEditing(true);
+  };
+
+  const handleDownload = async () => {
+    if (!selectedCompilation) return;
+
+    setIsDownloading(true);
+    try {
+      const safeContent = sanitizeDraftHtml(
+        normalizeDraftHtml(selectedCompilation.content || ""),
+      );
+      const contentDocument = new DOMParser().parseFromString(
+        safeContent,
+        "text/html",
+      );
+
+      await Promise.all(
+        Array.from(contentDocument.body.querySelectorAll("img")).map(
+          async (image) => {
+            const source = image.getAttribute("src");
+            if (!source) return;
+            try {
+              const absoluteSource = new URL(source, window.location.origin).href;
+              const response = await fetch(absoluteSource);
+              if (!response.ok) throw new Error("Image download failed");
+              image.setAttribute("src", await blobToDataUrl(await response.blob()));
+            } catch {
+              image.setAttribute(
+                "src",
+                new URL(source, window.location.origin).href,
+              );
+            }
+          },
+        ),
+      );
+
+      const direction = language === "ar" ? "rtl" : "ltr";
+      const htmlDocument = `<!doctype html>
+<html lang="${language}" dir="${direction}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtmlText(subjectTitle)}</title>
+  <style>
+    body { max-width: 820px; margin: 48px auto; padding: 0 24px; color: #173f34; background: #fffefa; font: 18px/1.75 Georgia, "Times New Roman", serif; }
+    h1, h2, h3 { line-height: 1.25; }
+    img { display: block; max-width: 100%; height: auto; margin: 24px auto; }
+    a { color: #176b55; }
+    blockquote { margin: 24px 0; padding-inline-start: 20px; border-inline-start: 4px solid #8aab9e; color: #49665d; }
+  </style>
+</head>
+<body>
+${contentDocument.body.innerHTML}
+</body>
+</html>`;
+      const file = new Blob([htmlDocument], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      const safeName =
+        subjectTitle
+          .trim()
+          .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+          .replace(/\s+/g, " ")
+          .slice(0, 80) || "compiled-draft";
+      link.href = url;
+      link.download = `${safeName}-${getToneLabel(selectedCompilation.tone)}.html`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: t("draftDownloaded") });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: t("error"),
+        description: t("draftDownloadFailed"),
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleDelete = () => {
@@ -334,6 +432,17 @@ export function CompilationView({ subjectId, hasIdeas }: CompilationViewProps) {
                   </>
                 ) : (
                   <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownload}
+                      disabled={isDownloading}
+                      className="h-8 border-primary/20 hover:bg-primary/10 text-xs"
+                      title={t("downloadDraft")}
+                    >
+                      <Download className="me-1.5 h-3.5 w-3.5" />
+                      {isDownloading ? t("downloading") : t("download")}
+                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm" 

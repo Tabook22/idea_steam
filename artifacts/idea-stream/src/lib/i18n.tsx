@@ -217,6 +217,11 @@ const messages = {
     deleteCompilationFailed: "Failed to delete compilation.",
     newCompilation: "New compilation",
     clickToEdit: "Click to edit",
+    download: "Download",
+    downloading: "Downloading...",
+    downloadDraft: "Download compiled draft",
+    draftDownloaded: "Draft downloaded",
+    draftDownloadFailed: "The compiled draft could not be downloaded.",
   },
   ar: {
     shapeThoughts: "شكّل أفكارك.",
@@ -432,6 +437,11 @@ const messages = {
     deleteCompilationFailed: "فشل حذف المسودة.",
     newCompilation: "مسودة جديدة",
     clickToEdit: "انقر للتعديل",
+    download: "تنزيل",
+    downloading: "جارٍ التنزيل...",
+    downloadDraft: "تنزيل المسودة المجمّعة",
+    draftDownloaded: "تم تنزيل المسودة",
+    draftDownloadFailed: "تعذر تنزيل المسودة المجمّعة.",
   },
 } as const;
 
