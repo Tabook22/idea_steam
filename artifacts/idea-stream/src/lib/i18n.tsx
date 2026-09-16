@@ -222,6 +222,8 @@ const messages = {
     downloadDraft: "Download compiled draft",
     draftDownloaded: "Draft downloaded",
     draftDownloadFailed: "The compiled draft could not be downloaded.",
+    openLargeEditor: "Open in the large editor",
+    editCompiledDraft: "Edit compiled draft",
   },
   ar: {
     shapeThoughts: "شكّل أفكارك.",
@@ -442,6 +444,8 @@ const messages = {
     downloadDraft: "تنزيل المسودة المجمّعة",
     draftDownloaded: "تم تنزيل المسودة",
     draftDownloadFailed: "تعذر تنزيل المسودة المجمّعة.",
+    openLargeEditor: "فتح في المحرر الكبير",
+    editCompiledDraft: "تعديل المسودة المجمّعة",
   },
 } as const;
 

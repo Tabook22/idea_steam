@@ -478,24 +478,58 @@ ${contentDocument.body.innerHTML}
                 )}
               </div>
             </div>
-            {isEditing ? (
-              <RichTextEditor
-                value={editDraft}
-                onChange={setEditDraft}
-              />
-            ) : (
-              <div 
-                className="rich-text-content flex-1 overflow-auto p-6 text-foreground cursor-text"
-                onClick={handleStartEdit}
-                title={t("edit")}
-                dangerouslySetInnerHTML={{
-                  __html: sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")),
-                }}
-              />
-            )}
+            <div 
+              className="rich-text-content flex-1 overflow-auto p-6 text-foreground cursor-text"
+              onClick={handleStartEdit}
+              title={t("openLargeEditor")}
+              dangerouslySetInnerHTML={{
+                __html: sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")),
+              }}
+            />
           </div>
         ) : null}
       </CardContent>
+
+      <Dialog
+        open={isEditing}
+        onOpenChange={(open) => {
+          if (open) handleStartEdit();
+          else setIsEditing(false);
+        }}
+      >
+        <DialogContent className="flex h-[80vh] min-h-[420px] w-[80vw] min-w-[320px] max-w-none resize flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+          <DialogHeader className="shrink-0 border-b border-border/50 bg-primary/5 px-5 py-4 pe-12">
+            <DialogTitle className="font-serif text-xl">
+              {t("editCompiledDraft")}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedCompilation
+                ? `${getToneLabel(selectedCompilation.tone)} • ${formatDateTime(selectedCompilation.createdAt, language)}`
+                : t("compiledDraft")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex min-h-0 flex-1 flex-col">
+            <RichTextEditor value={editDraft} onChange={setEditDraft} />
+          </div>
+
+          <DialogFooter className="shrink-0 gap-2 border-t border-border/50 bg-background px-5 py-3 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditing(false)}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={updateCompilation.isPending}
+            >
+              <Save className="me-2 h-4 w-4" />
+              {updateCompilation.isPending ? t("saving") : t("save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
