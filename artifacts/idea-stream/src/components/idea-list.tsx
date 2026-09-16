@@ -430,6 +430,11 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
   const updateIdea = useUpdateIdea();
   const deleteIdea = useDeleteIdea();
 
+  const handleStartEditing = () => {
+    setEditContent(idea.content);
+    setIsEditing(true);
+  };
+
   const handleSave = () => {
     if (!editContent.trim() || editContent === idea.content) {
       setIsEditing(false);
@@ -515,7 +520,7 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           {!isEditing && (
             <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1 sm:mt-0">
               <IdeaChatDialog ideaId={idea.id} />
-              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground" onClick={() => setIsEditing(true)}>
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground" onClick={handleStartEditing} title={t("editNote")}>
                 <Edit3 className="h-4 w-4" />
               </Button>
               
@@ -579,18 +584,30 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
                 paragraph ? <p key={i} className="mb-2 last:mb-0">{paragraph}</p> : <br key={i} />
               ))}
             </div>
-            {(idea.content.length > 220 || idea.content.split("\n").length > 4) && (
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {(idea.content.length > 220 || idea.content.split("\n").length > 4) && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs text-primary"
+                  onClick={() => setIsContentExpanded((value) => !value)}
+                >
+                  {isContentExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
+                  {isContentExpanded ? t("collapseDetails") : t("expandDetails")}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="mt-2 h-8 px-2 text-xs text-primary"
-                onClick={() => setIsContentExpanded((value) => !value)}
+                className="h-8 px-2 text-xs text-primary"
+                onClick={handleStartEditing}
               >
-                {isContentExpanded ? <ChevronUp className="me-1 h-3.5 w-3.5" /> : <ChevronDown className="me-1 h-3.5 w-3.5" />}
-                {isContentExpanded ? t("collapseDetails") : t("expandDetails")}
+                <Edit3 className="me-1 h-3.5 w-3.5" />
+                {t("editNote")}
               </Button>
-            )}
+            </div>
           </div>
         )}
       </div>
