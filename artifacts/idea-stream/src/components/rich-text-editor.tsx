@@ -100,7 +100,7 @@ export function sanitizeDraftHtml(value: string) {
     if (element.hasAttribute("style")) {
       const allowedStyles = Array.from((element as HTMLElement).style)
         .filter((property) => [
-          "text-align", "color", "background-color", "border-radius", "padding", "font-family", "font-size",
+          "text-align", "color", "background-color", "border-radius", "padding", "font-family", "font-size", "font-weight",
           "width", "max-width", "height", "display", "float",
           "margin", "margin-top", "margin-bottom", "margin-left", "margin-right",
         ].includes(property))

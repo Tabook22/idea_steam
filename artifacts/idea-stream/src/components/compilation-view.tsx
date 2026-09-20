@@ -1,6 +1,25 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Wand2, Plus, Save, Sparkles, BookText, Edit2, Trash2, Clock, Download, BookOpen, Highlighter, StickyNote, X } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  BookOpen,
+  BookText,
+  Clock,
+  Download,
+  Edit2,
+  Highlighter,
+  Palette,
+  Plus,
+  Save,
+  Sparkles,
+  StickyNote,
+  Trash2,
+  Wand2,
+  X,
+} from "lucide-react";
 
 import {
   Compilation,
@@ -273,6 +292,68 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
     } catch {
       toast({ variant: "destructive", title: t("selectTextToAnnotate") });
     }
+  };
+
+  const persistReaderHtml = () => {
+    if (!readerContentRef.current) return;
+    const html = readerContentRef.current.innerHTML;
+    setReaderHtml(html);
+    saveReaderAnnotations(html, readerNotes);
+  };
+
+  const formatReaderSelection = (styles: Partial<CSSStyleDeclaration>) => {
+    const range = readerSelectionRange.current;
+    if (!range || range.collapsed || !readerContentRef.current) {
+      toast({ title: t("selectTextToAnnotate") });
+      return;
+    }
+    const span = document.createElement("span");
+    Object.assign(span.style, styles);
+    try {
+      span.appendChild(range.extractContents());
+      range.insertNode(span);
+      persistReaderHtml();
+      window.getSelection()?.removeAllRanges();
+      readerSelectionRange.current = null;
+    } catch {
+      toast({ variant: "destructive", title: t("selectTextToAnnotate") });
+    }
+  };
+
+  const alignReaderSelection = (alignment: "left" | "center" | "right") => {
+    const range = readerSelectionRange.current;
+    const reader = readerContentRef.current;
+    if (!range || range.collapsed || !reader) {
+      toast({ title: t("selectTextToAnnotate") });
+      return;
+    }
+
+    const blockSelector = "p, h1, h2, h3, blockquote, li, div";
+    const selectedBlocks = Array.from(reader.querySelectorAll<HTMLElement>(blockSelector))
+      .filter((block) => {
+        try {
+          return range.intersectsNode(block);
+        } catch {
+          return false;
+        }
+      })
+      .filter((block) => !block.querySelector(blockSelector));
+
+    if (selectedBlocks.length === 0) {
+      const container =
+        range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+          ? range.commonAncestorContainer as Element
+          : range.commonAncestorContainer.parentElement;
+      const block = container?.closest<HTMLElement>(blockSelector);
+      if (block && reader.contains(block)) selectedBlocks.push(block);
+    }
+
+    selectedBlocks.forEach((block) => {
+      block.style.textAlign = alignment;
+    });
+    persistReaderHtml();
+    window.getSelection()?.removeAllRanges();
+    readerSelectionRange.current = null;
   };
 
   const startReaderNote = () => {
@@ -705,6 +786,59 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                 <StickyNote className="me-1.5 h-4 w-4" />
                 {t("addStickyNote")}
               </Button>
+              <div className="mx-1 h-6 w-px bg-border" />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                title={t("bold")}
+                aria-label={t("bold")}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => formatReaderSelection({ fontWeight: "700" })}
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center rounded-md border bg-background">
+                {[
+                  [AlignLeft, "left", t("alignLeft")],
+                  [AlignCenter, "center", t("alignCenter")],
+                  [AlignRight, "right", t("alignRight")],
+                ].map(([Icon, alignment, label]) => (
+                  <button
+                    key={String(alignment)}
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title={String(label)}
+                    aria-label={String(label)}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => alignReaderSelection(alignment as "left" | "center" | "right")}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+              <span className="ms-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <Palette className="h-4 w-4" />
+                {t("textColor")}
+              </span>
+              {[
+                ["#111827", t("blackColor")],
+                ["#dc2626", t("redColor")],
+                ["#2563eb", t("blueColor")],
+                ["#7c3aed", t("purpleColor")],
+              ].map(([color, label]) => (
+                <button
+                  key={color}
+                  type="button"
+                  className="h-6 w-6 rounded-full border border-border shadow-sm transition-transform hover:scale-110"
+                  style={{ backgroundColor: color }}
+                  aria-label={label}
+                  title={label}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => formatReaderSelection({ color })}
+                />
+              ))}
               <Button
                 type="button"
                 variant={showReaderNotes ? "secondary" : "ghost"}
