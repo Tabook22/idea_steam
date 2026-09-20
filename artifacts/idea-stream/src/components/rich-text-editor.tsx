@@ -41,7 +41,7 @@ interface RichTextEditorProps {
 const RICH_TEXT_MARKER = "<!--idea-stream-rich-text-->";
 const ALLOWED_TAGS = new Set([
   "p", "br", "h1", "h2", "h3", "strong", "b", "em", "i", "u", "s",
-  "strike", "ul", "ol", "li", "blockquote", "a", "img", "span", "div", "font",
+  "strike", "ul", "ol", "li", "blockquote", "a", "img", "span", "div", "font", "mark",
 ]);
 
 function escapeHtml(value: string) {
@@ -100,7 +100,7 @@ export function sanitizeDraftHtml(value: string) {
     if (element.hasAttribute("style")) {
       const allowedStyles = Array.from((element as HTMLElement).style)
         .filter((property) => [
-          "text-align", "color", "font-family", "font-size",
+          "text-align", "color", "background-color", "border-radius", "padding", "font-family", "font-size",
           "width", "max-width", "height", "display", "float",
           "margin", "margin-top", "margin-bottom", "margin-left", "margin-right",
         ].includes(property))

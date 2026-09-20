@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Wand2, Plus, Save, Sparkles, BookText, Edit2, Trash2, Clock, Download, BookOpen } from "lucide-react";
+import { Wand2, Plus, Save, Sparkles, BookText, Edit2, Trash2, Clock, Download, BookOpen, Highlighter, StickyNote, X } from "lucide-react";
 
 import {
   Compilation,
@@ -45,6 +45,13 @@ interface CompilationViewProps {
   hasIdeas: boolean;
 }
 
+type ReaderNote = {
+  id: string;
+  quote: string;
+  text: string;
+  createdAt: string;
+};
+
 export function CompilationView({ subjectId, subjectTitle, hasIdeas }: CompilationViewProps) {
   const [tone, setTone] = useState<CompilationInputTone>(CompilationInputTone.clear);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -55,10 +62,18 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isReadDialogOpen, setIsReadDialogOpen] = useState(false);
   const [readDialogPosition, setReadDialogPosition] = useState({ x: 0, y: 0 });
+  const [readerHtml, setReaderHtml] = useState("");
+  const [readerNotes, setReaderNotes] = useState<ReaderNote[]>([]);
+  const [pendingNoteQuote, setPendingNoteQuote] = useState("");
+  const [pendingNoteText, setPendingNoteText] = useState("");
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [showReaderNotes, setShowReaderNotes] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<"pdf" | "docx">("pdf");
   const [isUploadingDraftImage, setIsUploadingDraftImage] = useState(false);
   const readDialogDragOffset = useRef({ x: 0, y: 0 });
+  const readerContentRef = useRef<HTMLDivElement | null>(null);
+  const readerSelectionRange = useRef<Range | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -194,11 +209,108 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   };
 
   const handleOpenReadDialog = () => {
+    if (!selectedCompilation) return;
+    const annotationKey = `idea-stream-reader-annotations-${selectedCompilation.id}`;
+    try {
+      const saved = JSON.parse(localStorage.getItem(annotationKey) || "{}") as {
+        html?: string;
+        notes?: ReaderNote[];
+      };
+      setReaderHtml(
+        saved.html
+          ? sanitizeDraftHtml(saved.html)
+          :
+        sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")),
+      );
+      setReaderNotes(Array.isArray(saved.notes) ? saved.notes : []);
+    } catch {
+      setReaderHtml(sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")));
+      setReaderNotes([]);
+    }
+    setIsAddingNote(false);
+    setPendingNoteQuote("");
+    setPendingNoteText("");
+    setShowReaderNotes(true);
     setReadDialogPosition({
       x: Math.max(16, window.innerWidth * 0.1),
       y: Math.max(16, window.innerHeight * 0.1),
     });
     setIsReadDialogOpen(true);
+  };
+
+  const saveReaderAnnotations = (html: string, notes: ReaderNote[]) => {
+    if (!selectedCompilation) return;
+    localStorage.setItem(
+      `idea-stream-reader-annotations-${selectedCompilation.id}`,
+      JSON.stringify({ html, notes }),
+    );
+  };
+
+  const rememberReaderSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+    const range = selection.getRangeAt(0);
+    if (!readerContentRef.current?.contains(range.commonAncestorContainer)) return;
+    readerSelectionRange.current = range.cloneRange();
+  };
+
+  const highlightReaderSelection = (color: string) => {
+    const range = readerSelectionRange.current;
+    if (!range || range.collapsed || !readerContentRef.current) return;
+    const mark = document.createElement("mark");
+    mark.style.backgroundColor = color;
+    mark.style.color = "inherit";
+    mark.style.borderRadius = "0.2em";
+    mark.style.padding = "0 0.08em";
+    try {
+      mark.appendChild(range.extractContents());
+      range.insertNode(mark);
+      const html = readerContentRef.current.innerHTML;
+      setReaderHtml(html);
+      saveReaderAnnotations(html, readerNotes);
+      window.getSelection()?.removeAllRanges();
+      readerSelectionRange.current = null;
+    } catch {
+      toast({ variant: "destructive", title: t("selectTextToAnnotate") });
+    }
+  };
+
+  const startReaderNote = () => {
+    const range = readerSelectionRange.current;
+    if (!range || range.collapsed) {
+      toast({ title: t("selectTextToAnnotate") });
+      return;
+    }
+    setPendingNoteQuote(range.toString().trim());
+    setPendingNoteText("");
+    setIsAddingNote(true);
+    setShowReaderNotes(true);
+  };
+
+  const addReaderNote = () => {
+    if (!pendingNoteText.trim()) return;
+    const nextNotes = [
+      ...readerNotes,
+      {
+        id: crypto.randomUUID(),
+        quote: pendingNoteQuote,
+        text: pendingNoteText.trim(),
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    setReaderNotes(nextNotes);
+    saveReaderAnnotations(readerContentRef.current?.innerHTML || readerHtml, nextNotes);
+    setIsAddingNote(false);
+    setPendingNoteQuote("");
+    setPendingNoteText("");
+    readerSelectionRange.current = null;
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const deleteReaderNote = (noteId: string) => {
+    const nextNotes = readerNotes.filter((note) => note.id !== noteId);
+    setReaderNotes(nextNotes);
+    saveReaderAnnotations(readerContentRef.current?.innerHTML || readerHtml, nextNotes);
   };
 
   const handleReadDialogDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -561,12 +673,113 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
               </DialogDescription>
             </DialogHeader>
 
-            <div
-              className="rich-text-content min-h-0 flex-1 overflow-auto p-6 sm:p-8 md:p-10 text-base leading-8 text-foreground"
-              dangerouslySetInnerHTML={{
-                __html: sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation?.content || "")),
-              }}
-            />
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 bg-background px-4 py-2">
+              <span className="me-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <Highlighter className="h-4 w-4" />
+                {t("highlight")}
+              </span>
+              {[
+                ["#fde68a", t("yellowHighlight")],
+                ["#bbf7d0", t("greenHighlight")],
+                ["#fbcfe8", t("pinkHighlight")],
+              ].map(([color, label]) => (
+                <button
+                  key={color}
+                  type="button"
+                  className="h-7 w-7 rounded-full border border-border shadow-sm transition-transform hover:scale-110"
+                  style={{ backgroundColor: color }}
+                  aria-label={label}
+                  title={label}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => highlightReaderSelection(color)}
+                />
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={startReaderNote}
+              >
+                <StickyNote className="me-1.5 h-4 w-4" />
+                {t("addStickyNote")}
+              </Button>
+              <Button
+                type="button"
+                variant={showReaderNotes ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8 ms-auto"
+                onClick={() => setShowReaderNotes((current) => !current)}
+              >
+                {t("notes")} ({readerNotes.length})
+              </Button>
+            </div>
+
+            <div className="flex min-h-0 flex-1">
+              <div
+                ref={readerContentRef}
+                className="rich-text-content min-h-0 flex-1 overflow-auto p-6 sm:p-8 md:p-10 text-base leading-8 text-foreground selection:bg-primary/25"
+                onMouseUp={rememberReaderSelection}
+                onKeyUp={rememberReaderSelection}
+                dangerouslySetInnerHTML={{ __html: readerHtml }}
+              />
+
+              {showReaderNotes && (
+                <aside className="w-72 shrink-0 overflow-y-auto border-s border-border/50 bg-amber-50/60 p-3 text-start dark:bg-amber-950/10">
+                  <h3 className="mb-3 flex items-center gap-2 font-semibold">
+                    <StickyNote className="h-4 w-4" />
+                    {t("stickyNotes")}
+                  </h3>
+
+                  {isAddingNote && (
+                    <div className="mb-3 rounded-lg border border-amber-300 bg-amber-100 p-3 shadow-sm dark:border-amber-800 dark:bg-amber-950/40">
+                      <p className="mb-2 line-clamp-3 border-s-2 border-amber-500 ps-2 text-xs italic text-muted-foreground">
+                        “{pendingNoteQuote}”
+                      </p>
+                      <textarea
+                        value={pendingNoteText}
+                        onChange={(event) => setPendingNoteText(event.target.value)}
+                        placeholder={t("writeNote")}
+                        className="min-h-24 w-full resize-y rounded-md border bg-background p-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                        autoFocus
+                      />
+                      <div className="mt-2 flex justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => setIsAddingNote(false)}>
+                          {t("cancel")}
+                        </Button>
+                        <Button size="sm" onClick={addReaderNote} disabled={!pendingNoteText.trim()}>
+                          {t("saveNote")}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {readerNotes.length === 0 && !isAddingNote ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">{t("noStickyNotes")}</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {readerNotes.map((note) => (
+                        <div key={note.id} className="relative rounded-lg border border-amber-300 bg-amber-100 p-3 pe-9 shadow-sm dark:border-amber-800 dark:bg-amber-950/40">
+                          <button
+                            type="button"
+                            className="absolute end-2 top-2 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteReaderNote(note.id)}
+                            aria-label={t("deleteNote")}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <p className="mb-2 line-clamp-3 border-s-2 border-amber-500 ps-2 text-xs italic text-muted-foreground">
+                            “{note.quote}”
+                          </p>
+                          <p className="whitespace-pre-wrap text-sm">{note.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </aside>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
