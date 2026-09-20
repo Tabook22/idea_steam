@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Wand2, Plus, Save, Sparkles, BookText, Edit2, Trash2, Clock, Download } from "lucide-react";
+import { Wand2, Plus, Save, Sparkles, BookText, Edit2, Trash2, Clock, Download, BookOpen } from "lucide-react";
 
 import {
   Compilation,
@@ -53,9 +53,12 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   const [editDraft, setEditDraft] = useState("");
   
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReadDialogOpen, setIsReadDialogOpen] = useState(false);
+  const [readDialogPosition, setReadDialogPosition] = useState({ x: 0, y: 0 });
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<"pdf" | "docx">("pdf");
   const [isUploadingDraftImage, setIsUploadingDraftImage] = useState(false);
+  const readDialogDragOffset = useRef({ x: 0, y: 0 });
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -188,6 +191,30 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
     if (!selectedCompilation) return;
     setEditDraft(selectedCompilation.content);
     setIsEditing(true);
+  };
+
+  const handleOpenReadDialog = () => {
+    setReadDialogPosition({
+      x: Math.max(16, window.innerWidth * 0.1),
+      y: Math.max(16, window.innerHeight * 0.1),
+    });
+    setIsReadDialogOpen(true);
+  };
+
+  const handleReadDialogDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    readDialogDragOffset.current = {
+      x: event.clientX - readDialogPosition.x,
+      y: event.clientY - readDialogPosition.y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleReadDialogDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    setReadDialogPosition({
+      x: Math.max(0, Math.min(window.innerWidth - 120, event.clientX - readDialogDragOffset.current.x)),
+      y: Math.max(0, Math.min(window.innerHeight - 64, event.clientY - readDialogDragOffset.current.y)),
+    });
   };
 
   const handleDownload = async () => {
@@ -394,6 +421,16 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={handleOpenReadDialog}
+                      className="h-8 border-primary/20 hover:bg-primary/10 text-xs"
+                      title={t("readCompiledDraft")}
+                    >
+                      <BookOpen className="me-1.5 h-3.5 w-3.5" />
+                      {t("read")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleDownload}
                       disabled={isDownloading}
                       className="h-8 border-primary/20 hover:bg-primary/10 text-xs"
@@ -494,6 +531,43 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
               {updateCompilation.isPending ? t("saving") : t("save")}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isReadDialogOpen} onOpenChange={setIsReadDialogOpen}>
+        <DialogContent
+          className="flex min-h-[320px] min-w-[320px] max-w-none translate-x-0 translate-y-0 resize overflow-hidden p-0 sm:max-w-none"
+          style={{
+            left: readDialogPosition.x,
+            top: readDialogPosition.y,
+            width: "80vw",
+            height: "80vh",
+          }}
+        >
+          <div className="flex h-full min-h-0 w-full flex-col">
+            <DialogHeader
+              className="shrink-0 cursor-move select-none touch-none border-b border-border/50 bg-primary/5 px-5 py-4 pe-12"
+              onPointerDown={handleReadDialogDragStart}
+              onPointerMove={handleReadDialogDrag}
+            >
+              <DialogTitle className="flex items-center gap-2 font-serif text-xl">
+                <BookOpen className="h-5 w-5 text-primary" />
+                {t("readCompiledDraft")}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedCompilation
+                  ? `${getToneLabel(selectedCompilation.tone)} • ${formatDateTime(selectedCompilation.createdAt, language)}`
+                  : t("compiledDraft")}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div
+              className="rich-text-content min-h-0 flex-1 overflow-auto p-6 sm:p-8 md:p-10 text-base leading-8 text-foreground"
+              dangerouslySetInnerHTML={{
+                __html: sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation?.content || "")),
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </Card>
