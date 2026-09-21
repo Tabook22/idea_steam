@@ -1,106 +1,139 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { Plus } from "lucide-react";
+import { useRef, useState, type FormEvent } from "react";
+import { Loader2, Plus } from "lucide-react";
 import { useLocation } from "wouter";
-
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateSubject,
   getListSubjectsQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/lib/i18n";
-
-const formSchema = z.object({
-  title: z.string().trim().min(1).max(100),
-});
 
 export function CreateSubjectForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { t } = useLanguage();
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    mode: "onChange",
-    defaultValues: {
-      title: "",
-    },
-  });
-
+  const { t, isArabic } = useLanguage();
+  const copy = (en: string, ar: string) => (isArabic ? ar : en);
+  const [title, setTitle] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [titleInvalid, setTitleInvalid] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const submitting = useRef(false);
   const createSubject = useCreateSubject();
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    createSubject.mutate(
-      { data: values },
-      {
-        onSuccess: (newSubject) => {
-          queryClient.invalidateQueries({
-            queryKey: getListSubjectsQueryKey(),
-          });
-          toast({
-            title: t("subjectCreated"),
-            description: t("readyCollect"),
-          });
-          form.reset();
-          setLocation(`/subjects/${newSubject.id}`);
-        },
-        onError: () => {
-          toast({
-            variant: "destructive",
-            title: t("error"),
-            description: t("createFailed"),
-          });
-        },
-      },
-    );
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting.current) return;
+    // Read the submitted field too, so autofill does not depend on a form
+    // library's asynchronous validity state before Save can be used.
+    const name = String(
+      new FormData(event.currentTarget).get("title") ?? "",
+    ).trim();
+    if (!name || name.length > 100) {
+      setTitleInvalid(true);
+      setError(
+        !name
+          ? copy("Enter a name for your notebook.", "أدخل اسمًا لدفترك.")
+          : copy(
+              "Use 100 characters or fewer for the notebook name.",
+              "استخدم 100 حرف أو أقل لاسم الدفتر.",
+            ),
+      );
+      inputRef.current?.focus();
+      return;
+    }
+    setError(null);
+    setTitleInvalid(false);
+    submitting.current = true;
+    try {
+      const newSubject = await createSubject.mutateAsync({
+        data: { title: name },
+      });
+      void queryClient.invalidateQueries({
+        queryKey: getListSubjectsQueryKey(),
+      });
+      toast({ title: t("subjectCreated"), description: t("readyCollect") });
+      setLocation(`/subjects/${newSubject.id}`);
+    } catch {
+      setError(
+        copy(
+          "Couldn't save your notebook. Your title is still here. Check your connection and try again.",
+          "تعذّر حفظ الدفتر. ما زال الاسم محفوظًا هنا. تحقق من اتصالك وحاول مجددًا.",
+        ),
+      );
+    } finally {
+      submitting.current = false;
+    }
   }
 
   return (
-    <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="flex items-center gap-2"
-      >
-        <FormField
-          control={form.control}
+    <form
+      onSubmit={onSubmit}
+      noValidate
+      className="space-y-4"
+      aria-busy={createSubject.isPending}
+    >
+      <div className="space-y-2">
+        <label htmlFor="new-notebook-title" className="text-sm font-medium">
+          {copy("Notebook name", "اسم الدفتر")}
+        </label>
+        <Input
+          ref={inputRef}
+          id="new-notebook-title"
           name="title"
-          render={({ field }) => (
-            <FormItem className="flex-1 space-y-0">
-              <FormControl>
-                <Input
-                  placeholder={t("newSubject")}
-                  aria-label={t("newSubject")}
-                  className="bg-transparent border-t-0 border-x-0 border-b-2 border-primary/20 rounded-none focus-visible:ring-0 focus-visible:border-primary px-1 font-serif text-lg placeholder:font-sans placeholder:text-base placeholder:text-muted-foreground"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          placeholder={t("newSubject")}
+          value={title}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            setError(null);
+            setTitleInvalid(false);
+          }}
+          disabled={createSubject.isPending}
+          aria-invalid={titleInvalid}
+          aria-describedby={
+            error
+              ? "notebook-title-help notebook-create-error"
+              : "notebook-title-help"
+          }
+          autoComplete="off"
+          className="h-12"
         />
-        <Button
-          type="submit"
-          size="icon"
-          variant="outline"
-          className="rounded-full shrink-0 border-primary/20 text-primary hover:bg-primary/5 hover:border-primary/50"
-          disabled={createSubject.isPending || !form.formState.isValid}
+        <p id="notebook-title-help" className="text-xs text-muted-foreground">
+          {copy(
+            "A short name, up to 100 characters.",
+            "اسم قصير لا يزيد عن 100 حرف.",
+          )}
+          <span className="ms-2" dir="ltr">
+            {title.trim().length}/100
+          </span>
+        </p>
+      </div>
+      {error && (
+        <p
+          id="notebook-create-error"
+          role="alert"
+          className="text-sm text-destructive"
         >
+          {error}
+        </p>
+      )}
+      <Button
+        type="submit"
+        className="w-full gap-2"
+        disabled={createSubject.isPending}
+      >
+        {createSubject.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
           <Plus className="h-4 w-4" />
-          <span className="sr-only">{t("createSubject")}</span>
-        </Button>
-      </form>
-    </Form>
+        )}
+        {createSubject.isPending
+          ? copy("Creating notebook…", "جارٍ إنشاء الدفتر…")
+          : copy("Create notebook", "إنشاء دفتر")}
+      </Button>
+    </form>
   );
 }
