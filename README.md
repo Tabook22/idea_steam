@@ -17,6 +17,8 @@ The preview is explicitly labeled. It uses synthetic notebooks and an in-memory 
 
 ## Run with the real services
 
+For Hostinger or another Linux VPS, use the isolated deployment described in [deploy/vps/README.md](deploy/vps/README.md). It supports `/ideas/`, a private password gate, its own PostgreSQL database, disk uploads, and an optional direct OpenAI API key. The Replit configuration below remains available for existing installations.
+
 The current backend expects an existing PostgreSQL database, the Replit OpenAI integration, and Replit object storage. The frontend can run on Windows; the external backend services still need provisioning.
 
 Configure these environment variables in the API server's environment:
@@ -64,7 +66,7 @@ The OpenAPI specification in `lib/api-spec/openapi.yaml` is the source of truth 
 - `scripts/preview.mjs`: isolated design-preview server
 - `docs/PRODUCT_REVIEW.md`: findings, changes, and proposed next steps
 
-The current real API is intentionally unauthenticated. Add authentication, record ownership, storage authorization, and usage limits before public multi-user deployment.
+The default development API is unauthenticated. The VPS configuration adds a single-owner password gate. Add accounts, record ownership, storage authorization, and usage limits before turning this into a public multi-user service.
 
 ## Capture now, organize later
 

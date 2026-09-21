@@ -8,7 +8,7 @@ import { Router, type IRouter, type Request, type Response } from 'express';
 import {
   ObjectNotFoundError,
   ObjectStorageService,
-} from '../lib/objectStorage';
+} from '../lib/storage-service';
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -37,7 +37,7 @@ router.post(
         purpose === 'compiled-draft-image' && compilationId
           ? `compiled-drafts/${compilationId}`
           : 'uploads';
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL(folder);
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL(folder, { size, contentType });
       const objectPath =
         objectStorageService.normalizeObjectEntityPath(uploadURL);
 

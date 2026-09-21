@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -179,7 +180,7 @@ export function CreateIdeaForm({
     file: File,
     attachmentType: MediaAttachment["type"],
   ): Promise<MediaAttachment> => {
-    const request = await fetch("/api/storage/uploads/request-url", {
+    const request = await fetch(appPath("/api/storage/uploads/request-url", import.meta.env.BASE_URL), {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -202,7 +203,7 @@ export function CreateIdeaForm({
     if (!upload.ok) throw new Error("Upload failed");
     return {
       type: attachmentType,
-      url: `/api/storage${objectPath}`,
+      url: appPath(`/api/storage${objectPath}`, import.meta.env.BASE_URL),
       name: file.name,
       mimeType: file.type || "application/octet-stream",
     };

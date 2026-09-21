@@ -1,3 +1,4 @@
+import { appPath } from "./app-path.ts";
 import type { Idea, Subject } from "@workspace/api-client-react";
 import { RecordingStore } from "./recording-store.ts";
 import {
@@ -6,7 +7,11 @@ import {
   spokenSubject,
 } from "./recording-utils.ts";
 
-type SyncOptions = { fetcher?: typeof fetch; changed?: () => void };
+type SyncOptions = {
+  fetcher?: typeof fetch;
+  basePath?: string;
+  changed?: () => void;
+};
 async function request(
   fetcher: typeof fetch,
   url: string,
@@ -60,8 +65,14 @@ async function base64(blob: Blob) {
 export async function syncRecording(
   store: RecordingStore,
   id: string,
-  { fetcher = fetch, changed }: SyncOptions = {},
+  { fetcher = fetch, changed, basePath = "/" }: SyncOptions = {},
 ): Promise<Idea | null> {
+  const nativeFetch = fetcher;
+  fetcher = (input, options) =>
+    nativeFetch(
+      typeof input === "string" ? appPath(input, basePath) : input,
+      options,
+    );
   let record = await store.get(id);
   if (!record || record.status !== "saved" || !record.bytes) return null;
   try {
@@ -76,12 +87,12 @@ export async function syncRecording(
       );
       await request(fetcher, upload.uploadURL, {
         method: "PUT",
-        credentials: "omit",
+        credentials: upload.uploadURL.startsWith("/") ? "same-origin" : "omit",
         headers: { "Content-Type": mimeType },
         body: audio,
       });
       record.uploadedAudio = {
-        url: `/api/storage${upload.objectPath}`,
+        url: appPath(`/api/storage${upload.objectPath}`, basePath),
         name,
         mimeType,
       };

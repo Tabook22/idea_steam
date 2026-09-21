@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useEffect, useRef, useState } from "react";
 import {
   AlignCenter,
@@ -129,7 +130,7 @@ export function sanitizeDraftHtml(value: string) {
         const url = new URL(src.replace(/[\u0000-\u0020\u007f]+/g, ""), window.location.origin);
         if (
           !["http:", "https:"].includes(url.protocol) ||
-          (url.origin === window.location.origin && !url.pathname.startsWith("/api/storage/objects/"))
+          (url.origin === window.location.origin && !url.pathname.startsWith(appPath("/api/storage/objects/", import.meta.env.BASE_URL)))
         ) {
           throw new Error("Unsafe image");
         }
@@ -333,7 +334,7 @@ export function RichTextEditor({
     setIsUploadingImage(true);
     onUploadingChange?.(true);
     try {
-      const request = await fetch("/api/storage/uploads/request-url", {
+      const request = await fetch(appPath("/api/storage/uploads/request-url", import.meta.env.BASE_URL), {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -356,7 +357,7 @@ export function RichTextEditor({
         body: file,
       });
       if (!upload.ok) throw new Error("Upload failed");
-      command("insertImage", `/api/storage${objectPath}`);
+      command("insertImage", appPath(`/api/storage${objectPath}`, import.meta.env.BASE_URL));
     } catch {
       toast({ variant: "destructive", title: t("error"), description: t("editorImageFailed") });
     } finally {

@@ -104,6 +104,8 @@ test("offline shell restores navigation, excludes APIs, and isolates cache clean
   pending = null;
   listeners.fetch(event("/api/storage/objects/private"));
   assert.equal(pending, null);
+  listeners.fetch(event("/notebook/api/subjects"));
+  assert.equal(pending, null);
   pending = null;
   listeners.fetch(event("/different-app"));
   assert.equal(pending, null);

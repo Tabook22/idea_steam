@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -487,7 +488,7 @@ export function CompilationView({
     setIsDownloading(true);
     try {
       const response = await fetch(
-        `/api/subjects/${subjectId}/compilations/${selectedCompilation.id}/download`,
+        appPath(`/api/subjects/${subjectId}/compilations/${selectedCompilation.id}/download`, import.meta.env.BASE_URL),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -244,10 +245,10 @@ function AttachmentCard({
           </div>
         </button>
       ) : (
-      <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="group/attachment block">
+      <a href={appPath(attachment.url, import.meta.env.BASE_URL)} target="_blank" rel="noopener noreferrer" className="group/attachment block">
         <div className="relative flex h-32 items-center justify-center overflow-hidden bg-muted">
           {attachment.type === "image" ? (
-            <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover transition-transform group-hover/attachment:scale-105" />
+            <img src={appPath(attachment.url, import.meta.env.BASE_URL)} alt={attachment.name} className="h-full w-full object-cover transition-transform group-hover/attachment:scale-105" />
           ) : youtubeId ? (
             <>
               <img src={`https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`} alt={attachment.name} className="h-full w-full object-cover" />
@@ -286,14 +287,14 @@ function AttachmentCard({
             </DialogHeader>
             <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-white">
               <iframe
-                src={attachment.url}
+                src={appPath(attachment.url, import.meta.env.BASE_URL)}
                 title={attachment.name}
                 className="h-full min-h-0 sm:min-h-[600px] w-full min-w-0 sm:min-w-[700px] border-0"
               />
             </div>
             <div className="flex shrink-0 justify-end mb-2 sm:mb-0">
               <Button asChild type="button" variant="outline" size="sm" className="w-full sm:w-auto h-11 sm:h-9">
-                <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                <a href={appPath(attachment.url, import.meta.env.BASE_URL)} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="me-2 h-4 w-4" />
                   {t("openInNewTab")}
                 </a>
@@ -303,7 +304,7 @@ function AttachmentCard({
         </Dialog>
       )}
       {attachment.type === "audio" && (
-        <div className="border-t px-2 py-2"><audio src={attachment.url} controls preload="metadata" className="h-9 w-full" /></div>
+        <div className="border-t px-2 py-2"><audio src={appPath(attachment.url, import.meta.env.BASE_URL)} controls preload="metadata" className="h-9 w-full" /></div>
       )}
       <div className="border-t p-3">
         {isEditingNote ? (

@@ -111,7 +111,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
             )
               continue;
             setSyncingId(record.id);
-            const idea = await syncRecording(recordingStore, record.id);
+            const idea = await syncRecording(recordingStore, record.id, { basePath: import.meta.env.BASE_URL });
             if (idea) await queryClient.invalidateQueries();
             await refresh();
           }

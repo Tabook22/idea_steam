@@ -55,18 +55,27 @@ import {
   SendIdeaChatMessageParams,
   SendIdeaChatMessageResponse,
 } from "@workspace/api-zod";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { openai, aiConfigured } from "@workspace/integrations-openai-ai-server";
 import {
   ensureCompatibleFormat,
   speechToText,
 } from "@workspace/integrations-openai-ai-server/audio";
-import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectStorageService } from "../lib/storage-service";
 import sanitizeHtml from "sanitize-html";
 import { normalizeYoutubeVideoUrl } from "../lib/youtube-url";
 
 const router: IRouter = Router();
 const execFileAsync = promisify(execFile);
 const objectStorageService = new ObjectStorageService();
+const appBasePath = (process.env.APP_BASE_PATH || "").replace(/\/$/, "");
+const canonicalStorageUrl = (url: string) => appBasePath && url.startsWith(`${appBasePath}/api/storage/`) ? url.slice(appBasePath.length) : url;
+
+router.use((req, res, next) => {
+  const needsAI = req.method === "POST" && (/^\/(transcriptions|note-translations)$/.test(req.path) || /\/(compile|chat\/messages)$/.test(req.path));
+  if (needsAI && !aiConfigured) { res.status(503).json({ error: "AI is not configured yet. Notes and original recordings are still saved." }); return; }
+  next();
+});
+
 const RICH_TEXT_MARKER = "<!--idea-stream-rich-text-->";
 
 function sanitizeStoredDraft(value: string) {
@@ -126,7 +135,7 @@ function extractStoredCompilationImages(content: string) {
     const src = attributes.match(/\bsrc=(?:"([^"]*)"|'([^']*)')/i);
     const alt = attributes.match(/\balt=(?:"([^"]*)"|'([^']*)')/i);
     const objectPath = src?.[1] ?? src?.[2] ?? "";
-    if (!objectPath.startsWith("/api/storage/objects/")) continue;
+    if (!canonicalStorageUrl(objectPath).startsWith("/api/storage/objects/")) continue;
     images.set(objectPath, {
       objectPath,
       altText: (alt?.[1] ?? alt?.[2] ?? "").slice(0, 500),
@@ -148,14 +157,14 @@ async function embedStoredDraftImages(html: string) {
     new Set(
       Array.from(html.matchAll(/<img\b[^>]*\bsrc=(?:"([^"]*)"|'([^']*)')[^>]*>/gi))
         .map((match) => match[1] ?? match[2] ?? "")
-        .filter((source) => source.startsWith("/api/storage/objects/")),
+        .filter((source) => canonicalStorageUrl(source).startsWith("/api/storage/objects/")),
     ),
   );
 
   let embeddedHtml = html;
   for (const source of sources) {
     try {
-      const objectPath = source.slice("/api/storage".length);
+      const objectPath = canonicalStorageUrl(source).slice("/api/storage".length);
       const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       const response = await objectStorageService.downloadObject(objectFile, 0);
       const contentType = response.headers.get("content-type") || "image/png";
@@ -230,9 +239,9 @@ async function extractAttachmentText(attachment: {
   name: string;
   mimeType?: string;
 }) {
-  if (!attachment.url.startsWith("/api/storage/objects/")) return "";
+  if (!canonicalStorageUrl(attachment.url).startsWith("/api/storage/objects/")) return "";
 
-  const objectPath = attachment.url.slice("/api/storage".length);
+  const objectPath = canonicalStorageUrl(attachment.url).slice("/api/storage".length);
   const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
   const response = await objectStorageService.downloadObject(objectFile, 0);
   const declaredSize = Number(response.headers.get("content-length") || "0");
@@ -361,7 +370,7 @@ router.post("/note-translations", async (req, res): Promise<void> => {
   try {
     const languageName = body.data.targetLanguage === "ar" ? "Arabic" : "English";
     const response = await openai.chat.completions.create({
-      model: "gpt-5.6-luna",
+      model: process.env.OPENAI_TEXT_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "gpt-5.6-luna" : "gpt-4.1-mini"),
       max_completion_tokens: 2048,
       messages: [
         {
@@ -798,7 +807,7 @@ router.post("/ideas/:ideaId/chat/messages", async (req, res): Promise<void> => {
 
     const ideaContext = await buildIdeaContext(idea);
     const response = await openai.chat.completions.create({
-      model: "gpt-5.6-luna",
+      model: process.env.OPENAI_TEXT_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "gpt-5.6-luna" : "gpt-4.1-mini"),
       max_completion_tokens: 4096,
       messages: [
         {
@@ -1152,7 +1161,7 @@ router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {
   for (const idea of ideas) ideaContexts.push(await buildIdeaContext(idea));
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5.6-luna",
+    model: process.env.OPENAI_TEXT_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "gpt-5.6-luna" : "gpt-4.1-mini"),
     max_completion_tokens: 8192,
     messages: [
       {
