@@ -8,6 +8,11 @@
 import type { IdeaAttachment } from './ideaAttachment';
 
 export interface IdeaUpdate {
+  /**
+     * Move the idea and its attachments to this subject.
+     * @minimum 1
+     */
+  subjectId?: number;
   /** @minLength 1 */
   content?: string;
   attachments?: IdeaAttachment[];

@@ -16,6 +16,7 @@ export const ideasTable = pgTable("ideas", {
     .notNull()
     .references(() => subjectsTable.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  clientCaptureId: text("client_capture_id").unique(),
   source: text("source", { enum: ["text", "voice", "image", "video", "audio", "pdf", "document", "link"] }).notNull().default("text"),
   attachments: jsonb("attachments")
     .$type<Array<{

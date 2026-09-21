@@ -19,6 +19,10 @@ import {
   Trash2,
   Wand2,
   X,
+  FileText,
+  FlaskConical,
+  Video,
+  Radio,
 } from "lucide-react";
 
 import {
@@ -40,7 +44,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { useLanguage } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/formatters";
 import {
@@ -71,13 +81,26 @@ type ReaderNote = {
   createdAt: string;
 };
 
-export function CompilationView({ subjectId, subjectTitle, hasIdeas }: CompilationViewProps) {
-  const [tone, setTone] = useState<CompilationInputTone>(CompilationInputTone.clear);
-  const [isCreatingNew, setIsCreatingNew] = useState(false);
-  
+export function CompilationView({
+  subjectId,
+  subjectTitle,
+  hasIdeas,
+}: CompilationViewProps) {
+  const [tone, setTone] = useState<CompilationInputTone>(() => {
+    const requested = new URLSearchParams(window.location.search).get("output");
+    return Object.values(CompilationInputTone).includes(
+      requested as CompilationInputTone,
+    )
+      ? (requested as CompilationInputTone)
+      : CompilationInputTone.clear;
+  });
+  const [isCreatingNew, setIsCreatingNew] = useState(() =>
+    new URLSearchParams(window.location.search).has("output"),
+  );
+
   const [isEditing, setIsEditing] = useState(false);
   const [editDraft, setEditDraft] = useState("");
-  
+
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isReadDialogOpen, setIsReadDialogOpen] = useState(false);
   const [readDialogPosition, setReadDialogPosition] = useState({ x: 0, y: 0 });
@@ -97,6 +120,7 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { t, language } = useLanguage();
+  const copy = (en: string, ar: string) => (language === "ar" ? ar : en);
 
   const outputOptions = [
     [CompilationInputTone.clear, t("clearDirect")],
@@ -111,18 +135,28 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
     [CompilationInputTone.phd_proposal, t("phdProposal")],
     [CompilationInputTone.summary_only, t("summaryOnly")],
     [CompilationInputTone.objectives_goals, t("objectivesGoals")],
+    [CompilationInputTone.youtube_script, copy("YouTube script", "نص يوتيوب")],
+    [
+      CompilationInputTone.broadcast_script,
+      copy("Broadcast / podcast script", "نص إذاعي / بودكاست"),
+    ],
   ] as const;
 
   const getToneLabel = (toneValue: string) => {
-    const option = outputOptions.find(o => o[0] === toneValue);
+    const option = outputOptions.find((o) => o[0] === toneValue);
     return option ? option[1] : toneValue;
   };
 
-  const { data: compilations = [], isLoading } = useListSubjectCompilations(subjectId, {
+  const {
+    data: compilations = [],
+    isLoading,
+    error: loadError,
+    refetch,
+  } = useListSubjectCompilations(subjectId, {
     query: {
       enabled: !isNaN(subjectId),
-      queryKey: getListSubjectCompilationsQueryKey(subjectId)
-    }
+      queryKey: getListSubjectCompilationsQueryKey(subjectId),
+    },
   });
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -132,15 +166,19 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
       if (compilations.length === 0) {
         setIsCreatingNew(true);
         setSelectedId(null);
-      } else if (!isCreatingNew && (!selectedId || !compilations.find(c => c.id === selectedId))) {
+      } else if (
+        !isCreatingNew &&
+        (!selectedId || !compilations.find((c) => c.id === selectedId))
+      ) {
         setSelectedId(compilations[0].id);
       }
     }
   }, [compilations, isLoading, selectedId, isCreatingNew]);
 
-  const selectedCompilation = useMemo(() => 
-    compilations.find(c => c.id === selectedId) || null
-  , [compilations, selectedId]);
+  const selectedCompilation = useMemo(
+    () => compilations.find((c) => c.id === selectedId) || null,
+    [compilations, selectedId],
+  );
 
   const compileSubject = useCompileSubject();
   const updateCompilation = useUpdateSubjectCompilation();
@@ -168,7 +206,7 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
         onSuccess: (data) => {
           queryClient.setQueryData<Compilation[]>(
             getListSubjectCompilationsQueryKey(subjectId),
-            (old) => [data, ...(old ?? []).filter(c => c.id !== data.id)],
+            (old) => [data, ...(old ?? []).filter((c) => c.id !== data.id)],
           );
           setSelectedId(data.id);
           setEditDraft(data.content);
@@ -185,8 +223,8 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
             title: t("compilationFailed"),
             description: t("compilationFailedDetail"),
           });
-        }
-      }
+        },
+      },
     );
   };
 
@@ -198,12 +236,16 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
     }
 
     updateCompilation.mutate(
-      { subjectId, compilationId: selectedCompilation.id, data: { content: editDraft } },
+      {
+        subjectId,
+        compilationId: selectedCompilation.id,
+        data: { content: editDraft },
+      },
       {
         onSuccess: (data) => {
           queryClient.setQueryData<Compilation[]>(
             getListSubjectCompilationsQueryKey(subjectId),
-            (old) => old ? old.map(c => c.id === data.id ? data : c) : []
+            (old) => (old ? old.map((c) => (c.id === data.id ? data : c)) : []),
           );
           setIsEditing(false);
           toast({
@@ -216,8 +258,8 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
             title: t("error"),
             description: t("draftSaveFailed"),
           });
-        }
-      }
+        },
+      },
     );
   };
 
@@ -238,12 +280,17 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
       setReaderHtml(
         saved.html
           ? sanitizeDraftHtml(saved.html)
-          :
-        sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")),
+          : sanitizeDraftHtml(
+              normalizeDraftHtml(selectedCompilation.content || ""),
+            ),
       );
       setReaderNotes(Array.isArray(saved.notes) ? saved.notes : []);
     } catch {
-      setReaderHtml(sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")));
+      setReaderHtml(
+        sanitizeDraftHtml(
+          normalizeDraftHtml(selectedCompilation.content || ""),
+        ),
+      );
       setReaderNotes([]);
     }
     setIsAddingNote(false);
@@ -267,9 +314,11 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
 
   const rememberReaderSelection = () => {
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed)
+      return;
     const range = selection.getRangeAt(0);
-    if (!readerContentRef.current?.contains(range.commonAncestorContainer)) return;
+    if (!readerContentRef.current?.contains(range.commonAncestorContainer))
+      return;
     readerSelectionRange.current = range.cloneRange();
   };
 
@@ -329,7 +378,9 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
     }
 
     const blockSelector = "p, h1, h2, h3, blockquote, li, div";
-    const selectedBlocks = Array.from(reader.querySelectorAll<HTMLElement>(blockSelector))
+    const selectedBlocks = Array.from(
+      reader.querySelectorAll<HTMLElement>(blockSelector),
+    )
       .filter((block) => {
         try {
           return range.intersectsNode(block);
@@ -342,7 +393,7 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
     if (selectedBlocks.length === 0) {
       const container =
         range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-          ? range.commonAncestorContainer as Element
+          ? (range.commonAncestorContainer as Element)
           : range.commonAncestorContainer.parentElement;
       const block = container?.closest<HTMLElement>(blockSelector);
       if (block && reader.contains(block)) selectedBlocks.push(block);
@@ -380,7 +431,10 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
       },
     ];
     setReaderNotes(nextNotes);
-    saveReaderAnnotations(readerContentRef.current?.innerHTML || readerHtml, nextNotes);
+    saveReaderAnnotations(
+      readerContentRef.current?.innerHTML || readerHtml,
+      nextNotes,
+    );
     setIsAddingNote(false);
     setPendingNoteQuote("");
     setPendingNoteText("");
@@ -391,10 +445,15 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   const deleteReaderNote = (noteId: string) => {
     const nextNotes = readerNotes.filter((note) => note.id !== noteId);
     setReaderNotes(nextNotes);
-    saveReaderAnnotations(readerContentRef.current?.innerHTML || readerHtml, nextNotes);
+    saveReaderAnnotations(
+      readerContentRef.current?.innerHTML || readerHtml,
+      nextNotes,
+    );
   };
 
-  const handleReadDialogDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handleReadDialogDragStart = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
     readDialogDragOffset.current = {
       x: event.clientX - readDialogPosition.x,
       y: event.clientY - readDialogPosition.y,
@@ -405,8 +464,20 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
   const handleReadDialogDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
     setReadDialogPosition({
-      x: Math.max(0, Math.min(window.innerWidth - 120, event.clientX - readDialogDragOffset.current.x)),
-      y: Math.max(0, Math.min(window.innerHeight - 64, event.clientY - readDialogDragOffset.current.y)),
+      x: Math.max(
+        0,
+        Math.min(
+          window.innerWidth - 120,
+          event.clientX - readDialogDragOffset.current.x,
+        ),
+      ),
+      y: Math.max(
+        0,
+        Math.min(
+          window.innerHeight - 64,
+          event.clientY - readDialogDragOffset.current.y,
+        ),
+      ),
     });
   };
 
@@ -452,19 +523,23 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
 
   const handleDelete = () => {
     if (!selectedCompilation) return;
-    
+
     deleteCompilation.mutate(
       { subjectId, compilationId: selectedCompilation.id },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListSubjectCompilationsQueryKey(subjectId) });
+          queryClient.invalidateQueries({
+            queryKey: getListSubjectCompilationsQueryKey(subjectId),
+          });
           setIsDeleteDialogOpen(false);
           setIsEditing(false);
           toast({
             title: t("compilationDeleted"),
           });
-          
-          const remaining = compilations.filter(c => c.id !== selectedCompilation.id);
+
+          const remaining = compilations.filter(
+            (c) => c.id !== selectedCompilation.id,
+          );
           if (remaining.length > 0) {
             setSelectedId(remaining[0].id);
           } else {
@@ -478,17 +553,36 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
             title: t("error"),
             description: t("deleteCompilationFailed"),
           });
-        }
-      }
+        },
+      },
     );
   };
+
+  if (loadError) {
+    return (
+      <Card className="p-6" role="alert">
+        <h3 className="text-xl mb-3">
+          {copy("Couldn't load your drafts", "تعذر تحميل المسودات")}
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          {copy(
+            "Your saved drafts may still be available. Try loading them again before creating another.",
+            "قد تظل مسوداتك محفوظة. حاول تحميلها مجددًا قبل إنشاء مسودة أخرى.",
+          )}
+        </p>
+        <Button variant="outline" onClick={() => refetch()}>
+          {copy("Try again", "حاول مجددًا")}
+        </Button>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (
       <Card className="h-full flex flex-col shadow-lg border-primary/30 bg-card overflow-hidden min-h-[500px] animate-pulse">
-         <div className="h-16 bg-muted/50 border-b border-border/50 shrink-0" />
-         <div className="h-24 bg-muted/20 border-b border-border/50 shrink-0" />
-         <div className="flex-1 bg-muted/10" />
+        <div className="h-16 bg-muted/50 border-b border-border/50 shrink-0" />
+        <div className="h-24 bg-muted/20 border-b border-border/50 shrink-0" />
+        <div className="flex-1 bg-muted/10" />
       </Card>
     );
   }
@@ -498,12 +592,18 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
       <CardHeader className="border-b border-border/50 bg-primary/5 py-3 md:py-4 px-4 md:px-6 flex flex-row items-center justify-between space-y-0 shrink-0 gap-2">
         <div className="flex items-center gap-2 shrink-0">
           <BookText className="h-4 w-4 md:h-5 md:w-5 text-primary shrink-0" />
-          <CardTitle className="font-serif text-lg md:text-xl truncate">{t("compiledDraft")}</CardTitle>
+          <CardTitle className="font-serif text-lg md:text-xl truncate">
+            {copy("Creation studio", "استوديو الإبداع")}
+          </CardTitle>
         </div>
-        <Button 
-          size="sm" 
+        <Button
+          size="sm"
           variant={isCreatingNew ? "secondary" : "outline"}
-          onClick={() => { setIsCreatingNew(true); setSelectedId(null); setIsEditing(false); }}
+          onClick={() => {
+            setIsCreatingNew(true);
+            setSelectedId(null);
+            setIsEditing(false);
+          }}
           className="h-8 border-primary/20 shrink-0"
         >
           <Plus className="h-3.5 w-3.5 me-1.5" /> {t("newCompilation")}
@@ -512,19 +612,26 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
 
       {compilations.length > 0 && (
         <div className="shrink-0 border-b border-border/50 bg-muted/5 max-h-[25vh] overflow-y-auto p-2 space-y-1">
-          {compilations.map(c => (
+          {compilations.map((c) => (
             <button
               key={c.id}
-              onClick={() => { setSelectedId(c.id); setIsCreatingNew(false); setIsEditing(false); }}
+              onClick={() => {
+                setSelectedId(c.id);
+                setIsCreatingNew(false);
+                setIsEditing(false);
+              }}
               className={`w-full text-start flex flex-col sm:flex-row sm:items-center justify-between gap-1 p-2.5 rounded-md transition-all ${
                 selectedId === c.id && !isCreatingNew
                   ? "bg-primary/10 border border-primary/20 shadow-sm"
                   : "hover:bg-muted border border-transparent"
               }`}
             >
-              <span className="font-medium text-sm text-foreground">{getToneLabel(c.tone)}</span>
+              <span className="font-medium text-sm text-foreground">
+                {getToneLabel(c.tone)}
+              </span>
               <span className="text-xs text-muted-foreground flex items-center">
-                <Clock className="h-3 w-3 me-1" /> {formatDateTime(c.createdAt, language)}
+                <Clock className="h-3 w-3 me-1" />{" "}
+                {formatDateTime(c.createdAt, language)}
               </span>
             </button>
           ))}
@@ -538,45 +645,97 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
               <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin"></div>
               <Wand2 className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
             </div>
-            <p className="mt-4 font-serif font-medium text-primary">{t("weaving")}</p>
+            <p className="mt-4 font-serif font-medium text-primary">
+              {t("weaving")}
+            </p>
           </div>
         )}
 
-        {isCreatingNew || (compilations.length === 0 && !selectedCompilation) ? (
+        {isCreatingNew ||
+        (compilations.length === 0 && !selectedCompilation) ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-8 text-center overflow-y-auto min-h-[400px]">
             <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 md:mb-6 shrink-0">
               <Wand2 className="h-6 w-6 md:h-8 md:w-8 text-primary" />
             </div>
-            <h3 className="font-serif text-xl md:text-2xl mb-2 font-semibold tracking-tight shrink-0">{t("shapeDraft")}</h3>
+            <h3 className="font-serif text-xl md:text-2xl mb-2 font-semibold tracking-tight shrink-0">
+              {t("shapeDraft")}
+            </h3>
             <p className="text-sm md:text-base text-muted-foreground max-w-sm mx-auto mb-6 md:mb-8 font-serif leading-relaxed shrink-0">
               {t("shapeDraftDetail")}
             </p>
-            
-            <div className="w-full max-w-xs space-y-4 shrink-0">
-              <Select 
-                value={tone} 
+
+            <div className="w-full max-w-sm space-y-4 shrink-0">
+              <div className="grid grid-cols-2 gap-2 text-start">
+                {(
+                  [
+                    [
+                      CompilationInputTone.newspaper_article,
+                      FileText,
+                      copy("Article", "مقال"),
+                    ],
+                    [
+                      CompilationInputTone.academic,
+                      FlaskConical,
+                      copy("Research paper", "ورقة بحثية"),
+                    ],
+                    [
+                      CompilationInputTone.youtube_script,
+                      Video,
+                      copy("YouTube script", "نص يوتيوب"),
+                    ],
+                    [
+                      CompilationInputTone.broadcast_script,
+                      Radio,
+                      copy("Broadcast", "نص إذاعي"),
+                    ],
+                  ] as const
+                ).map(([value, Icon, label]) => (
+                  <button
+                    key={value}
+                    aria-pressed={tone === value}
+                    onClick={() => setTone(value)}
+                    className={`flex items-center gap-2 rounded-lg border p-3 text-xs transition-colors ${tone === value ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-start text-muted-foreground">
+                {copy("Or explore all formats", "أو استكشف جميع القوالب")}
+              </p>
+              <Select
+                value={tone}
                 onValueChange={(val) => setTone(val as CompilationInputTone)}
                 disabled={!hasIdeas}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full" aria-label={t("selectTone")}>
                   <SelectValue placeholder={t("selectTone")} />
                 </SelectTrigger>
                 <SelectContent>
                   {outputOptions.map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              
-              <Button 
-                className="w-full" 
-                size="lg" 
+
+              <Button
+                className="w-full"
+                size="lg"
                 onClick={handleCompile}
                 disabled={!hasIdeas || compileSubject.isPending}
               >
                 <Sparkles className="me-2 h-4 w-4" />
                 {t("compileFragments")}
               </Button>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {copy(
+                  "Your original notes stay intact. AI creates a separate draft for you to review and refine.",
+                  "تبقى ملاحظاتك الأصلية محفوظة. ينشئ الذكاء الاصطناعي مسودة مستقلة لتراجعها وتطورها.",
+                )}
+              </p>
             </div>
           </div>
         ) : selectedCompilation ? (
@@ -590,10 +749,20 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
               <div className="flex items-center gap-2">
                 {isEditing ? (
                   <>
-                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="h-8 text-xs">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditing(false)}
+                      className="h-8 text-xs"
+                    >
                       {t("cancel")}
                     </Button>
-                    <Button size="sm" onClick={handleSaveEdit} disabled={updateCompilation.isPending} className="h-8 text-xs">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveEdit}
+                      disabled={updateCompilation.isPending}
+                      className="h-8 text-xs"
+                    >
                       <Save className="me-1.5 h-3.5 w-3.5" /> {t("save")}
                     </Button>
                   </>
@@ -601,9 +770,14 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                   <>
                     <Select
                       value={downloadFormat}
-                      onValueChange={(value) => setDownloadFormat(value as "pdf" | "docx")}
+                      onValueChange={(value) =>
+                        setDownloadFormat(value as "pdf" | "docx")
+                      }
                     >
-                      <SelectTrigger className="h-8 w-24 bg-background text-xs" aria-label={t("downloadFormat")}>
+                      <SelectTrigger
+                        className="h-8 w-24 bg-background text-xs"
+                        aria-label={t("downloadFormat")}
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -632,20 +806,29 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                       <Download className="me-1.5 h-3.5 w-3.5" />
                       {isDownloading ? t("downloading") : t("download")}
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleStartEdit}
                       className="h-8 border-primary/20 hover:bg-primary/10 text-xs"
                       title={t("edit")}
                     >
                       <Edit2 className="me-1.5 h-3.5 w-3.5" /> {t("edit")}
                     </Button>
-                    
-                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+
+                    <Dialog
+                      open={isDeleteDialogOpen}
+                      onOpenChange={setIsDeleteDialogOpen}
+                    >
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs" title={t("delete")}>
-                          <Trash2 className="me-1.5 h-3.5 w-3.5" /> {t("delete")}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs"
+                          title={t("delete")}
+                        >
+                          <Trash2 className="me-1.5 h-3.5 w-3.5" />{" "}
+                          {t("delete")}
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="w-[95vw] sm:w-full max-w-md rounded-xl">
@@ -656,9 +839,22 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter className="gap-2 sm:gap-0 mt-4 sm:mt-0">
-                          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsDeleteDialogOpen(false)}>{t("cancel")}</Button>
-                          <Button variant="destructive" className="w-full sm:w-auto" onClick={handleDelete} disabled={deleteCompilation.isPending}>
-                            {deleteCompilation.isPending ? t("deleting") : t("delete")}
+                          <Button
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={() => setIsDeleteDialogOpen(false)}
+                          >
+                            {t("cancel")}
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            className="w-full sm:w-auto"
+                            onClick={handleDelete}
+                            disabled={deleteCompilation.isPending}
+                          >
+                            {deleteCompilation.isPending
+                              ? t("deleting")
+                              : t("delete")}
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -667,12 +863,14 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                 )}
               </div>
             </div>
-            <div 
+            <div
               className="rich-text-content flex-1 overflow-auto p-6 text-foreground cursor-text"
               onClick={handleStartEdit}
               title={t("openLargeEditor")}
               dangerouslySetInnerHTML={{
-                __html: sanitizeDraftHtml(normalizeDraftHtml(selectedCompilation.content || "")),
+                __html: sanitizeDraftHtml(
+                  normalizeDraftHtml(selectedCompilation.content || ""),
+                ),
               }}
             />
           </div>
@@ -710,10 +908,7 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
           </div>
 
           <DialogFooter className="shrink-0 gap-2 border-t border-border/50 bg-background px-5 py-3 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsEditing(false)}
-            >
+            <Button variant="outline" onClick={() => setIsEditing(false)}>
               {t("cancel")}
             </Button>
             <Button
@@ -812,7 +1007,11 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                     title={String(label)}
                     aria-label={String(label)}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => alignReaderSelection(alignment as "left" | "center" | "right")}
+                    onClick={() =>
+                      alignReaderSelection(
+                        alignment as "left" | "center" | "right",
+                      )
+                    }
                   >
                     <Icon className="h-4 w-4" />
                   </button>
@@ -873,16 +1072,26 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                       </p>
                       <textarea
                         value={pendingNoteText}
-                        onChange={(event) => setPendingNoteText(event.target.value)}
+                        onChange={(event) =>
+                          setPendingNoteText(event.target.value)
+                        }
                         placeholder={t("writeNote")}
                         className="min-h-24 w-full resize-y rounded-md border bg-background p-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                         autoFocus
                       />
                       <div className="mt-2 flex justify-end gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => setIsAddingNote(false)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setIsAddingNote(false)}
+                        >
                           {t("cancel")}
                         </Button>
-                        <Button size="sm" onClick={addReaderNote} disabled={!pendingNoteText.trim()}>
+                        <Button
+                          size="sm"
+                          onClick={addReaderNote}
+                          disabled={!pendingNoteText.trim()}
+                        >
                           {t("saveNote")}
                         </Button>
                       </div>
@@ -890,11 +1099,16 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                   )}
 
                   {readerNotes.length === 0 && !isAddingNote ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">{t("noStickyNotes")}</p>
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      {t("noStickyNotes")}
+                    </p>
                   ) : (
                     <div className="space-y-3">
                       {readerNotes.map((note) => (
-                        <div key={note.id} className="relative rounded-lg border border-amber-300 bg-amber-100 p-3 pe-9 shadow-sm dark:border-amber-800 dark:bg-amber-950/40">
+                        <div
+                          key={note.id}
+                          className="relative rounded-lg border border-amber-300 bg-amber-100 p-3 pe-9 shadow-sm dark:border-amber-800 dark:bg-amber-950/40"
+                        >
                           <button
                             type="button"
                             className="absolute end-2 top-2 text-muted-foreground hover:text-destructive"
@@ -906,7 +1120,9 @@ export function CompilationView({ subjectId, subjectTitle, hasIdeas }: Compilati
                           <p className="mb-2 line-clamp-3 border-s-2 border-amber-500 ps-2 text-xs italic text-muted-foreground">
                             “{note.quote}”
                           </p>
-                          <p className="whitespace-pre-wrap text-sm">{note.text}</p>
+                          <p className="whitespace-pre-wrap text-sm">
+                            {note.text}
+                          </p>
                         </div>
                       ))}
                     </div>

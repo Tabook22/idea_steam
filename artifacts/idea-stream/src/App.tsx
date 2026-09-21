@@ -1,27 +1,29 @@
-import { type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ErrorBoundary } from '@/components/error-boundary';
-import { Toaster } from '@/components/ui/toaster';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import NotFound from '@/pages/not-found';
-import HomePage from '@/pages/home';
-import SubjectDetailPage from '@/pages/subject-detail';
-import { LanguageProvider } from '@/lib/i18n';
-import { LanguageToggle } from '@/components/language-toggle';
+import { type ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import NotFound from "@/pages/not-found";
+import HomePage from "@/pages/home";
+import SubjectDetailPage from "@/pages/subject-detail";
+import RecorderPage from "@/pages/recorder";
+import { RecorderProvider } from "@/components/recorder-provider";
+import { LanguageProvider } from "@/lib/i18n";
+import { LanguageToggle } from "@/components/language-toggle";
 import {
   Route,
   Redirect,
   Switch,
   useLocation,
   Router as WouterRouter,
-} from 'wouter';
+} from "wouter";
 
 const queryClient = new QueryClient();
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function TopNav() {
   return (
-    <div className="fixed end-4 top-4 z-50 flex items-center gap-3">
+    <div className="flex items-center justify-end gap-3 px-4 py-3">
       <LanguageToggle />
     </div>
   );
@@ -35,6 +37,7 @@ function Router() {
       <Switch>
         <Route path="/">{() => <Redirect to="/app" />}</Route>
         <Route path="/app" component={HomePage} />
+        <Route path="/record" component={RecorderPage} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
         <Route path="/sign-in/*?">{() => <Redirect to="/app" />}</Route>
         <Route path="/sign-up/*?">{() => <Redirect to="/app" />}</Route>
@@ -54,9 +57,17 @@ function AppContent() {
     <LanguageProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <TopNav />
-          <Router />
-          <Toaster />
+          <RecorderProvider>
+            {import.meta.env.VITE_DESIGN_PREVIEW === "true" && (
+              <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+                Design preview · AI is simulated · Server data resets on restart
+                · Device recordings stay in this browser
+              </div>
+            )}
+            <TopNav />
+            <Router />
+            <Toaster />
+          </RecorderProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </LanguageProvider>

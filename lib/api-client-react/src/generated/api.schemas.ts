@@ -207,6 +207,10 @@ export const IdeaInputSource = {
 } as const;
 
 export interface IdeaInput {
+  /** Stable recording ID for idempotent retries. */
+  clientCaptureId?: string;
+  /** Original capture time for delayed uploads. */
+  capturedAt?: string;
   /** @minLength 1 */
   content: string;
   source?: IdeaInputSource;
@@ -214,6 +218,11 @@ export interface IdeaInput {
 }
 
 export interface IdeaUpdate {
+  /**
+     * Move the idea and its attachments to this subject.
+     * @minimum 1
+     */
+  subjectId?: number;
   /** @minLength 1 */
   content?: string;
   attachments?: IdeaAttachment[];
@@ -235,6 +244,8 @@ export const CompilationInputTone = {
   phd_proposal: 'phd_proposal',
   summary_only: 'summary_only',
   objectives_goals: 'objectives_goals',
+  youtube_script: 'youtube_script',
+  broadcast_script: 'broadcast_script',
 } as const;
 
 export interface CompilationInput {

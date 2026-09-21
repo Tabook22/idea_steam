@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import htmlToDocx from "html-to-docx";
-import { and, asc, count, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, inArray } from "drizzle-orm";
 import {
   compilationImagesTable,
   db,
@@ -62,6 +62,7 @@ import {
 } from "@workspace/integrations-openai-ai-server/audio";
 import { ObjectStorageService } from "../lib/objectStorage";
 import sanitizeHtml from "sanitize-html";
+import { normalizeYoutubeVideoUrl } from "../lib/youtube-url";
 
 const router: IRouter = Router();
 const execFileAsync = promisify(execFile);
@@ -313,9 +314,7 @@ async function buildIdeaContext(idea: typeof ideasTable.$inferSelect) {
         attachment.transcript ? `Transcript:\n${attachment.transcript}` : "",
         extractedText ? `Extracted document text:\n${extractedText}` : "",
       ].filter(Boolean);
-      if (availableContent.length === 0) return "";
-
-      return `Attachment ${index + 1} (${attachment.name}, ${attachment.type}):\n${availableContent.join("\n\n")}`;
+      return `Attachment ${index + 1} (${attachment.name}, ${attachment.type}):\nSource: ${attachment.url}\n${availableContent.join("\n\n") || "No extracted content available; do not infer the contents from the filename."}`;
     }),
   );
 
@@ -391,6 +390,11 @@ router.post("/youtube-transcripts", async (req, res): Promise<void> => {
     return;
   }
 
+  const videoUrl = normalizeYoutubeVideoUrl(body.data.url);
+  if (!videoUrl) {
+    res.status(400).json({ error: "Enter a valid YouTube video URL" });
+    return;
+  }
   const workingDir = await mkdtemp(join(tmpdir(), "idea-stream-youtube-"));
   try {
     try {
@@ -404,7 +408,7 @@ router.post("/youtube-transcripts", async (req, res): Promise<void> => {
           "--sub-format", "vtt",
           "--no-playlist",
           "-o", join(workingDir, "%(id)s"),
-          body.data.url,
+          videoUrl,
         ],
         { timeout: 90_000, maxBuffer: 2 * 1024 * 1024 },
       );
@@ -629,22 +633,33 @@ router.post("/subjects/:subjectId/ideas", async (req, res): Promise<void> => {
     return;
   }
 
-  const [idea] = await db
+  if (body.data.clientCaptureId) {
+    const [existing] = await db.select().from(ideasTable).where(eq(ideasTable.clientCaptureId, body.data.clientCaptureId));
+    if (existing) { res.status(200).json(CreateIdeaResponse.parse(serializeIdea(existing))); return; }
+  }
+  const [destination] = await db.select({ id: subjectsTable.id }).from(subjectsTable).where(eq(subjectsTable.id, params.data.subjectId));
+  if (!destination) { res.status(404).json({ error: "Subject not found" }); return; }
+  const [inserted] = await db
     .insert(ideasTable)
     .values({
       subjectId: params.data.subjectId,
       content: body.data.content.trim(),
+      clientCaptureId: body.data.clientCaptureId,
+      ...(body.data.capturedAt ? { createdAt: new Date(body.data.capturedAt) } : {}),
       source: body.data.source ?? "text",
       attachments: body.data.attachments ?? [],
     })
+    .onConflictDoNothing({ target: ideasTable.clientCaptureId })
     .returning();
+  const idea = inserted ?? (body.data.clientCaptureId ? (await db.select().from(ideasTable).where(eq(ideasTable.clientCaptureId, body.data.clientCaptureId)))[0] : undefined);
+  if (!idea) { res.status(409).json({ error: "Capture could not be saved" }); return; }
 
   await db
     .update(subjectsTable)
     .set({ updatedAt: new Date() })
     .where(eq(subjectsTable.id, params.data.subjectId));
 
-  res.status(201).json(CreateIdeaResponse.parse(serializeIdea(idea)));
+  res.status(inserted ? 201 : 200).json(CreateIdeaResponse.parse(serializeIdea(idea)));
 });
 
 router.patch("/ideas/:ideaId", async (req, res): Promise<void> => {
@@ -660,11 +675,18 @@ router.patch("/ideas/:ideaId", async (req, res): Promise<void> => {
     return;
   }
 
-  const [idea] = await db
-    .update(ideasTable)
-    .set(body.data)
-    .where(eq(ideasTable.id, params.data.ideaId))
-    .returning();
+  const idea = await db.transaction(async tx => {
+    const [previous] = await tx.select().from(ideasTable).where(eq(ideasTable.id, params.data.ideaId)).for("update");
+    if (!previous) return null;
+    if (body.data.subjectId !== undefined) {
+      const [destination] = await tx.select({ id: subjectsTable.id }).from(subjectsTable).where(eq(subjectsTable.id, body.data.subjectId));
+      if (!destination) return "missing-subject" as const;
+    }
+    const [updated] = await tx.update(ideasTable).set(body.data).where(eq(ideasTable.id, previous.id)).returning();
+    await tx.update(subjectsTable).set({ updatedAt: new Date() }).where(inArray(subjectsTable.id, [previous.subjectId, updated.subjectId]));
+    return updated;
+  });
+  if (idea === "missing-subject") { res.status(404).json({ error: "Destination subject not found" }); return; }
 
   if (!idea) {
     res.status(404).json({ error: "Idea not found" });
@@ -1109,6 +1131,8 @@ router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {
   }
 
   const outputInstructions: Record<string, string> = {
+    youtube_script: "Write a spoken YouTube video script with a compelling opening hook, a brief introduction, clearly sequenced sections, natural transitions, suggested visual cues in brackets, and a concise closing call to action. Keep the author's voice. Do not invent facts, quotes, or personal experiences.",
+    broadcast_script: "Write a broadcast or podcast script with an opening, clear presenter narration, natural spoken transitions, optional production cues in brackets, and a concise closing. Distinguish verified facts from the author's ideas. Do not invent interviews, quotes, or evidence.",
     clear: "Create a clear, direct, well-structured draft.",
     conversational: "Create a natural, engaging conversational draft.",
     academic: "Create a rigorous academic draft with formal reasoning and clear sections. Do not invent citations.",
@@ -1123,6 +1147,9 @@ router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {
     objectives_goals: "Extract and organize only the main objective, supporting objectives, goals, intended outcomes, and success indicators that are supported by the supplied material. Clearly label anything that is implied rather than explicit.",
   };
   const requestedOutput = body.data.tone ?? "clear";
+  // Preserve source notes and available transcripts in the draft's context.
+  const ideaContexts: string[] = [];
+  for (const idea of ideas) ideaContexts.push(await buildIdeaContext(idea));
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.6-luna",
@@ -1135,7 +1162,7 @@ router.post("/subjects/:subjectId/compile", async (req, res): Promise<void> => {
       },
       {
         role: "user",
-        content: `Title: ${subject.title}\nIntroduction: ${subject.intro || "None"}\nRequested output type: ${requestedOutput}\n\nIdea fragments in chronological order:\n${ideas.map((idea, index) => `${index + 1}. ${idea.content}`).join("\n")}`,
+        content: `Title: ${subject.title}\nIntroduction: ${subject.intro || "None"}\nRequested output type: ${requestedOutput}\n\nIdea fragments in chronological order:\n${ideaContexts.map((context, index) => `${index + 1}. ${context}`).join("\n\n")}`,
       },
     ],
   });

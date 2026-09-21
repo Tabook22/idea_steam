@@ -1,0 +1,13 @@
+{
+  "name": "Idea Stream Recorder",
+  "short_name": "Idea Stream",
+  "description": "Capture now. Organize later.",
+  "id": "./",
+  "start_url": "./record",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#365d4f",
+  "background_color": "#faf9f5",
+  "icons": [{ "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }],
+  "shortcuts": [{ "name": "Record an idea", "url": "./record?start=1&limit=60", "description": "Start a one-minute idea recording when microphone permissions allow." }]
+}

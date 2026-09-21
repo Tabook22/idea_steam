@@ -9,6 +9,10 @@ import type { IdeaAttachment } from './ideaAttachment';
 import type { IdeaInputSource } from './ideaInputSource';
 
 export interface IdeaInput {
+  /** Stable recording ID for idempotent retries. */
+  clientCaptureId?: string;
+  /** Original capture time for delayed uploads. */
+  capturedAt?: Date;
   /** @minLength 1 */
   content: string;
   source?: IdeaInputSource;

@@ -3,7 +3,10 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "dev:preview": "node scripts/preview.mjs",
+    "test:youtube-url": "node --experimental-strip-types --test scripts/youtube-url.test.mjs",
+    "test:recording": "node --experimental-strip-types --test scripts/recording.test.mjs scripts/offline-recorder.test.mjs",
+    "preinstall": "node scripts/check-package-manager.cjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
@@ -13,6 +16,7 @@
     "@replit/connectors-sdk": "^0.4.3"
   },
   "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
     "prettier": "^3.9.6",
     "typescript": "~5.9.3"
   }

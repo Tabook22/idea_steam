@@ -22,4 +22,6 @@ export const CompilationInputTone = {
   phd_proposal: 'phd_proposal',
   summary_only: 'summary_only',
   objectives_goals: 'objectives_goals',
+  youtube_script: 'youtube_script',
+  broadcast_script: 'broadcast_script',
 } as const;

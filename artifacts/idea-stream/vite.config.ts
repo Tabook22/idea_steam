@@ -4,8 +4,10 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
+import { shouldShowRuntimeError } from './runtime-error-filter';
+import { offlineRecorderShell } from './offline-recorder-plugin';
 
-const rawPort = process.env.PORT;
+const rawPort = process.env.PORT || '5173';
 
 if (!rawPort) {
   throw new Error(
@@ -19,7 +21,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH || '/';
 
 if (!basePath) {
   throw new Error(
@@ -32,7 +34,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
-    runtimeErrorOverlay(),
+    runtimeErrorOverlay({ filter: shouldShowRuntimeError }),
+    offlineRecorderShell(),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [
@@ -69,6 +72,9 @@ export default defineConfig({
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
+    proxy: {
+      '/api': { target: process.env.API_PROXY_TARGET || 'http://localhost:5000', changeOrigin: true },
+    },
     fs: {
       strict: true,
     },

@@ -138,6 +138,8 @@ export const createIdeaBodySourceDefault = `text`;
 export const createIdeaBodyAttachmentsDefault = [];
 
 export const CreateIdeaBody = zod.object({
+  "clientCaptureId": zod.string().uuid().optional().describe('Stable recording ID for idempotent retries.'),
+  "capturedAt": zod.coerce.date().optional().describe('Original capture time for delayed uploads.'),
   "content": zod.string().min(1),
   "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']).default(createIdeaBodySourceDefault),
   "attachments": zod.array(zod.object({
@@ -215,7 +217,9 @@ export const UpdateIdeaParams = zod.object({
 
 
 
+
 export const UpdateIdeaBody = zod.object({
+  "subjectId": zod.number().int().min(1).optional().describe('Move the idea and its attachments to this subject.'),
   "content": zod.string().min(1).optional(),
   "attachments": zod.array(zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
@@ -330,7 +334,7 @@ export const CompileSubjectParams = zod.object({
 export const compileSubjectBodyToneDefault = `clear`;
 
 export const CompileSubjectBody = zod.object({
-  "tone": zod.enum(['clear', 'conversational', 'academic', 'cinematic', 'newspaper_article', 'advertisement', 'discussion_invitation', 'official_letter', 'masters_proposal', 'phd_proposal', 'summary_only', 'objectives_goals']).default(compileSubjectBodyToneDefault)
+  "tone": zod.enum(['clear', 'conversational', 'academic', 'cinematic', 'newspaper_article', 'advertisement', 'discussion_invitation', 'official_letter', 'masters_proposal', 'phd_proposal', 'summary_only', 'objectives_goals', 'youtube_script', 'broadcast_script']).default(compileSubjectBodyToneDefault)
 })
 
 export const CompileSubjectResponse = zod.object({

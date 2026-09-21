@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Synthetic recorder test</title></head>
+<body><div style="padding:12px;background:#fef3c7;font:14px sans-serif">
+  Synthetic microphone test — generated tone, no physical microphone.
+  <button id="connection">Toggle simulated connection</button> <strong id="connection-state"></strong>
+</div><div id="root"></div>
+<script type="module">
+  if (!import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW !== 'true') throw new Error('This fixture is for development preview only.');
+  const nativeFetch = window.fetch.bind(window);
+  function connectionLabel() { document.getElementById('connection-state').textContent = sessionStorage.getItem('test-offline') === '1' ? 'Test API disconnected' : 'Test API connected'; }
+  document.getElementById('connection').onclick = () => { sessionStorage.setItem('test-offline', sessionStorage.getItem('test-offline') === '1' ? '0' : '1'); connectionLabel(); };
+  connectionLabel();
+  window.fetch = (input, options) => {
+    if (sessionStorage.getItem('test-offline') === '1' && String(input).includes('/api/')) return Promise.reject(new Error('Synthetic connection outage'));
+    return nativeFetch(input, options);
+  };
+  Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async () => {
+    const context = new AudioContext();
+    await context.resume();
+    const oscillator = context.createOscillator();
+    const destination = context.createMediaStreamDestination();
+    oscillator.connect(destination); oscillator.start();
+    const stream = destination.stream;
+    const track = stream.getAudioTracks()[0];
+    const stop = track.stop.bind(track);
+    track.stop = () => { oscillator.stop(); void context.close(); stop(); };
+    return stream;
+  }});
+  history.replaceState(null, '', '/record');
+  await import('/src/main.tsx');
+</script></body></html>

@@ -30,6 +30,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
 import { IdeaChatDialog } from "@/components/idea-chat-dialog";
+import { MoveIdeaDialog } from "@/components/move-idea-dialog";
 
 interface IdeaListProps {
   subjectId: number;
@@ -487,7 +488,7 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
   };
 
   return (
-    <div className="relative group">
+    <div id={`idea-${idea.id}`} className="relative group scroll-mt-6">
       <div className="absolute -start-[1.375rem] sm:-start-8 top-1.5 w-3 h-3 rounded-full bg-background border-2 border-primary ring-4 ring-background z-10" />
       <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
         <time
@@ -593,6 +594,7 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
               ))}
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-1">
+              <MoveIdeaDialog idea={idea} />
               {(idea.content.length > 220 || idea.content.split("\n").length > 4) && (
                 <Button
                   type="button"

@@ -649,6 +649,14 @@ components:
       type: object
       required: [content]
       properties:
+        clientCaptureId:
+          type: string
+          format: uuid
+          description: Stable recording ID for idempotent retries.
+        capturedAt:
+          type: string
+          format: date-time
+          description: Original capture time for delayed uploads.
         content:
           type: string
           minLength: 1
@@ -664,6 +672,10 @@ components:
     IdeaUpdate:
       type: object
       properties:
+        subjectId:
+          type: integer
+          minimum: 1
+          description: Move the idea and its attachments to this subject.
         content:
           type: string
           minLength: 1
@@ -689,6 +701,8 @@ components:
             - phd_proposal
             - summary_only
             - objectives_goals
+            - youtube_script
+            - broadcast_script
           default: clear
     Compilation:
       type: object
@@ -722,4 +736,3 @@ components:
         format:
           type: string
           enum: [pdf, docx]
-
