@@ -10,7 +10,16 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  connectionTimeoutMillis: 5_000,
+});
+// pg removes failed idle connections itself. Handle its background error event
+// so a database restart does not become an uncaught error that kills the API.
+pool.on("error", () => {
+  // Do not log the client object: it contains connection credentials.
+  console.warn("Database connection lost; the pool will reconnect on the next request.");
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
