@@ -1,5 +1,4 @@
 @layer theme, base, clerk, components, utilities;
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
 @import "tailwindcss";
 @import "@clerk/themes/shadcn.css";
 @import "tw-animate-css";
@@ -100,8 +99,8 @@
   --chart-4: 43 20% 80%;
   --chart-5: 155 10% 40%;
 
-  --app-font-sans: "DM Sans", sans-serif;
-  --app-font-serif: "Playfair Display", serif;
+  --app-font-sans: "DM Sans Variable", system-ui, sans-serif;
+  --app-font-serif: "Playfair Display Variable", Georgia, serif;
   --app-font-mono: ui-monospace, monospace;
 
   --radius: 0.75rem;

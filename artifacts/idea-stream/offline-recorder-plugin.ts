@@ -13,7 +13,7 @@ export function offlineRecorderShell(): Plugin {
     },
     generateBundle(_options, bundle) {
       const files = Object.keys(bundle).filter((file) =>
-        /\.(?:js|css|html)$/.test(file),
+        /\.(?:js|css|html|woff2)$/.test(file),
       );
       const hash = createHash("sha256");
       for (const file of files.sort()) {

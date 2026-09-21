@@ -4,6 +4,10 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ErrorBoundary } from "@/components/error-boundary";
 
+import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/dm-sans/wght-italic.css";
+import "@fontsource-variable/playfair-display";
+import "@fontsource-variable/playfair-display/wght-italic.css";
 import "./index.css";
 
 setBaseUrl(import.meta.env.BASE_URL.replace(/\/$/, ""));
