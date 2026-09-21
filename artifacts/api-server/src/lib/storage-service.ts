@@ -74,7 +74,8 @@ export class ObjectStorageService {
       }),
     ).toString("base64url");
     const base = (this.env.APP_BASE_PATH || "").replace(/\/$/, "");
-    return `${base}/api/storage/local-upload/${id}?token=${payload}.${signature(secret, payload)}`;
+    const origin = this.env.APP_ORIGIN || `http://127.0.0.1:${this.env.PORT || "5000"}`;
+    return new URL(`${base}/api/storage/local-upload/${id}?token=${payload}.${signature(secret, payload)}`, origin).href;
   }
   normalizeObjectEntityPath(url: string) {
     if (!this.env.LOCAL_STORAGE_DIR)

@@ -1,3 +1,4 @@
+import { RequestUploadUrlResponse } from "../lib/api-zod/src/generated/api.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -6,7 +7,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve, basename } from "node:path";
 import { Readable } from "node:stream";
-import { appPath } from "../artifacts/idea-stream/src/lib/app-path.ts";
+import { appPath, uploadCredentials } from "../artifacts/idea-stream/src/lib/app-path.ts";
 import { privateAccess } from "../artifacts/api-server/src/lib/private-access.ts";
 import {
   ObjectStorageService,
@@ -64,6 +65,7 @@ test("private VPS uploads require login and a valid size-bound signature, persis
   const server = app.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
+  const localUrl = url => { const parsed = new URL(url); return origin + parsed.pathname + parsed.search; };
   const headers = {
     Authorization: `Basic ${Buffer.from("owner:test-password").toString("base64")}`,
   };
@@ -73,12 +75,15 @@ test("private VPS uploads require login and a valid size-bound signature, persis
       contentType: "audio/webm",
     });
     const objectPath = storage.normalizeObjectEntityPath(url);
-    const unauth = await fetch(origin + url, { method: "PUT", body: "hello" });
+    assert.ok(RequestUploadUrlResponse.safeParse({uploadURL:url,objectPath}).success);
+    assert.equal(uploadCredentials(url,"https://nasserdiary.com"),"same-origin");
+    assert.equal(uploadCredentials("https://storage.example/put","https://nasserdiary.com"),"omit");
+    const unauth = await fetch(localUrl(url), { method: "PUT", body: "hello" });
     assert.equal(unauth.status, 401);
     assert.match(unauth.headers.get("www-authenticate"), /Idea Stream/);
     assert.equal(
       (
-        await fetch(origin + url + "x", {
+        await fetch(localUrl(url) + "x", {
           method: "PUT",
           headers,
           body: "hello",
@@ -88,7 +93,7 @@ test("private VPS uploads require login and a valid size-bound signature, persis
     );
     assert.equal(
       (
-        await fetch(origin + url, {
+        await fetch(localUrl(url), {
           method: "PUT",
           headers: { ...headers, Origin: "https://other.test" },
           body: "hello",
@@ -97,7 +102,7 @@ test("private VPS uploads require login and a valid size-bound signature, persis
       403,
     );
     assert.equal(
-      (await fetch(origin + url, { method: "PUT", headers, body: "hello" }))
+      (await fetch(localUrl(url), { method: "PUT", headers, body: "hello" }))
         .status,
       200,
     );
@@ -131,7 +136,7 @@ test("private VPS uploads require login and a valid size-bound signature, persis
     });
     assert.equal(
       (
-        await fetch(origin + incomplete, {
+        await fetch(localUrl(incomplete), {
           method: "PUT",
           headers,
           body: "short",

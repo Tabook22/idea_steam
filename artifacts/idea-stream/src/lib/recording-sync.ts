@@ -1,4 +1,4 @@
-import { appPath } from "./app-path.ts";
+import { appPath, uploadCredentials } from "./app-path.ts";
 import type { Idea, Subject } from "@workspace/api-client-react";
 import { RecordingStore } from "./recording-store.ts";
 import {
@@ -87,7 +87,7 @@ export async function syncRecording(
       );
       await request(fetcher, upload.uploadURL, {
         method: "PUT",
-        credentials: upload.uploadURL.startsWith("/") ? "same-origin" : "omit",
+        credentials: uploadCredentials(upload.uploadURL, typeof location === "undefined" ? undefined : location.origin),
         headers: { "Content-Type": mimeType },
         body: audio,
       });
