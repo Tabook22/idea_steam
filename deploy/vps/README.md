@@ -52,6 +52,8 @@ The updater refuses dirty checkouts, pulls with `--ff-only`, installs the lockfi
 
 ## Operational notes
 
+- The web service uses `Wants=idea-stream-db.service` with startup ordering. A database restart must not stop the web service: `Requires=` propagates a database stop to the app, and `Restart=on-failure` does not recover that dependency-driven stop. The database service still starts automatically and the connection pool reconnects after recovery.
+- A 502 means Nginx could not reach the app. Check both service logs for forced exits or `oom-kill`. Server-wide memory exhaustion can also kill the user service manager; app restart settings cannot fully protect against this. Reading kernel OOM logs requires administrator access: `sudo journalctl -k --since "2 hours ago" --no-pager -g 'oom|Out of memory|Killed process'`. Diagnose the memory-consuming workload before changing other applications.
 - `systemctl --user status idea-stream idea-stream-db` shows the two isolated services. `journalctl --user -u idea-stream -n 100` shows app logs.
 - Uploads live in `/home/nasser/apps/idea-stream/uploads`, independent of builds. They use signed, bounded upload URLs; files are published after the full upload completes.
 - Database backups are under `/home/nasser/apps/idea-stream/backups`. These are on the same VPS: copy database backups and uploads to your own separate backup destination for disaster recovery.

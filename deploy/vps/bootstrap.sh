@@ -54,7 +54,7 @@ EOF
 cat > "$HOME/.config/systemd/user/idea-stream.service" <<EOF
 [Unit]
 Description=Idea Stream private notebook
-Requires=idea-stream-db.service
+Wants=idea-stream-db.service
 After=idea-stream-db.service
 [Service]
 Type=simple
