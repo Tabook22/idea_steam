@@ -81,12 +81,18 @@ export function privateAccess(env = process.env): RequestHandler {
 
   return (req, res, next) => {
     const origin = req.headers.origin;
-    if (
-      env.APP_ORIGIN &&
-      origin &&
-      origin !== env.APP_ORIGIN &&
-      !["GET", "HEAD", "OPTIONS"].includes(req.method)
-    ) {
+    // Same-site requests are always safe, so www and bare-domain visits both work.
+    // Some mobile browsers send "null" for a plain form post; the sign-in form still needs the password.
+    const allowedOrigin =
+      !origin ||
+      origin === env.APP_ORIGIN ||
+      origin === `${req.protocol}://${req.get("host")}` ||
+      (origin === "null" && req.path === "/login");
+    if (env.APP_ORIGIN && !allowedOrigin && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      if (req.path === "/login" || req.path === "/logout") {
+        res.redirect(303, `${base}/login`);
+        return;
+      }
       res.status(403).json({ error: "Origin not allowed" });
       return;
     }

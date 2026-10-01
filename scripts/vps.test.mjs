@@ -206,6 +206,30 @@ test("private sign-in uses a styled page and session cookie, never the browser's
     const basic = { Authorization: `Basic ${Buffer.from("owner:test-password").toString("base64")}` };
     assert.equal((await fetch(`${origin}/api/subjects`, { headers: basic })).status, 200);
 
+    // The site also answers on other hostnames (www.); a same-site form must work there too.
+    const sameSite = await fetch(`${origin}/login`, {
+      method: "POST", redirect: "manual",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: origin },
+      body: new URLSearchParams({ username: "owner", password: "test-password", next: "/" }),
+    });
+    assert.equal(sameSite.status, 303);
+    assert.match(sameSite.headers.get("set-cookie"), /^idea_stream_session=/);
+    const nullOrigin = await fetch(`${origin}/login`, {
+      method: "POST", redirect: "manual",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: "null" },
+      body: new URLSearchParams({ username: "owner", password: "test-password", next: "/" }),
+    });
+    assert.equal(nullOrigin.status, 303);
+    const foreign = await fetch(`${origin}/login`, {
+      method: "POST", redirect: "manual",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: "https://evil.example" },
+      body: new URLSearchParams({ username: "owner", password: "test-password", next: "/" }),
+    });
+    assert.equal(foreign.headers.get("location"), "/ideas/login");
+    assert.equal(foreign.headers.get("set-cookie"), null);
+    const foreignApi = await fetch(`${origin}/api/subjects`, { method: "POST", headers: { Cookie: session, Origin: "https://evil.example" } });
+    assert.equal(foreignApi.status, 403);
+
     const out = await fetch(`${origin}/logout`, { method: "POST", redirect: "manual", headers: { Cookie: session, Origin: env.APP_ORIGIN } });
     assert.equal(out.headers.get("location"), "/ideas/login?signed-out=1");
     assert.match(out.headers.get("set-cookie"), /Max-Age=0/);
