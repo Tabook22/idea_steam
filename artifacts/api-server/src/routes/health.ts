@@ -4,7 +4,10 @@ import { aiConfigured } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
 router.get("/capabilities", (_req, res) => {
-  res.json({ ai: aiConfigured });
+  res.json({
+    ai: aiConfigured,
+    signOut: Boolean(process.env.APP_USERNAME && process.env.APP_PASSWORD_HASH),
+  });
 });
 
 router.get("/healthz", (_req, res) => {

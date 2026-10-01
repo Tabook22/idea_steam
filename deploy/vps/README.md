@@ -29,7 +29,7 @@ The initial username is `nasser`. Read the generated password in your SSH termin
 cat /home/nasser/apps/idea-stream/private/initial-password.txt
 ```
 
-This is a separate application password, not the VPS sudo password. It protects the entire app and uploads over HTTPS. This gate is for one owner; it does not implement separate accounts or shared notebooks. Local browser recordings are available to people using that same browser profile.
+This is a separate application password, not the VPS sudo password. It protects the entire app and uploads over HTTPS. Browsers see a branded sign-in page at `/ideas/login` and stay signed in for 30 days through an HttpOnly session cookie; **Sign out** is in the top bar. Changing the password signs out every device. Scripts, such as the health check, can still use HTTP Basic credentials. This gate is for one owner; it does not implement separate accounts or shared notebooks. Local browser recordings are available to people using that same browser profile.
 
 Notes, recordings, and uploads work without an AI key. To enable real transcription and writing, edit the private `app.env` file and add `OPENAI_API_KEY`. Do not place it in Git or a frontend Vite variable. Optionally set `OPENAI_TEXT_MODEL` and `OPENAI_BASE_URL`. Restart only Idea Stream:
 

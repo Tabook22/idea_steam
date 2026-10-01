@@ -157,3 +157,59 @@ test("private VPS uploads require login and a valid size-bound signature, persis
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("private sign-in uses a styled page and session cookie, never the browser's native dialog", async () => {
+  const env = {
+    APP_BASE_PATH: "/ideas",
+    APP_ORIGIN: "https://nasserdiary.com",
+    APP_USERNAME: "owner",
+    APP_PASSWORD_HASH: `test-salt:${scryptSync("test-password", "test-salt", 32).toString("hex")}`,
+  };
+  const app = express();
+  app.use(privateAccess(env));
+  app.get("/api/subjects", (_req, res) => res.json([]));
+  app.get("/{*path}", (_req, res) => res.send("app shell"));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const login = (fields) => fetch(`${origin}/login`, {
+    method: "POST", redirect: "manual",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Origin: env.APP_ORIGIN },
+    body: new URLSearchParams(fields),
+  });
+  try {
+    const page = await fetch(`${origin}/record?start=1`, { redirect: "manual", headers: { Accept: "text/html", "Sec-Fetch-Mode": "navigate" } });
+    assert.equal(page.status, 303);
+    assert.equal(page.headers.get("location"), "/ideas/login?next=%2Frecord%3Fstart%3D1");
+    const form = await fetch(`${origin}/login?next=%2Frecord`);
+    assert.equal(form.status, 200);
+    assert.match(await form.text(), /<form method="post" action="\/ideas\/login"/);
+    const browserApi = await fetch(`${origin}/api/subjects`, { headers: { "Sec-Fetch-Mode": "cors", "Sec-Fetch-Dest": "empty" } });
+    assert.equal(browserApi.status, 401);
+    assert.equal(browserApi.headers.get("www-authenticate"), null);
+    assert.equal((await fetch(`${origin}/api/subjects`)).headers.get("www-authenticate"), 'Basic realm="Idea Stream", charset="UTF-8"');
+
+    const wrong = await login({ username: "owner", password: "nope", next: "/record" });
+    assert.equal(wrong.status, 401);
+    assert.match(await wrong.text(), /don't match/);
+    const external = await login({ username: "owner", password: "test-password", next: "//evil.example" });
+    assert.equal(external.headers.get("location"), "/ideas/");
+    const ok = await login({ username: "owner", password: "test-password", next: "/record?start=1" });
+    assert.equal(ok.status, 303);
+    assert.equal(ok.headers.get("location"), "/ideas/record?start=1");
+    const cookie = ok.headers.get("set-cookie");
+    assert.match(cookie, /^idea_stream_session=\d+\.[a-f0-9]{64}; Path=\/ideas; HttpOnly; SameSite=Lax/);
+    const session = cookie.split(";")[0];
+    assert.equal((await fetch(`${origin}/api/subjects`, { headers: { Cookie: session } })).status, 200);
+    const forged = session.replace(/.$/, (c) => (c === "0" ? "1" : "0"));
+    assert.equal((await fetch(`${origin}/api/subjects`, { headers: { Cookie: forged } })).status, 401);
+    const basic = { Authorization: `Basic ${Buffer.from("owner:test-password").toString("base64")}` };
+    assert.equal((await fetch(`${origin}/api/subjects`, { headers: basic })).status, 200);
+
+    const out = await fetch(`${origin}/logout`, { method: "POST", redirect: "manual", headers: { Cookie: session, Origin: env.APP_ORIGIN } });
+    assert.equal(out.headers.get("location"), "/ideas/login?signed-out=1");
+    assert.match(out.headers.get("set-cookie"), /Max-Age=0/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

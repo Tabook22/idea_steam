@@ -1,9 +1,12 @@
 import { type ReactNode } from "react";
 import {
+  MutationCache,
+  QueryCache,
   QueryClient,
   QueryClientProvider,
   useQuery,
 } from "@tanstack/react-query";
+import { LogOut } from "lucide-react";
 import { appPath } from "@/lib/app-path";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/toaster";
@@ -23,20 +26,20 @@ import {
   Router as WouterRouter,
 } from "wouter";
 
-const queryClient = new QueryClient();
+const loginPath = appPath("/login", import.meta.env.BASE_URL);
+// An expired private-access session sends the owner back to the sign-in page.
+const signInAgain = (error: unknown) => {
+  if ((error as { status?: number })?.status === 401)
+    window.location.assign(`${loginPath}?next=${encodeURIComponent(window.location.pathname.slice(import.meta.env.BASE_URL.length - 1) + window.location.search)}`);
+};
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: signInAgain }),
+  mutationCache: new MutationCache({ onError: signInAgain }),
+});
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function TopNav() {
-  return (
-    <div className="flex items-center justify-end gap-3 px-4 py-3">
-      <LanguageToggle />
-    </div>
-  );
-}
-
-function ServiceNotice() {
-  const { isArabic } = useLanguage();
-  const { data } = useQuery({
+function useCapabilities() {
+  return useQuery({
     queryKey: ["service-capabilities"],
     enabled: import.meta.env.VITE_DESIGN_PREVIEW !== "true",
     retry: false,
@@ -46,9 +49,35 @@ function ServiceNotice() {
         appPath("/api/capabilities", import.meta.env.BASE_URL),
       );
       if (!response.ok) throw new Error("Capabilities unavailable");
-      return response.json() as Promise<{ ai: boolean }>;
+      return response.json() as Promise<{ ai: boolean; signOut?: boolean }>;
     },
   });
+}
+
+function TopNav() {
+  const { isArabic } = useLanguage();
+  const { data } = useCapabilities();
+  return (
+    <div className="flex items-center justify-end gap-3 px-4 py-3">
+      <LanguageToggle />
+      {data?.signOut && (
+        <form method="post" action={appPath("/logout", import.meta.env.BASE_URL)}>
+          <button
+            type="submit"
+            className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <LogOut size={16} />
+            {isArabic ? "تسجيل الخروج" : "Sign out"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function ServiceNotice() {
+  const { isArabic } = useLanguage();
+  const { data } = useCapabilities();
   if (data?.ai !== false) return null;
   return (
     <p
