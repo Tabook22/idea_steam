@@ -3,6 +3,7 @@
 <body><div style="padding:12px;background:#fef3c7;font:14px sans-serif">
   Synthetic microphone test — generated tone, no physical microphone.
   <button id="connection">Toggle simulated connection</button> <strong id="connection-state"></strong>
+  <button id="transcription">Toggle transcription failure</button> <strong id="transcription-state"></strong>
 </div><div id="root"></div>
 <script type="module">
   if (!import.meta.env.DEV || import.meta.env.VITE_DESIGN_PREVIEW !== 'true') throw new Error('This fixture is for development preview only.');
@@ -10,7 +11,11 @@
   function connectionLabel() { document.getElementById('connection-state').textContent = sessionStorage.getItem('test-offline') === '1' ? 'Test API disconnected' : 'Test API connected'; }
   document.getElementById('connection').onclick = () => { sessionStorage.setItem('test-offline', sessionStorage.getItem('test-offline') === '1' ? '0' : '1'); connectionLabel(); };
   connectionLabel();
+  function transcriptLabel() { document.getElementById('transcription-state').textContent = sessionStorage.getItem('test-transcription-fail') === '1' ? 'Transcription failure enabled' : 'Transcription available'; }
+  document.getElementById('transcription').onclick = () => { sessionStorage.setItem('test-transcription-fail', sessionStorage.getItem('test-transcription-fail') === '1' ? '0' : '1'); transcriptLabel(); };
+  transcriptLabel();
   window.fetch = (input, options) => {
+    if (sessionStorage.getItem('test-transcription-fail') === '1' && String(input).endsWith('/transcription')) return Promise.resolve(new Response(JSON.stringify({ error: 'Simulated transcription outage. Audio is saved.' }), { status: 503, headers: { 'Content-Type': 'application/json' } }));
     if (sessionStorage.getItem('test-offline') === '1' && String(input).includes('/api/')) return Promise.reject(new Error('Synthetic connection outage'));
     return nativeFetch(input, options);
   };

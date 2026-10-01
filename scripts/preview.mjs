@@ -199,6 +199,17 @@ const api = createHttpServer(async (req, res) => {
         return send(draft);
       }
     }
+    const transcriptMatch = path.match(/^\/api\/ideas\/(\d+)\/transcription$/);
+    if (transcriptMatch && req.method === "POST") {
+      const idea = ideas.find(i => i.id === Number(transcriptMatch[1]));
+      const attachment = idea?.attachments[body.attachmentIndex || 0];
+      if (!idea || attachment?.type !== "audio") return send({ error: "Recording not found" }, 404);
+      attachment.transcript ||= body.language === "ar"
+        ? "[نص تجريبي] هذه فكرة لتطوير التعليم. التسجيل الأصلي محفوظ."
+        : "[Preview transcript] An idea about learning and creativity. Original recording preserved.";
+      if (body.expectedContent === idea.content) idea.content = attachment.transcript;
+      return send({ text: attachment.transcript, idea });
+    }
     const ideaMatch = path.match(/^\/api\/ideas\/(\d+)$/);
     if (ideaMatch) {
       const index = ideas.findIndex((i) => i.id === Number(ideaMatch[1]));

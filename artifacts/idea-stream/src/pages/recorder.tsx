@@ -16,9 +16,9 @@ import {
 } from "lucide-react";
 import { useListSubjects, updateIdea } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { recordingStore, useRecorder } from "@/components/recorder-provider";
+import { recordingStore, useRecorder, withRecordingLock } from "@/components/recorder-provider";
 import type { LocalRecording } from "@/lib/recording-store";
-import { spokenSubject } from "@/lib/recording-utils";
+import { spokenSubject, recordingTitle } from "@/lib/recording-utils";
 import { useLanguage } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,15 +35,17 @@ import {
 function RecordingCard({ record }: { record: LocalRecording }) {
   const { isArabic, language } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
-  const { refresh, sync, syncingId, stage } = useRecorder();
+  const { refresh, sync, syncingId, transcribingId, requestTranscript, online, stage } = useRecorder();
   const { data: subjects = [] } = useListSubjects();
   const queryClient = useQueryClient();
   const [audioUrl, setAudioUrl] = useState<string>();
   const [expanded, setExpanded] = useState(false);
+  const [transcriptionLanguage, setTranscriptionLanguage] = useState<"auto" | "en" | "ar">(record.transcriptionLanguage || "auto");
+  const [copied, setCopied] = useState(false);
   const [moving, setMoving] = useState(false);
   const [error, setError] = useState("");
   const [remove, setRemove] = useState(false);
-  const busy = moving || syncingId === record.id || stage !== "idle";
+  const busy = moving || transcribingId === record.id || syncingId === record.id || stage !== "idle";
   const suggested = record.transcript
     ? spokenSubject(record.transcript, subjects)
     : null;
@@ -74,6 +76,7 @@ function RecordingCard({ record }: { record: LocalRecording }) {
     setMoving(true);
     setError("");
     try {
+      await withRecordingLock(async () => {
       const subjectId = value === "inbox" ? null : Number(value);
       if (record.ideaId) {
         if (subjectId === null) return;
@@ -86,7 +89,9 @@ function RecordingCard({ record }: { record: LocalRecording }) {
         attempts: 0,
         nextRetryAt: 0,
       });
+      });
       await refresh();
+      void sync(true);
     } catch {
       setError(
         copy(
@@ -107,7 +112,7 @@ function RecordingCard({ record }: { record: LocalRecording }) {
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="font-sans text-base font-medium break-words">
-            {record.title}
+            {recordingTitle(record.transcript || "", record.title)}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {new Intl.DateTimeFormat(language, {
@@ -179,7 +184,7 @@ function RecordingCard({ record }: { record: LocalRecording }) {
           ))}
         </select>
       </label>
-      {suggested && !record.subjectId && (
+      {suggested && suggested !== record.subjectId && (
         <Button
           className="mt-2"
           size="sm"
@@ -193,21 +198,31 @@ function RecordingCard({ record }: { record: LocalRecording }) {
       )}
       {(error || record.error) && (
         <p className="mt-3 text-xs text-amber-800" role="status">
-          {error ||
+          {error || record.error ||
             copy(
               "Sync couldn't finish. Your audio is kept here; it will retry when this app is open and connected.",
               "لم تكتمل المزامنة. الصوت محفوظ هنا وستُعاد المحاولة عند فتح التطبيق واتصاله.",
             )}
         </p>
       )}
-      {record.transcriptionStatus && record.transcriptionStatus !== "done" && (
-        <p className="mt-3 text-xs text-muted-foreground">
-          {copy(
-            "Audio preserved. An automatic transcript wasn't available; you can add or edit the text in the notebook.",
-            "الصوت محفوظ. لم يتوفر نص تلقائي؛ يمكنك إضافة النص أو تعديله في الدفتر.",
-          )}
-        </p>
-      )}
+      <div className="mt-4 rounded-xl bg-primary/5 p-3 space-y-3">
+        <p className="text-sm font-medium" role="status">{transcribingId === record.id
+          ? copy("Converting speech to text…", "جارٍ تحويل الصوت إلى نص…")
+          : record.transcriptionStatus === "done" ? copy("Transcript ready", "النص جاهز")
+          : copy("Turn this recording into text", "حوّل هذا التسجيل إلى نص")}</p>
+        {record.transcriptionStatus !== "done" && <>
+          <select className="w-full rounded-lg border bg-background p-2 text-sm" aria-label={copy("Transcript language", "لغة التفريغ")}
+            value={transcriptionLanguage} disabled={busy} onChange={e => setTranscriptionLanguage(e.target.value as "auto" | "en" | "ar")}>
+            <option value="auto">{copy("Detect spoken language", "اكتشاف اللغة المنطوقة")}</option>
+            <option value="ar">العربية</option><option value="en">English</option>
+          </select>
+          <Button size="sm" disabled={busy || !online} onClick={() => void requestTranscript(record.id, transcriptionLanguage).catch(() => setError(copy("Couldn't queue transcription. Please retry.", "تعذر بدء التفريغ. حاول مجددًا.")))}>
+            {record.transcriptionStatus ? copy("Retry transcription", "إعادة التفريغ") : copy("Convert to text", "تحويل إلى نص")}
+          </Button>
+          <p className="text-xs text-muted-foreground">{copy("Arabic stays Arabic. English stays English. Audio is saved first.", "يبقى العربي بالعربية والإنجليزي بالإنجليزية. يُحفظ الصوت أولًا.")}</p>
+        </>}
+        {record.transcriptionError && <p role="status" className="text-xs text-amber-800">{record.transcriptionError}</p>}
+      </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           variant="outline"
@@ -258,6 +273,10 @@ function RecordingCard({ record }: { record: LocalRecording }) {
               </a>
             </>
           )}
+          {record.transcript && <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(record.transcript!).then(() => setCopied(true)).catch(() => setError(copy("Select the transcript to copy it.", "حدد النص لنسخه.")))}>{copied ? copy("Copied", "تم النسخ") : copy("Copy text", "نسخ النص")}</Button>
+            <a className="text-sm underline p-2" download="transcript.txt" href={`data:text/plain;charset=utf-8,${encodeURIComponent(record.transcript)}`}>{copy("Download text", "تنزيل النص")}</a>
+          </div>}
           {record.transcript && (
             <p
               dir="auto"
@@ -327,6 +346,7 @@ export default function RecorderPage() {
     records,
     stage,
     seconds,
+    audioLevel,
     ready,
     error,
     start,
@@ -340,6 +360,10 @@ export default function RecorderPage() {
     const value = Number(new URLSearchParams(location.search).get("limit"));
     return [30, 60, 120, 300, 900].includes(value) ? value : 900;
   });
+  const { data: subjects = [] } = useListSubjects();
+  const [subjectId, setSubjectId] = useState<number | null>(null);
+  const [transcriptionLanguage, setTranscriptionLanguage] = useState<"auto" | "en" | "ar">("auto");
+  const [autoTranscribe, setAutoTranscribe] = useState(true);
   const autostart = useRef(false);
   const pending = records.filter((record) => record.status === "saved").length;
   const completed = records.filter(
@@ -425,7 +449,7 @@ export default function RecorderPage() {
               !ready || stage === "starting" || stage === "saving" || !!rescue
             }
             onClick={() =>
-              stage === "recording" ? stop() : void start(null, limit)
+              stage === "recording" ? stop() : void start(subjectId, limit, { language: transcriptionLanguage, autoTranscribe })
             }
             className={`h-36 w-36 rounded-full flex items-center justify-center shadow-xl transition-transform active:scale-95 disabled:opacity-50 ${stage === "recording" ? "bg-red-600 text-white ring-8 ring-red-100" : "bg-primary text-primary-foreground hover:scale-105"}`}
           >
@@ -447,6 +471,10 @@ export default function RecorderPage() {
               ? copy("Stop & save", "إيقاف وحفظ")
               : copy("Start recording", "بدء التسجيل")}
           </p>
+          {stage === "recording" && <div className="w-48 mt-4" role="meter" aria-label={copy("Microphone level", "مستوى الميكروفون")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(audioLevel * 100)}>
+            <div className="h-2 rounded-full bg-primary/15 overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${Math.max(2, audioLevel * 100)}%` }} /></div>
+            <p className="mt-2 text-center text-xs text-muted-foreground">{audioLevel > .04 ? copy("Microphone is picking up sound", "الميكروفون يلتقط الصوت") : copy("Speak toward the microphone", "تحدث باتجاه الميكروفون")}</p>
+          </div>}
           <label className="mt-6 text-xs text-muted-foreground flex items-center gap-2">
             {copy("Stop automatically after", "توقف تلقائيًا بعد")}
             <select
@@ -470,6 +498,21 @@ export default function RecorderPage() {
           </label>
         </div>
         <div className="p-7 sm:p-9 flex flex-col justify-center gap-6">
+          <div className="space-y-4 rounded-2xl border bg-background p-5">
+            <label className="block text-sm font-medium">{copy("Save to a subject", "احفظ في موضوع")}
+              <select className="mt-2 w-full rounded-xl border bg-card p-3 font-normal" value={subjectId ?? "inbox"} disabled={stage !== "idle"} onChange={e => setSubjectId(e.target.value === "inbox" ? null : Number(e.target.value))}>
+                <option value="inbox">{copy("Decide later · Idea inbox", "اختر لاحقًا · صندوق الأفكار")}</option>
+                {subjects.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-medium">{copy("Spoken language", "اللغة المنطوقة")}
+              <select className="mt-2 w-full rounded-xl border bg-card p-3 font-normal" value={transcriptionLanguage} disabled={stage !== "idle"} onChange={e => setTranscriptionLanguage(e.target.value as "auto" | "en" | "ar")}>
+                <option value="auto">{copy("Automatic · Arabic / English", "تلقائي · العربية / الإنجليزية")}</option>
+                <option value="ar">العربية</option><option value="en">English</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="h-4 w-4 accent-primary" checked={autoTranscribe} disabled={stage !== "idle"} onChange={e => setAutoTranscribe(e.target.checked)} />{copy("Convert to text after saving", "تحويل إلى نص بعد الحفظ")}</label>
+          </div>
           <div>
             <ShieldCheck className="text-primary mb-3" />
             <h2 className="text-xl">
@@ -497,8 +540,8 @@ export default function RecorderPage() {
             </p>
             <p className="text-xs leading-6 text-muted-foreground mt-2">
               {copy(
-                "Use the exact notebook name at the beginning. A clear match is filed there after transcription; otherwise it stays in the inbox.",
-                "قل اسم الدفتر بالضبط في البداية. تُنقل الفكرة عند وجود تطابق واضح بعد التفريغ، وإلا تبقى في الصندوق.",
+                "Use the exact notebook name at the beginning. After transcription, a matching subject is suggested on your recording card. Tap it to file the idea.",
+                "قل اسم الدفتر بالضبط في البداية. بعد التفريغ يُقترح الموضوع المطابق على بطاقة التسجيل. اضغط عليه لحفظ الفكرة فيه.",
               )}
             </p>
           </div>

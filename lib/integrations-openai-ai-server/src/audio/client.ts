@@ -202,16 +202,18 @@ export async function textToSpeechStream(
   })();
 }
 
-/** Speech-to-Text using gpt-4o-mini-transcribe. */
+/** Preserve the spoken language; omit the hint for automatic detection. */
 export async function speechToText(
   audioBuffer: Buffer,
-  format: "wav" | "mp3" | "webm" = "wav"
+  format: Exclude<AudioFormat, "unknown"> = "wav",
+  language?: "en" | "ar",
 ): Promise<string> {
   const file = await toFile(audioBuffer, `audio.${format}`);
   const response = await openai.audio.transcriptions.create({
     file,
-    model: "gpt-4o-mini-transcribe",
-  });
+    model: process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-transcribe",
+    ...(language ? { language } : {}),
+  }, { timeout: 120_000, maxRetries: 0 });
   return response.text;
 }
 

@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RecordingStore } from "../artifacts/idea-stream/src/lib/recording-store.ts";
-import { syncRecording } from "../artifacts/idea-stream/src/lib/recording-sync.ts";
+import { maxTranscriptionAttempts, syncRecording, transcribeRecording } from "../artifacts/idea-stream/src/lib/recording-sync.ts";
 import {
   spokenSubject,
   retryDelay,
@@ -107,7 +107,7 @@ test("spoken routing requires an unambiguous leading command", () => {
 });
 
 test("lost create response retries the same capture ID, keeps checkpoints and original audio", async () => {
-  const { store, id } = await recording();
+  const { store, id } = await recording(2);
   await store.append(id, new Blob(["original audio"]), 3);
   await store.patch(id, { status: "saved" });
   const calls = [];
@@ -145,7 +145,7 @@ test("lost create response retries the same capture ID, keeps checkpoints and or
   assert.equal((await syncRecording(store, id, { fetcher })).id, 55);
   assert.equal(remote.size, 1);
   assert.equal(calls.filter((url) => url === "/signed-upload").length, 1);
-  assert.equal(calls.filter((url) => url === "/api/transcriptions").length, 1);
+  assert.equal(calls.filter((url) => url === "/api/transcriptions").length, 0);
   assert.equal((await store.get(id)).status, "synced");
   assert.equal(await (await store.audio(id)).text(), "original audio");
 });
@@ -162,7 +162,7 @@ test("transcription outage still saves audio to the explicitly selected notebook
     },
   });
   const fetcher = async (url, options) => {
-    if (url === "/api/transcriptions")
+    if (url === "/api/ideas/8/transcription")
       return response({ error: "offline" }, 503);
     if (url === "/api/subjects")
       return response([{ id: 7, title: "Research" }]);
@@ -173,6 +173,8 @@ test("transcription outage still saves audio to the explicitly selected notebook
     return response({ ...body, id: 8, subjectId: 7 });
   };
   assert.ok(await syncRecording(store, id, { fetcher }));
+  assert.equal((await store.get(id)).status, "synced");
+  await transcribeRecording(store, id, { fetcher });
   assert.equal((await store.get(id)).transcriptionStatus, "unavailable");
 });
 
@@ -204,4 +206,68 @@ test("deleted destination and disconnected server preserve local audio for later
   );
   assert.equal((await store.get(id)).status, "saved");
   assert.equal(await (await store.audio(id)).text(), "audio");
+});
+
+
+test("failed transcription retries saved audio, auto-detects language, and never duplicates an idea", async () => {
+  const { store, id } = await recording(7);
+  await store.append(id, new Blob(["original"]), 4);
+  await store.patch(id, { status: "synced", ideaId: 42, transcriptionStatus: "unavailable" });
+  let calls = 0;
+  const fetcher = async (url, options) => {
+    assert.equal(url, "/ideas/api/ideas/42/transcription");
+    const body = JSON.parse(options.body);
+    assert.equal(body.language, "auto");
+    assert.equal(body.expectedContent, "Voice idea");
+    calls++;
+    if (calls === 1) return response({ error: "Quota reached" }, 429);
+    return response({ text: "فكرة عن التعليم", idea: { id: 42, subjectId: 7 } });
+  };
+  await transcribeRecording(store, id, { fetcher, basePath: "/ideas/" });
+  assert.equal((await store.get(id)).transcriptionError, "Quota reached");
+  assert.equal((await store.get(id)).status, "synced");
+  assert.ok((await store.get(id)).nextTranscriptionAt > Date.now());
+  await transcribeRecording(store, id, { fetcher, basePath: "/ideas/" });
+  assert.equal((await store.get(id)).transcript, "فكرة عن التعليم");
+  assert.equal((await store.get(id)).transcriptionStatus, "done");
+  await transcribeRecording(store, id, { fetcher });
+  assert.equal(calls, 2);
+  assert.equal(await (await store.audio(id)).text(), "original");
+});
+
+test("explicit spoken-language hint is separate from the interface language", async () => {
+  const { store, id } = await recording(7);
+  await store.append(id, new Blob(["audio"]), 1);
+  await store.patch(id, { status: "synced", ideaId: 8, language: "en", transcriptionLanguage: "ar" });
+  await transcribeRecording(store, id, { fetcher: async (_url, options) => {
+    assert.equal(JSON.parse(options.body).language, "ar");
+    return response({ text: "هذه فكرة", idea: { id: 8, subjectId: 7 } });
+  }});
+  assert.equal((await store.get(id)).transcript, "هذه فكرة");
+});
+
+import { mergeRecordingTranscript } from "../artifacts/api-server/src/lib/recording-transcript.ts";
+test("server transcript merge preserves concurrent edits, attachment metadata and existing transcripts", () => {
+  const attachments = [{ type: "audio", url: "/audio", name: "Original", note: "Keep me" }, { type: "link", url: "/other" }];
+  const first = mergeRecordingTranscript("Voice idea", attachments, "/audio", "The words", "Voice idea");
+  assert.equal(first.content, "The words");
+  assert.equal(first.attachments[0].note, "Keep me");
+  assert.equal(first.attachments[0].transcript, "The words");
+  const edited = mergeRecordingTranscript("My edited note", first.attachments, "/audio", "Other words", "Voice idea");
+  assert.equal(edited.content, "My edited note");
+  assert.equal(edited.attachments[0].transcript, "The words");
+  assert.deepEqual(edited.attachments[1], attachments[1]);
+});
+
+test("permanent transcription failures stop automatic retries; temporary ones keep retrying", async () => {
+  for (const [status, permanent] of [[422, true], [415, true], [429, false], [502, false]]) {
+    const { store, id } = await recording(7);
+    await store.append(id, new Blob(["audio"]), 1);
+    await store.patch(id, { status: "synced", ideaId: 8 });
+    await transcribeRecording(store, id, { fetcher: async () => response({ error: "nope" }, status) });
+    const saved = await store.get(id);
+    assert.equal(saved.transcriptionStatus, "unavailable");
+    assert.equal(saved.transcriptionAttempts >= maxTranscriptionAttempts, permanent, `status ${status}`);
+    assert.equal(await (await store.audio(id)).text(), "audio");
+  }
 });

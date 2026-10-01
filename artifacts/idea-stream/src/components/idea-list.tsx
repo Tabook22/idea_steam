@@ -1,3 +1,4 @@
+import { AudioTranscript } from "./audio-transcript";
 import { appPath } from "@/lib/app-path";
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -303,9 +304,10 @@ function AttachmentCard({
           </DialogContent>
         </Dialog>
       )}
-      {attachment.type === "audio" && (
+      {attachment.type === "audio" && <>
         <div className="border-t px-2 py-2"><audio src={appPath(attachment.url, import.meta.env.BASE_URL)} controls preload="metadata" className="h-9 w-full" /></div>
-      )}
+        <AudioTranscript ideaId={idea.id} attachmentIndex={attachmentIndex} transcript={attachment.transcript} />
+      </>}
       <div className="border-t p-3">
         {isEditingNote ? (
           <div className="space-y-2">

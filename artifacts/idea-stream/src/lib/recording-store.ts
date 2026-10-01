@@ -9,6 +9,11 @@ export interface LocalRecording {
   chunks: number;
   mimeType: string;
   language: "en" | "ar";
+  transcriptionLanguage?: "auto" | "en" | "ar";
+  autoTranscribe?: boolean;
+  transcriptionAttempts?: number;
+  nextTranscriptionAt?: number;
+  transcriptionError?: string;
   subjectId: number | null;
   status: RecordingStatus;
   interrupted?: boolean;

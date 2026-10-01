@@ -11,7 +11,7 @@ import { Link } from "wouter";
 import { Mic, Square } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RecordingStore, type LocalRecording } from "@/lib/recording-store";
-import { syncRecording } from "@/lib/recording-sync";
+import { maxTranscriptionAttempts, syncRecording, transcribeRecording } from "@/lib/recording-sync";
 import { useLanguage } from "@/lib/i18n";
 
 const preview = import.meta.env.VITE_DESIGN_PREVIEW === "true";
@@ -20,6 +20,9 @@ export const recordingStore = new RecordingStore(
 );
 const lockPrefix = preview ? "idea-stream-preview" : "idea-stream";
 const mimeTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+export async function withRecordingLock<T>(work: () => Promise<T>) {
+  return navigator.locks ? navigator.locks.request(`${lockPrefix}-sync`, work) : work();
+}
 type Stage = "idle" | "starting" | "recording" | "saving";
 type Session = {
   id: string;
@@ -32,18 +35,22 @@ type Session = {
   interrupted: boolean;
   release: () => void;
   limit: number;
+  meter?: { context: AudioContext; analyser: AnalyserNode };
 };
 type RecorderContextValue = {
   records: LocalRecording[];
   stage: Stage;
   seconds: number;
+  audioLevel: number;
   activeId: string | null;
   ready: boolean;
   error: string | null;
   syncingId: string | null;
   online: boolean;
+  transcribingId: string | null;
+  requestTranscript: (id: string, language: "auto" | "en" | "ar") => Promise<void>;
   rescue: { id: string; url: string; blob: Blob } | null;
-  start: (subjectId?: number | null, limit?: number) => Promise<void>;
+  start: (subjectId?: number | null, limit?: number, options?: { language: "auto" | "en" | "ar"; autoTranscribe: boolean }) => Promise<void>;
   stop: () => void;
   refresh: () => Promise<void>;
   sync: (force?: boolean) => Promise<void>;
@@ -73,11 +80,13 @@ async function microphoneLock(): Promise<() => void> {
 export function RecorderProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState<LocalRecording[]>([]);
   const [stage, setStage] = useState<Stage>("idle");
+  const [audioLevel, setAudioLevel] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [transcribingId, setTranscribingId] = useState<string | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [rescue, setRescue] = useState<RecorderContextValue["rescue"]>(null);
   const session = useRef<Session | null>(null);
@@ -115,7 +124,19 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
             if (idea) await queryClient.invalidateQueries();
             await refresh();
           }
+          setSyncingId(null);
+          // Finish every audio upload before spending time on text conversion.
+          for (const record of await recordingStore.list()) {
+            if (session.current || preparing.current) break;
+            if (record.status !== "synced" || record.autoTranscribe === false || record.transcriptionStatus === "done" ||
+                (record.transcriptionAttempts || 0) >= maxTranscriptionAttempts || (record.nextTranscriptionAt || 0) > Date.now()) continue;
+            setTranscribingId(record.id);
+            const idea = await transcribeRecording(recordingStore, record.id, { basePath: import.meta.env.BASE_URL });
+            if (idea) await queryClient.invalidateQueries();
+            await refresh();
+          }
         } finally {
+          setTranscribingId(null);
           setSyncingId(null);
         }
       };
@@ -135,6 +156,13 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     },
     [queryClient, refresh],
   );
+
+  const requestTranscript = useCallback(async (id: string, language: "auto" | "en" | "ar") => {
+    await recordingStore.patch(id, { transcriptionLanguage: language, autoTranscribe: true,
+      transcriptionAttempts: 0, nextTranscriptionAt: 0, transcriptionError: undefined });
+    await refresh();
+    void sync(true);
+  }, [refresh, sync]);
 
   const acquireWakeLock = useCallback(async () => {
     if (
@@ -160,7 +188,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const start = useCallback(
-    async (subjectId: number | null = null, limit = 900) => {
+    async (subjectId: number | null = null, limit = 900, options?: { language: "auto" | "en" | "ar"; autoTranscribe: boolean }) => {
       if (session.current || preparing.current || rescue) return;
       preparing.current = true;
       setStage("starting");
@@ -194,12 +222,15 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           mimeType: "",
           durationSeconds: 0,
           language,
+          transcriptionLanguage: options?.language || "auto",
+          autoTranscribe: options?.autoTranscribe ?? true,
           subjectId,
           attempts: 0,
           nextRetryAt: 0,
         });
         stream = await navigator.mediaDevices.getUserMedia({
           audio: {
+            channelCount: { ideal: 1 },
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
@@ -211,7 +242,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         );
         const recorder = new MediaRecorder(stream, {
           ...(mimeType ? { mimeType } : {}),
-          audioBitsPerSecond: 64_000,
+          audioBitsPerSecond: 96_000,
         });
         await recordingStore.patch(id, { mimeType: recorder.mimeType });
         const current: Session = {
@@ -226,6 +257,14 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           interrupted: false,
           limit: Math.min(900, Math.max(10, limit)),
         };
+        try {
+          const context = new AudioContext();
+          const analyser = context.createAnalyser();
+          analyser.fftSize = 256;
+          context.createMediaStreamSource(stream).connect(analyser);
+          current.meter = { context, analyser };
+          void context.resume().catch(() => {});
+        } catch { /* Meter support must not prevent recording. */ }
         session.current = current;
         recorder.ondataavailable = (event) => {
           if (!event.data.size) return;
@@ -302,6 +341,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
                   : "Could not save audio. Keep this page open.",
               );
             } finally {
+              void current.meter?.context.close().catch(() => {});
+              setAudioLevel(0);
               session.current = null;
               preparing.current = false;
               current.release();
@@ -324,6 +365,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         stream?.getTracks().forEach((track) => track.stop());
         release();
         if (createdId) await recordingStore.remove(createdId).catch(() => {});
+        void session.current?.meter?.context.close().catch(() => {});
         preparing.current = false;
         session.current = null;
         setStage("idle");
@@ -392,6 +434,12 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       if (current) {
         const elapsed = Math.floor((Date.now() - current.started) / 1000);
         setSeconds(elapsed);
+        if (current.meter) {
+          const samples = new Uint8Array(current.meter.analyser.fftSize);
+          current.meter.analyser.getByteTimeDomainData(samples);
+          const rms = Math.sqrt(samples.reduce((sum, value) => sum + ((value - 128) / 128) ** 2, 0) / samples.length);
+          setAudioLevel(Math.min(1, rms * 4));
+        }
         if (elapsed >= current.limit) stop();
       }
     }, 500);
@@ -460,10 +508,13 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         records,
         stage,
         seconds,
+        audioLevel,
         activeId,
         ready,
         error,
         syncingId,
+        transcribingId,
+        requestTranscript,
         online,
         rescue,
         start,
