@@ -1,26 +1,54 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type SelectHTMLAttributes } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
   ArrowUpRight,
+  Check,
   CheckCircle2,
+  ChevronDown,
   CloudUpload,
+  Copy,
   Download,
-  FolderInput,
+  FileText,
+  FolderCheck,
+  Globe,
+  Headphones,
+  Inbox,
+  Lightbulb,
+  Loader2,
   Mic,
+  Pencil,
+  Plus,
   RefreshCw,
-  ShieldCheck,
-  Smartphone,
+  Sparkles,
   Square,
+  Timer,
+  Trash2,
   WifiOff,
 } from "lucide-react";
-import { useListSubjects, updateIdea } from "@workspace/api-client-react";
+import {
+  createSubject,
+  getListSubjectsQueryKey,
+  updateIdea,
+  useListSubjects,
+  type Subject,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { recordingStore, useRecorder, withRecordingLock } from "@/components/recorder-provider";
 import type { LocalRecording } from "@/lib/recording-store";
 import { spokenSubject, recordingTitle } from "@/lib/recording-utils";
 import { useLanguage } from "@/lib/i18n";
+import {
+  RECORDING_LIMITS,
+  readRecorderPrefs,
+  writeRecorderPrefs,
+  type RecorderPrefs,
+  type SpokenLanguage,
+} from "@/lib/recorder-prefs";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { ToastAction } from "@/components/ui/toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,27 +60,202 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-function RecordingCard({ record }: { record: LocalRecording }) {
+const LIMITS = RECORDING_LIMITS;
+const INBOX_TITLES = ["Idea inbox", "صندوق الأفكار"];
+
+function usePrefs() {
+  const [prefs, setPrefs] = useState<RecorderPrefs>(readRecorderPrefs);
+  const update = (change: Partial<RecorderPrefs>) =>
+    setPrefs((current) => {
+      const next = { ...current, ...change };
+      writeRecorderPrefs(next);
+      return next;
+    });
+  return [prefs, update] as const;
+}
+
+const clock = (seconds: number) =>
+  `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+
+function limitLabel(value: number, copy: (en: string, ar: string) => string) {
+  return value < 60 ? copy("30 sec", "٣٠ ثانية") : `${value / 60} ${copy("min", "دقيقة")}`;
+}
+
+/** Live bars driven by the microphone level. */
+function LevelBars({ readLevel, bars = 28, className = "" }: { readLevel: () => number; bars?: number; className?: string }) {
+  const refs = useRef<Array<HTMLSpanElement | null>>([]);
+  useEffect(() => {
+    const history = new Array(bars).fill(0);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setInterval(() => {
+      history.shift();
+      history.push(readLevel());
+      history.forEach((level, index) => {
+        const bar = refs.current[index];
+        if (bar) bar.style.transform = `scaleY(${Math.max(0.08, Math.min(1, level * 1.6))})`;
+      });
+    }, reduce ? 400 : 80);
+    return () => clearInterval(timer);
+  }, [bars, readLevel]);
+  return (
+    <div className={`flex h-20 items-center justify-center gap-[5px] ${className}`} aria-hidden="true">
+      {Array.from({ length: bars }, (_, index) => (
+        <span
+          key={index}
+          ref={(element) => { refs.current[index] = element; }}
+          className="h-full w-[5px] rounded-full bg-current transition-transform duration-75"
+          style={{ transform: "scaleY(0.08)", opacity: 0.35 + (index / bars) * 0.65 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Full-screen, high-contrast recording view: one huge target to stop and save. */
+function DrivingMode({ destination, limit }: { destination: string; limit: number }) {
+  const { isArabic } = useLanguage();
+  const copy = (en: string, ar: string) => (isArabic ? ar : en);
+  const { stage, seconds, stop, readLevel, audioLevel } = useRecorder();
+  const stopButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    stopButton.current?.focus();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, []);
+  const saving = stage === "saving";
+  const remaining = Math.max(0, limit - seconds);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={copy("Recording in progress", "التسجيل جارٍ")}
+      className="fixed inset-0 z-[60] flex flex-col bg-[hsl(158_38%_11%)] text-[hsl(43_30%_95%)]"
+      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-8">
+        <span className="inline-flex items-center gap-2.5 rounded-full bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-200">
+          <span className="relative flex h-2.5 w-2.5">
+            {!saving && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />}
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+          </span>
+          {saving ? copy("Saving…", "جارٍ الحفظ…") : copy("Recording", "يسجّل الآن")}
+        </span>
+        <span className="inline-flex min-w-0 items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm">
+          <FolderCheck size={16} className="shrink-0" />
+          <span className="truncate">{destination}</span>
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+        <p className="font-mono text-7xl font-light tabular-nums tracking-wider sm:text-8xl" role="timer" aria-live="off">
+          {clock(seconds)}
+        </p>
+        <LevelBars readLevel={readLevel} className="mt-8 w-full max-w-md text-emerald-300" />
+        <p className="mt-4 text-base text-white/70" role="status">
+          {saving
+            ? copy("Keeping your idea safe on this device…", "نحفظ فكرتك على هذا الجهاز…")
+            : audioLevel > 0.04
+              ? copy("Listening. Speak naturally.", "أستمع إليك. تحدّث بشكل طبيعي.")
+              : copy("Speak toward your phone", "تحدّث باتجاه الهاتف")}
+        </p>
+        <p className="mt-2 text-sm text-white/45">
+          {copy("Stops by itself in", "يتوقف تلقائيًا بعد")} {clock(remaining)}
+        </p>
+      </div>
+      <div className="px-4 pb-5 sm:px-8 sm:pb-8">
+        <button
+          ref={stopButton}
+          type="button"
+          disabled={saving}
+          onClick={stop}
+          className="flex h-[30vh] min-h-36 max-h-72 w-full flex-col items-center justify-center gap-3 rounded-[2rem] bg-red-600 text-white shadow-2xl shadow-red-950/50 transition active:scale-[0.98] disabled:opacity-70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/60"
+        >
+          {saving ? <Loader2 size={48} className="animate-spin" /> : <Square size={46} fill="currentColor" />}
+          <span className="text-2xl font-semibold">{copy("Tap to stop & save", "اضغط للإيقاف والحفظ")}</span>
+          <span className="text-sm text-white/75">Alt + R</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** A native select styled as a compact pill: accessible, and large enough to tap. */
+function OptionPill({ icon, label, children, ...props }: {
+  icon: ReactNode; label: string; children: ReactNode;
+} & SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <label className="group relative inline-flex h-11 min-w-0 max-w-full items-center gap-2 rounded-full border bg-card ps-3.5 pe-9 text-sm shadow-sm transition-colors hover:border-primary/40 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+      <span className="shrink-0 text-primary">{icon}</span>
+      <span className="sr-only">{label}</span>
+      <select {...props} className="min-w-0 max-w-[13rem] cursor-pointer appearance-none truncate bg-transparent font-medium outline-none disabled:cursor-not-allowed">
+        {children}
+      </select>
+      <ChevronDown size={15} className="pointer-events-none absolute end-3 text-muted-foreground" />
+    </label>
+  );
+}
+
+function Step({ number, done, active, children }: { number: number; done: boolean; active?: boolean; children: ReactNode }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${done ? "text-primary" : active ? "text-foreground" : "text-muted-foreground"}`}>
+      <span className={`grid h-5 w-5 place-items-center rounded-full text-[10px] ${done ? "bg-primary text-primary-foreground" : active ? "border-2 border-primary text-primary" : "border"}`}>
+        {done ? <Check size={11} strokeWidth={3} /> : number}
+      </span>
+      {children}
+    </span>
+  );
+}
+
+function RecordingCard({ record, subjects, inboxIds }: {
+  record: LocalRecording; subjects: Subject[]; inboxIds: Set<number>;
+}) {
   const { isArabic, language } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
   const { refresh, sync, syncingId, transcribingId, requestTranscript, online, stage } = useRecorder();
-  const { data: subjects = [] } = useListSubjects();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [audioUrl, setAudioUrl] = useState<string>();
-  const [expanded, setExpanded] = useState(false);
-  const [transcriptionLanguage, setTranscriptionLanguage] = useState<"auto" | "en" | "ar">(record.transcriptionLanguage || "auto");
+  const [listening, setListening] = useState(false);
+  const [showAllText, setShowAllText] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [savingText, setSavingText] = useState(false);
+  const [transcriptionLanguage, setTranscriptionLanguage] = useState<SpokenLanguage>(record.transcriptionLanguage || "auto");
   const [copied, setCopied] = useState(false);
-  const [moving, setMoving] = useState(false);
+  const [moving, setMoving] = useState<number | "new" | null>(null);
+  const [changing, setChanging] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
   const [error, setError] = useState("");
   const [remove, setRemove] = useState(false);
-  const busy = moving || transcribingId === record.id || syncingId === record.id || stage !== "idle";
-  const suggested = record.transcript
-    ? spokenSubject(record.transcript, subjects)
-    : null;
+
+  const transcribing = transcribingId === record.id;
+  const syncing = syncingId === record.id;
+  const busy = moving !== null || transcribing || syncing || stage !== "idle";
+  const hasText = !!record.transcript;
+  const filedSubject = record.subjectId !== null && !inboxIds.has(record.subjectId)
+    ? subjects.find((subject) => subject.id === record.subjectId)
+    : undefined;
+  const filed = !!filedSubject;
+  const choices = subjects.filter((subject) => !inboxIds.has(subject.id));
+  const suggested = record.transcript ? spokenSubject(record.transcript, choices) : null;
+  const suggestedSubject = suggested !== null && suggested !== record.subjectId
+    ? choices.find((subject) => subject.id === suggested)
+    : undefined;
+  const quick = choices.filter((subject) => subject.id !== suggestedSubject?.id).slice(0, 6);
+  const more = choices.filter((subject) => subject.id !== suggestedSubject?.id).slice(6);
+  const waitingForText = !hasText && record.autoTranscribe !== false && !record.transcriptionStatus;
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1800);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
   useEffect(() => {
     let url: string | undefined;
     let canceled = false;
-    if (expanded)
+    if (listening)
       void recordingStore
         .audio(record.id)
         .then((blob) => {
@@ -61,273 +264,390 @@ function RecordingCard({ record }: { record: LocalRecording }) {
             setAudioUrl(url);
           }
         })
-        .catch(() =>
-          setError(
-            copy("Couldn't read this device copy.", "تعذر قراءة نسخة الجهاز."),
-          ),
-        );
+        .catch(() => setError(copy("Couldn't read this device copy.", "تعذر قراءة نسخة الجهاز.")));
     return () => {
       canceled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [expanded, record.id]);
+  }, [listening, record.id]);
 
-  async function move(value: string) {
-    setMoving(true);
+  async function moveTo(subjectId: number | null, { announce = true } = {}) {
+    const previous = record.subjectId;
+    setMoving(subjectId ?? -1);
     setError("");
     try {
       await withRecordingLock(async () => {
-      const subjectId = value === "inbox" ? null : Number(value);
-      if (record.ideaId) {
-        if (subjectId === null) return;
-        await updateIdea(record.ideaId, { subjectId });
-        await queryClient.invalidateQueries();
-      }
-      await recordingStore.patch(record.id, {
-        subjectId,
-        error: undefined,
-        attempts: 0,
-        nextRetryAt: 0,
-      });
+        if (record.ideaId) {
+          if (subjectId === null) return;
+          await updateIdea(record.ideaId, { subjectId });
+          await queryClient.invalidateQueries();
+        }
+        await recordingStore.patch(record.id, { subjectId, error: undefined, attempts: 0, nextRetryAt: 0 });
       });
       await refresh();
+      setChanging(false);
       void sync(true);
+      const title = subjects.find((subject) => subject.id === subjectId)?.title;
+      if (announce && title)
+        toast({
+          title: copy(`Filed in “${title}”`, `حُفظت في «${title}»`),
+          description: copy("You'll find it in that notebook.", "ستجدها في هذا الدفتر."),
+          action: previous !== null && previous !== subjectId ? (
+            <ToastAction altText={copy("Undo", "تراجع")} onClick={() => void moveTo(previous, { announce: false })}>
+              {copy("Undo", "تراجع")}
+            </ToastAction>
+          ) : undefined,
+        });
     } catch {
-      setError(
-        copy(
-          "Couldn't change the notebook. Your original is still saved.",
-          "تعذر تغيير الدفتر. التسجيل الأصلي محفوظ.",
-        ),
-      );
+      setError(copy("Couldn't move it. Your original is still saved.", "تعذر النقل. التسجيل الأصلي محفوظ."));
     } finally {
-      setMoving(false);
+      setMoving(null);
     }
   }
 
+  async function createAndFile() {
+    const title = newTitle.trim();
+    if (!title) return;
+    setMoving("new");
+    setError("");
+    try {
+      const subject = await createSubject({ title, intro: "" });
+      await queryClient.invalidateQueries({ queryKey: getListSubjectsQueryKey() });
+      setCreating(false);
+      setNewTitle("");
+      setMoving(null);
+      await moveTo(subject.id, { announce: false });
+      toast({ title: copy(`New subject “${title}” created`, `أُنشئ موضوع «${title}»`), description: copy("Your idea is filed there.", "حُفظت فكرتك فيه.") });
+    } catch {
+      setError(copy("Couldn't create that subject. Please try again.", "تعذر إنشاء الموضوع. حاول مجددًا."));
+      setMoving(null);
+    }
+  }
+
+  async function saveText() {
+    const text = draft.trim();
+    if (!text) return;
+    setSavingText(true);
+    setError("");
+    try {
+      await withRecordingLock(async () => {
+        if (record.ideaId) {
+          await updateIdea(record.ideaId, { content: text });
+          await queryClient.invalidateQueries();
+        }
+        // A typed text counts as the transcript, so automatic conversion won't replace it.
+        await recordingStore.patch(record.id, {
+          transcript: text, transcriptionStatus: "done", transcriptionError: undefined,
+        });
+      });
+      await refresh();
+      setEditing(false);
+    } catch {
+      setError(copy("Couldn't save the text. Please try again.", "تعذر حفظ النص. حاول مجددًا."));
+    } finally {
+      setSavingText(false);
+    }
+  }
+
+  const chip = (subject: Subject, highlight = false) => {
+    const current = subject.id === record.subjectId;
+    return (
+      <button
+        key={subject.id}
+        type="button"
+        disabled={busy}
+        aria-pressed={current}
+        onClick={() => void moveTo(subject.id)}
+        className={`inline-flex h-11 max-w-full items-center gap-2 rounded-full border px-4 text-sm font-medium transition active:scale-[0.97] disabled:opacity-60 ${
+          highlight
+            ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
+            : current
+              ? "border-primary bg-primary/10 text-primary"
+              : "bg-background hover:border-primary/50 hover:bg-primary/5"
+        }`}
+      >
+        {moving === subject.id ? <Loader2 size={15} className="animate-spin" /> : highlight ? <Sparkles size={15} /> : current ? <Check size={15} /> : null}
+        <span className="truncate">{subject.title}</span>
+      </button>
+    );
+  };
+
   return (
-    <article className="rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="flex gap-3 items-start">
-        <div className="rounded-xl bg-primary/10 p-3 text-primary">
-          <Mic size={19} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-sans text-base font-medium break-words">
-            {recordingTitle(record.transcript || "", record.title)}
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {new Intl.DateTimeFormat(language, {
-              dateStyle: "medium",
-              timeStyle: "short",
-            }).format(new Date(record.capturedAt))}{" "}
-            · {Math.floor(record.durationSeconds / 60)}:
-            {String(record.durationSeconds % 60).padStart(2, "0")} ·{" "}
-            {(record.bytes / 1024 / 1024).toFixed(1)} MB
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-2 mt-4 text-xs">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5">
-          <Smartphone size={13} />
-          {copy("Saved on this device", "محفوظ على هذا الجهاز")}
-        </span>
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ${record.status === "synced" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}
-        >
-          {record.status === "synced" ? (
-            <CheckCircle2 size={13} />
-          ) : (
-            <CloudUpload size={13} />
-          )}
-          {syncingId === record.id
-            ? copy("Syncing…", "جارٍ المزامنة…")
-            : record.status === "synced"
-              ? copy("Synced to notebook", "تمت المزامنة مع الدفتر")
-              : copy("Waiting to sync", "بانتظار المزامنة")}
-        </span>
-        {record.interrupted && (
-          <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-900">
-            {copy("Recovered · check the audio", "تم الاسترداد · راجع الصوت")}
-          </span>
-        )}
-      </div>
-      <label className="mt-4 block text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5 mb-2">
-          <FolderInput size={14} />
-          {copy("Save under", "احفظ في")}
-        </span>
-        <select
-          aria-label={copy(
-            `Notebook for ${record.title}`,
-            `دفتر ${record.title}`,
-          )}
-          value={record.subjectId ?? "inbox"}
-          disabled={busy}
-          onChange={(event) => void move(event.target.value)}
-          className="w-full rounded-xl border bg-background px-3 py-3 text-sm text-foreground"
-        >
-          <option value="inbox" disabled={!!record.ideaId}>
-            {copy("Decide later · Idea inbox", "اختر لاحقًا · صندوق الأفكار")}
-          </option>
-          {record.subjectId &&
-            !subjects.some((s) => s.id === record.subjectId) && (
-              <option value={record.subjectId}>
-                {copy(
-                  "Notebook unavailable — choose another",
-                  "الدفتر غير متاح — اختر غيره",
-                )}
-              </option>
-            )}
-          {subjects.map((subject) => (
-            <option key={subject.id} value={subject.id}>
-              {subject.title}
-            </option>
-          ))}
-        </select>
-      </label>
-      {suggested && suggested !== record.subjectId && (
-        <Button
-          className="mt-2"
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => void move(String(suggested))}
-        >
-          {copy("Use spoken subject", "استخدم الموضوع المنطوق")}:{" "}
-          {subjects.find((s) => s.id === suggested)?.title}
-        </Button>
-      )}
-      {(error || record.error) && (
-        <p className="mt-3 text-xs text-amber-800" role="status">
-          {error || record.error ||
-            copy(
-              "Sync couldn't finish. Your audio is kept here; it will retry when this app is open and connected.",
-              "لم تكتمل المزامنة. الصوت محفوظ هنا وستُعاد المحاولة عند فتح التطبيق واتصاله.",
-            )}
+    <article className={`overflow-hidden rounded-3xl border bg-card shadow-sm transition-shadow hover:shadow-md ${filed && !changing ? "" : "ring-1 ring-primary/5"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b bg-muted/30 px-5 py-3">
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Mic size={14} className="text-primary" />
+          {new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(record.capturedAt))}
+          <span aria-hidden="true">·</span>
+          {clock(record.durationSeconds)}
         </p>
-      )}
-      <div className="mt-4 rounded-xl bg-primary/5 p-3 space-y-3">
-        <p className="text-sm font-medium" role="status">{transcribingId === record.id
-          ? copy("Converting speech to text…", "جارٍ تحويل الصوت إلى نص…")
-          : record.transcriptionStatus === "done" ? copy("Transcript ready", "النص جاهز")
-          : copy("Turn this recording into text", "حوّل هذا التسجيل إلى نص")}</p>
-        {record.transcriptionStatus !== "done" && <>
-          <select className="w-full rounded-lg border bg-background p-2 text-sm" aria-label={copy("Transcript language", "لغة التفريغ")}
-            value={transcriptionLanguage} disabled={busy} onChange={e => setTranscriptionLanguage(e.target.value as "auto" | "en" | "ar")}>
-            <option value="auto">{copy("Detect spoken language", "اكتشاف اللغة المنطوقة")}</option>
-            <option value="ar">العربية</option><option value="en">English</option>
-          </select>
-          <Button size="sm" disabled={busy || !online} onClick={() => void requestTranscript(record.id, transcriptionLanguage).catch(() => setError(copy("Couldn't queue transcription. Please retry.", "تعذر بدء التفريغ. حاول مجددًا.")))}>
-            {record.transcriptionStatus ? copy("Retry transcription", "إعادة التفريغ") : copy("Convert to text", "تحويل إلى نص")}
-          </Button>
-          <p className="text-xs text-muted-foreground">{copy("Arabic stays Arabic. English stays English. Audio is saved first.", "يبقى العربي بالعربية والإنجليزي بالإنجليزية. يُحفظ الصوت أولًا.")}</p>
-        </>}
-        {record.transcriptionError && <p role="status" className="text-xs text-amber-800">{record.transcriptionError}</p>}
+        <div className="flex flex-wrap items-center gap-3" aria-label={copy("Progress", "التقدم")}>
+          <Step number={1} done={record.status === "synced"} active={record.status !== "synced"}>
+            {syncing ? copy("Uploading…", "يرفع…") : copy("Saved", "حُفظ")}
+          </Step>
+          <Step number={2} done={hasText} active={record.status === "synced" && !hasText}>
+            {transcribing ? copy("Writing…", "يكتب…") : copy("Text", "النص")}
+          </Step>
+          <Step number={3} done={filed} active={hasText && !filed}>
+            {copy("Filed", "مُصنّف")}
+          </Step>
+        </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setExpanded((value) => !value)}
-        >
-          {expanded
-            ? copy("Hide details", "إخفاء التفاصيل")
-            : copy("Listen & review", "استمع وراجع")}
-        </Button>
-        {record.status !== "synced" && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy}
-            onClick={() => void sync(true)}
-          >
-            <RefreshCw size={14} className="me-2" />
-            {copy("Retry sync", "إعادة المزامنة")}
-          </Button>
-        )}
-        {record.ideaId && record.subjectId && (
-          <Button size="sm" variant="ghost" asChild>
-            <Link href={`/subjects/${record.subjectId}#idea-${record.ideaId}`}>
-              {copy("Open idea", "فتح الفكرة")}
-              <ArrowUpRight size={14} className="ms-2" />
-            </Link>
-          </Button>
-        )}
-      </div>
-      {expanded && (
-        <div className="mt-4 border-t pt-4 space-y-3">
-          {audioUrl && (
-            <>
-              <audio
-                controls
-                src={audioUrl}
-                className="w-full"
-                aria-label={copy("Original recording", "التسجيل الأصلي")}
-              />
-              <a
-                className="inline-flex items-center gap-2 text-xs text-primary underline"
-                download={`${record.title.replace(/[<>:"/\\|?*]/g, "-")}.${record.mimeType.includes("mp4") ? "m4a" : "webm"}`}
-                href={audioUrl}
-              >
-                <Download size={14} />
-                {copy("Download original", "تنزيل الأصل")}
-              </a>
-            </>
-          )}
-          {record.transcript && <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => void navigator.clipboard.writeText(record.transcript!).then(() => setCopied(true)).catch(() => setError(copy("Select the transcript to copy it.", "حدد النص لنسخه.")))}>{copied ? copy("Copied", "تم النسخ") : copy("Copy text", "نسخ النص")}</Button>
-            <a className="text-sm underline p-2" download="transcript.txt" href={`data:text/plain;charset=utf-8,${encodeURIComponent(record.transcript)}`}>{copy("Download text", "تنزيل النص")}</a>
-          </div>}
-          {record.transcript && (
-            <p
+
+      <div className="p-5 sm:p-6">
+        {editing ? (
+          <div className="space-y-3">
+            <Textarea
               dir="auto"
-              className="whitespace-pre-wrap text-sm leading-7 max-h-64 overflow-y-auto"
-            >
+              autoFocus
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              className="min-h-36 text-base leading-7"
+              aria-label={copy("Idea text", "نص الفكرة")}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={savingText || !draft.trim()} onClick={() => void saveText()}>
+                {savingText && <Loader2 size={15} className="me-2 animate-spin" />}
+                {copy("Save text", "حفظ النص")}
+              </Button>
+              <Button variant="ghost" onClick={() => setEditing(false)}>{copy("Cancel", "إلغاء")}</Button>
+            </div>
+          </div>
+        ) : hasText ? (
+          <div>
+            <p dir="auto" className={`whitespace-pre-wrap font-serif text-lg leading-8 text-foreground ${showAllText ? "" : "line-clamp-5"}`}>
               {record.transcript}
             </p>
-          )}
-          {record.status === "synced" && (
-            <Button
-              className="block"
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => setRemove(true)}
-            >
-              {copy("Remove device copy…", "إزالة نسخة الجهاز…")}
-            </Button>
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {record.transcript!.length > 280 && (
+                <Button size="sm" variant="ghost" className="h-9 px-2 text-primary" onClick={() => setShowAllText((value) => !value)}>
+                  {showAllText ? copy("Show less", "عرض أقل") : copy("Read all", "اقرأ الكل")}
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="h-9 px-2" onClick={() => { setDraft(record.transcript || ""); setEditing(true); }}>
+                <Pencil size={14} className="me-1.5" />{copy("Fix text", "تصحيح النص")}
+              </Button>
+              <Button
+                size="sm" variant="ghost" className="h-9 px-2"
+                onClick={() => void navigator.clipboard.writeText(record.transcript!).then(() => setCopied(true)).catch(() => setError(copy("Select the text to copy it.", "حدد النص لنسخه.")))}
+              >
+                {copied ? <Check size={14} className="me-1.5" /> : <Copy size={14} className="me-1.5" />}
+                {copied ? copy("Copied", "نُسخ") : copy("Copy", "نسخ")}
+              </Button>
+            </div>
+          </div>
+        ) : transcribing || (waitingForText && online) ? (
+          <div className="space-y-3" role="status">
+            <p className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Loader2 size={16} className="animate-spin" />
+              {transcribing ? copy("Turning your words into text…", "نحوّل كلماتك إلى نص…") : copy("Text is on its way…", "النص في الطريق…")}
+            </p>
+            <div className="space-y-2" aria-hidden="true">
+              <div className="h-3.5 w-full animate-pulse rounded-full bg-muted" />
+              <div className="h-3.5 w-11/12 animate-pulse rounded-full bg-muted" />
+              <div className="h-3.5 w-2/3 animate-pulse rounded-full bg-muted" />
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed p-4">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <FileText size={16} className="text-primary" />
+              {record.transcriptionStatus ? copy("Couldn't turn this into text yet", "لم يتحول التسجيل إلى نص بعد") : copy("Turn this recording into text", "حوّل هذا التسجيل إلى نص")}
+            </p>
+            {record.transcriptionError && <p className="mt-1.5 text-xs text-amber-800 dark:text-amber-300">{record.transcriptionError}</p>}
+            {!online && <p className="mt-1.5 text-xs text-muted-foreground">{copy("You're offline. Your audio is safe; text will follow once you're connected.", "أنت غير متصل. صوتك محفوظ وسيُضاف النص عند الاتصال.")}</p>}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <OptionPill
+                icon={<Globe size={15} />}
+                label={copy("Spoken language", "اللغة المنطوقة")}
+                value={transcriptionLanguage}
+                disabled={busy}
+                onChange={(event) => setTranscriptionLanguage(event.target.value as SpokenLanguage)}
+              >
+                <option value="auto">{copy("Detect language", "اكتشاف اللغة")}</option>
+                <option value="ar">العربية</option>
+                <option value="en">English</option>
+              </OptionPill>
+              <Button
+                className="h-11 rounded-full px-5"
+                disabled={busy || !online}
+                onClick={() => void requestTranscript(record.id, transcriptionLanguage).catch(() => setError(copy("Couldn't start. Please retry.", "تعذر البدء. حاول مجددًا.")))}
+              >
+                {record.transcriptionStatus ? <RefreshCw size={15} className="me-2" /> : <Sparkles size={15} className="me-2" />}
+                {record.transcriptionStatus ? copy("Try again", "حاول مجددًا") : copy("Convert to text", "حوّل إلى نص")}
+              </Button>
+              <Button variant="ghost" className="h-11 rounded-full" onClick={() => { setDraft(""); setEditing(true); }}>
+                <Pencil size={15} className="me-2" />{copy("Type it instead", "اكتبها بنفسك")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6">
+          {filed && !changing ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary/10 px-4 py-3">
+              <p className="flex min-w-0 items-center gap-2 text-sm">
+                <CheckCircle2 size={18} className="shrink-0 text-primary" />
+                <span className="text-muted-foreground">{copy("Filed in", "محفوظة في")}</span>
+                <strong className="truncate font-semibold">{filedSubject!.title}</strong>
+              </p>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" className="h-9" disabled={busy} onClick={() => setChanging(true)}>
+                  {copy("Move", "نقل")}
+                </Button>
+                {record.ideaId && (
+                  <Button size="sm" variant="ghost" className="h-9 text-primary" asChild>
+                    <Link href={`/subjects/${record.subjectId}#idea-${record.ideaId}`}>
+                      {copy("Open", "فتح")}<ArrowUpRight size={14} className="ms-1" />
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <FolderCheck size={17} className="text-primary" />
+                {changing ? copy("Move to another subject", "انقلها إلى موضوع آخر") : copy("Which subject does this belong to?", "إلى أي موضوع تنتمي هذه الفكرة؟")}
+              </p>
+              {suggestedSubject && (
+                <p className="mb-2 text-xs text-muted-foreground">{copy("You mentioned this subject in your recording:", "ذكرت هذا الموضوع في تسجيلك:")}</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {suggestedSubject && chip(suggestedSubject, true)}
+                {quick.map((subject) => chip(subject))}
+                {more.length > 0 && (
+                  <OptionPill
+                    icon={<FolderCheck size={15} />}
+                    label={copy("More subjects", "مواضيع أخرى")}
+                    value=""
+                    disabled={busy}
+                    onChange={(event) => event.target.value && void moveTo(Number(event.target.value))}
+                  >
+                    <option value="">{copy(`${more.length} more…`, `${more.length} أخرى…`)}</option>
+                    {more.map((subject) => <option key={subject.id} value={subject.id}>{subject.title}</option>)}
+                  </OptionPill>
+                )}
+                {!creating && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setCreating(true)}
+                    className="inline-flex h-11 items-center gap-1.5 rounded-full border border-dashed px-4 text-sm font-medium text-muted-foreground transition hover:border-primary hover:text-primary disabled:opacity-60"
+                  >
+                    <Plus size={15} />{copy("New subject", "موضوع جديد")}
+                  </button>
+                )}
+                {changing && (
+                  <Button variant="ghost" className="h-11 rounded-full" onClick={() => setChanging(false)}>{copy("Cancel", "إلغاء")}</Button>
+                )}
+              </div>
+              {creating && (
+                <form
+                  className="mt-3 flex flex-wrap gap-2"
+                  onSubmit={(event) => { event.preventDefault(); void createAndFile(); }}
+                >
+                  <input
+                    autoFocus
+                    dir="auto"
+                    value={newTitle}
+                    maxLength={200}
+                    onChange={(event) => setNewTitle(event.target.value)}
+                    placeholder={copy("Name the new subject", "اسم الموضوع الجديد")}
+                    aria-label={copy("New subject name", "اسم الموضوع الجديد")}
+                    className="h-11 min-w-0 flex-1 rounded-full border bg-background px-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <Button type="submit" className="h-11 rounded-full px-5" disabled={!newTitle.trim() || busy}>
+                    {moving === "new" ? <Loader2 size={15} className="me-2 animate-spin" /> : <Plus size={15} className="me-2" />}
+                    {copy("Create & file", "أنشئ واحفظ")}
+                  </Button>
+                  <Button type="button" variant="ghost" className="h-11 rounded-full" onClick={() => { setCreating(false); setNewTitle(""); }}>
+                    {copy("Cancel", "إلغاء")}
+                  </Button>
+                </form>
+              )}
+              {!choices.length && !creating && (
+                <p className="mt-2 text-xs text-muted-foreground">{copy("No subjects yet. Create one and your idea goes straight into it.", "لا توجد مواضيع بعد. أنشئ موضوعًا وستُحفظ فكرتك فيه مباشرة.")}</p>
+              )}
+            </div>
           )}
         </div>
-      )}
+
+        {(error || (record.status !== "synced" && record.error)) && (
+          <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" role="status">
+            {error || record.error}
+          </p>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-center gap-1 border-t pt-4">
+          <Button size="sm" variant="ghost" className="h-9" onClick={() => setListening((value) => !value)} aria-expanded={listening}>
+            <Headphones size={15} className="me-1.5" />{listening ? copy("Hide audio", "إخفاء الصوت") : copy("Listen", "استمع")}
+          </Button>
+          {record.status !== "synced" && (
+            <Button size="sm" variant="ghost" className="h-9" disabled={busy || !online} onClick={() => void sync(true)}>
+              {syncing ? <Loader2 size={15} className="me-1.5 animate-spin" /> : <CloudUpload size={15} className="me-1.5" />}
+              {copy("Upload now", "ارفع الآن")}
+            </Button>
+          )}
+          {record.interrupted && (
+            <span className="ms-1 rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              {copy("Recovered after an interruption", "استُرد بعد انقطاع")}
+            </span>
+          )}
+        </div>
+        {listening && (
+          <div className="mt-3 space-y-3 rounded-2xl bg-muted/40 p-4">
+            {audioUrl && (
+              <audio controls autoPlay src={audioUrl} className="w-full" aria-label={copy("Original recording", "التسجيل الأصلي")} />
+            )}
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+              {audioUrl && (
+                <a
+                  className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                  download={`${record.title.replace(/[<>:"/\\|?*]/g, "-")}.${record.mimeType.includes("mp4") ? "m4a" : "webm"}`}
+                  href={audioUrl}
+                >
+                  <Download size={14} />{copy("Download audio", "تنزيل الصوت")}
+                </a>
+              )}
+              {record.transcript && (
+                <a
+                  className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                  download="transcript.txt"
+                  href={`data:text/plain;charset=utf-8,${encodeURIComponent(record.transcript)}`}
+                >
+                  <FileText size={14} />{copy("Download text", "تنزيل النص")}
+                </a>
+              )}
+              {record.status === "synced" && (
+                <button type="button" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-destructive" disabled={busy} onClick={() => setRemove(true)}>
+                  <Trash2 size={14} />{copy("Remove from this device", "إزالة من هذا الجهاز")}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <AlertDialog open={remove} onOpenChange={setRemove}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {copy("Remove this device copy?", "إزالة نسخة الجهاز؟")}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{copy("Remove this device copy?", "إزالة نسخة الجهاز؟")}</AlertDialogTitle>
             <AlertDialogDescription>
               {copy(
-                "The synced idea stays in its notebook. This removes only the audio backup from this browser. Download it first if you want another copy.",
-                "تبقى الفكرة المتزامنة في دفترها. ستُزال النسخة الصوتية الاحتياطية من هذا المتصفح فقط.",
+                "The idea stays in its notebook with its audio. This only removes the backup kept in this browser.",
+                "تبقى الفكرة في دفترها مع صوتها. يُزال فقط النسخ الاحتياطي المحفوظ في هذا المتصفح.",
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>
-              {copy("Keep it", "احتفظ بها")}
-            </AlertDialogCancel>
+            <AlertDialogCancel>{copy("Keep it", "احتفظ بها")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 void recordingStore
                   .remove(record.id)
                   .then(refresh)
-                  .catch(() =>
-                    setError(
-                      copy(
-                        "Couldn't remove the local copy.",
-                        "تعذر حذف النسخة المحلية.",
-                      ),
-                    ),
-                  );
+                  .catch(() => setError(copy("Couldn't remove the local copy.", "تعذر حذف النسخة المحلية.")));
               }}
             >
               {copy("Remove device copy", "إزالة نسخة الجهاز")}
@@ -342,325 +662,269 @@ function RecordingCard({ record }: { record: LocalRecording }) {
 export default function RecorderPage() {
   const { isArabic } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
-  const {
-    records,
-    stage,
-    seconds,
-    audioLevel,
-    ready,
-    error,
-    start,
-    stop,
-    online,
-    rescue,
-    retryRescue,
-  } = useRecorder();
-  const [filter, setFilter] = useState<"all" | "pending">("all");
-  const [limit, setLimit] = useState(() => {
-    const value = Number(new URLSearchParams(location.search).get("limit"));
-    return [30, 60, 120, 300, 900].includes(value) ? value : 900;
-  });
+  const { records, stage, ready, error, start, online, rescue, retryRescue } = useRecorder();
   const { data: subjects = [] } = useListSubjects();
-  const [subjectId, setSubjectId] = useState<number | null>(null);
-  const [transcriptionLanguage, setTranscriptionLanguage] = useState<"auto" | "en" | "ar">("auto");
-  const [autoTranscribe, setAutoTranscribe] = useState(true);
+  const [prefs, setPrefs] = usePrefs();
+  const [filter, setFilter] = useState<"sort" | "filed" | "all">("sort");
   const autostart = useRef(false);
-  const pending = records.filter((record) => record.status === "saved").length;
-  const completed = records.filter(
-    (record) =>
-      record.status !== "recording" &&
-      (filter === "all" || record.status === "saved"),
+
+  const inboxIds = useMemo(
+    () => new Set(subjects.filter((subject) => INBOX_TITLES.includes(subject.title)).map((subject) => subject.id)),
+    [subjects],
   );
+  const choices = useMemo(
+    () => [...subjects]
+      .filter((subject) => !inboxIds.has(subject.id))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [subjects, inboxIds],
+  );
+  // A remembered subject that was deleted falls back to the inbox.
+  const destinationId = prefs.subjectId !== null && choices.some((subject) => subject.id === prefs.subjectId) ? prefs.subjectId : null;
+  const destination = destinationId !== null
+    ? choices.find((subject) => subject.id === destinationId)!.title
+    : copy("Idea inbox", "صندوق الأفكار");
+
+  const finished = records.filter((record) => record.status !== "recording");
+  const isFiled = (record: LocalRecording) => record.subjectId !== null && !inboxIds.has(record.subjectId) && subjects.some((subject) => subject.id === record.subjectId);
+  const toSort = finished.filter((record) => !isFiled(record));
+  const filed = finished.filter(isFiled);
+  const shown = filter === "sort" ? toSort : filter === "filed" ? filed : finished;
+  const pending = finished.filter((record) => record.status === "saved").length;
+
+  const begin = () => void start(destinationId, prefs.limit, { language: prefs.language, autoTranscribe: prefs.autoTranscribe });
+
   useEffect(() => {
-    if (
-      !ready ||
-      autostart.current ||
-      new URLSearchParams(location.search).get("start") !== "1"
-    )
-      return;
+    if (!ready || autostart.current || new URLSearchParams(location.search).get("start") !== "1") return;
     autostart.current = true;
     // Remove the trigger so refresh never silently starts another recording.
     const url = new URL(location.href);
     url.searchParams.delete("start");
     history.replaceState(history.state, "", url);
-    void start(null, limit);
-  }, [ready, start, limit]);
+    begin();
+  }, [ready]);
+
+  const recording = stage === "recording" || stage === "saving";
+
   return (
-    <main className="mx-auto max-w-5xl px-4 sm:px-8 py-6 pb-28">
-      <Link
-        href="/app"
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground py-3"
-      >
-        <ArrowLeft size={16} className={isArabic ? "rotate-180" : ""} />
-        {copy("My notebooks", "دفاتري")}
-      </Link>
-      <div className="mt-6 mb-8 flex flex-wrap justify-between items-end gap-4">
-        <div>
-          <p className="eyebrow">
-            {copy(
-              "CATCH THE THOUGHT. KEEP THE MOMENT.",
-              "التقط الفكرة. واحفظ اللحظة.",
-            )}
-          </p>
-          <h1 className="text-4xl sm:text-5xl font-medium">
-            {copy("Record now.", "سجّل الآن.")}{" "}
-            <em className="text-primary">
-              {copy("Organize later.", "ونظّم لاحقًا.")}
-            </em>
-          </h1>
-          <p className="mt-4 text-sm text-muted-foreground">
-            {copy(
-              "No title needed. No subject to choose. Just your idea.",
-              "لا عنوان مطلوب ولا موضوع تختاره الآن. فقط فكرتك.",
-            )}
-          </p>
-        </div>
+    <main className="mx-auto max-w-4xl px-4 pb-28 pt-2 sm:px-8">
+      {recording && <DrivingMode destination={destination} limit={prefs.limit} />}
+
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/app" className="inline-flex items-center gap-2 py-3 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft size={16} className={isArabic ? "rotate-180" : ""} />
+          {copy("My notebooks", "دفاتري")}
+        </Link>
         {!online && (
-          <span className="flex items-center gap-2 text-sm rounded-full bg-amber-50 text-amber-900 px-4 py-2">
-            <WifiOff size={16} />
+          <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            <WifiOff size={14} />
             {copy("Offline · recording still works", "غير متصل · التسجيل يعمل")}
           </span>
         )}
       </div>
-      <section className="grid md:grid-cols-[1.2fr_1fr] overflow-hidden rounded-3xl border bg-card shadow-sm">
-        <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-primary/5">
-          <p role="status" className="text-sm text-primary mb-5">
-            {stage === "recording"
-              ? copy(
-                  "Listening. Your idea has a home.",
-                  "أستمع. فكرتك في مكانها.",
-                )
-              : stage === "saving"
-                ? copy("Saving to this device…", "جارٍ الحفظ على الجهاز…")
-                : stage === "starting"
-                  ? copy("Preparing microphone…", "جارٍ تجهيز الميكروفون…")
-                  : copy(
-                      "One tap. A little possibility.",
-                      "لمسة واحدة. احتمال جديد.",
-                    )}
-          </p>
+
+      <section className="relative mt-3 overflow-hidden rounded-[2rem] border bg-gradient-to-b from-primary/[0.07] via-card to-card px-5 pb-8 pt-10 text-center shadow-sm sm:px-10 sm:pt-12">
+        <div className="pointer-events-none absolute -top-32 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
+        <p className="relative text-xs font-semibold uppercase tracking-[0.2em] text-primary/80">
+          {copy("Voice capture", "التقاط صوتي")}
+        </p>
+        <h1 className="relative mt-3 text-4xl font-medium sm:text-5xl">
+          {copy("What's on your mind?", "ما الذي يدور في ذهنك؟")}
+        </h1>
+        <p className="relative mx-auto mt-3 max-w-md text-[15px] leading-7 text-muted-foreground">
+          {copy("Tap once and speak. Your words become text, ready to file under any subject.", "اضغط مرة وتحدّث. تتحول كلماتك إلى نص جاهز للحفظ في أي موضوع.")}
+        </p>
+
+        <div className="relative mx-auto mt-9 grid h-44 w-44 place-items-center">
+          {ready && !rescue && <span className="absolute inset-0 animate-[ping_2.6s_cubic-bezier(0,0,0.2,1)_infinite] rounded-full bg-primary/15 motion-reduce:animate-none" aria-hidden="true" />}
+          <span className="absolute inset-3 rounded-full bg-primary/10" aria-hidden="true" />
           <button
-            aria-label={
-              stage === "recording"
-                ? copy("Stop and save recording", "إيقاف التسجيل وحفظه")
-                : copy("Start recording", "بدء التسجيل")
-            }
-            disabled={
-              !ready || stage === "starting" || stage === "saving" || !!rescue
-            }
-            onClick={() =>
-              stage === "recording" ? stop() : void start(subjectId, limit, { language: transcriptionLanguage, autoTranscribe })
-            }
-            className={`h-36 w-36 rounded-full flex items-center justify-center shadow-xl transition-transform active:scale-95 disabled:opacity-50 ${stage === "recording" ? "bg-red-600 text-white ring-8 ring-red-100" : "bg-primary text-primary-foreground hover:scale-105"}`}
+            type="button"
+            aria-label={copy("Start recording", "بدء التسجيل")}
+            disabled={!ready || stage !== "idle" || !!rescue}
+            onClick={begin}
+            className="relative grid h-32 w-32 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl shadow-primary/30 transition hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30"
           >
-            {stage === "recording" ? (
-              <Square size={42} fill="currentColor" />
-            ) : (
-              <Mic size={50} strokeWidth={1.4} />
-            )}
+            {stage === "starting" ? <Loader2 size={44} className="animate-spin" /> : <Mic size={52} strokeWidth={1.5} />}
           </button>
-          <p
-            className="mt-6 font-mono text-4xl tabular-nums tracking-widest"
-            role="timer"
+        </div>
+        <p className="relative mt-5 text-lg font-semibold" role="status">
+          {stage === "starting" ? copy("Opening the microphone…", "جارٍ فتح الميكروفون…") : copy("Tap to record", "اضغط للتسجيل")}
+        </p>
+        <p className="relative mt-1 text-xs text-muted-foreground">
+          {copy("or press Alt + R", "أو اضغط Alt + R")}
+        </p>
+
+        <div className="relative mx-auto mt-8 flex max-w-2xl flex-wrap items-center justify-center gap-2">
+          <OptionPill
+            icon={destinationId !== null ? <FolderCheck size={16} /> : <Inbox size={16} />}
+            label={copy("Save to", "احفظ في")}
+            value={destinationId ?? "inbox"}
+            disabled={stage !== "idle"}
+            onChange={(event) => setPrefs({ subjectId: event.target.value === "inbox" ? null : Number(event.target.value) })}
           >
-            {String(Math.floor(seconds / 60)).padStart(2, "0")}:
-            {String(seconds % 60).padStart(2, "0")}
-          </p>
-          <p className="mt-3 text-sm font-medium">
-            {stage === "recording"
-              ? copy("Stop & save", "إيقاف وحفظ")
-              : copy("Start recording", "بدء التسجيل")}
-          </p>
-          {stage === "recording" && <div className="w-48 mt-4" role="meter" aria-label={copy("Microphone level", "مستوى الميكروفون")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(audioLevel * 100)}>
-            <div className="h-2 rounded-full bg-primary/15 overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${Math.max(2, audioLevel * 100)}%` }} /></div>
-            <p className="mt-2 text-center text-xs text-muted-foreground">{audioLevel > .04 ? copy("Microphone is picking up sound", "الميكروفون يلتقط الصوت") : copy("Speak toward the microphone", "تحدث باتجاه الميكروفون")}</p>
-          </div>}
-          <label className="mt-6 text-xs text-muted-foreground flex items-center gap-2">
-            {copy("Stop automatically after", "توقف تلقائيًا بعد")}
-            <select
-              aria-label={copy(
-                "Automatic stop duration",
-                "مدة التوقف التلقائي",
-              )}
-              value={limit}
+            <option value="inbox">{copy("Inbox · sort later", "الصندوق · صنّف لاحقًا")}</option>
+            {choices.map((subject) => <option key={subject.id} value={subject.id}>{subject.title}</option>)}
+          </OptionPill>
+          <OptionPill
+            icon={<Globe size={16} />}
+            label={copy("Spoken language", "اللغة المنطوقة")}
+            value={prefs.language}
+            disabled={stage !== "idle"}
+            onChange={(event) => setPrefs({ language: event.target.value as SpokenLanguage })}
+          >
+            <option value="auto">{copy("Arabic or English", "العربية أو الإنجليزية")}</option>
+            <option value="ar">العربية</option>
+            <option value="en">English</option>
+          </OptionPill>
+          <OptionPill
+            icon={<Timer size={16} />}
+            label={copy("Stop automatically after", "توقف تلقائيًا بعد")}
+            value={prefs.limit}
+            disabled={stage !== "idle"}
+            onChange={(event) => setPrefs({ limit: Number(event.target.value) })}
+          >
+            {LIMITS.map((value) => (
+              <option key={value} value={value}>{copy("Up to", "حتى")} {limitLabel(value, copy)}</option>
+            ))}
+          </OptionPill>
+          <label className="inline-flex h-11 cursor-pointer items-center gap-2.5 rounded-full border bg-card px-4 text-sm font-medium shadow-sm">
+            <input
+              type="checkbox"
+              role="switch"
+              className="peer sr-only"
+              checked={prefs.autoTranscribe}
               disabled={stage !== "idle"}
-              onChange={(event) => setLimit(Number(event.target.value))}
-              className="rounded-lg border bg-card p-2 text-foreground"
-            >
-              {[30, 60, 120, 300, 900].map((value) => (
-                <option key={value} value={value}>
-                  {value < 60
-                    ? copy("30 seconds", "٣٠ ثانية")
-                    : `${value / 60} ${copy("min", "دقيقة")}`}
-                </option>
-              ))}
-            </select>
+              onChange={(event) => setPrefs({ autoTranscribe: event.target.checked })}
+            />
+            <span className="relative h-5 w-9 rounded-full bg-muted-foreground/30 transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40 after:absolute after:start-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-4 rtl:peer-checked:after:-translate-x-4" aria-hidden="true" />
+            {copy("Auto text", "نص تلقائي")}
           </label>
         </div>
-        <div className="p-7 sm:p-9 flex flex-col justify-center gap-6">
-          <div className="space-y-4 rounded-2xl border bg-background p-5">
-            <label className="block text-sm font-medium">{copy("Save to a subject", "احفظ في موضوع")}
-              <select className="mt-2 w-full rounded-xl border bg-card p-3 font-normal" value={subjectId ?? "inbox"} disabled={stage !== "idle"} onChange={e => setSubjectId(e.target.value === "inbox" ? null : Number(e.target.value))}>
-                <option value="inbox">{copy("Decide later · Idea inbox", "اختر لاحقًا · صندوق الأفكار")}</option>
-                {subjects.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-              </select>
-            </label>
-            <label className="block text-sm font-medium">{copy("Spoken language", "اللغة المنطوقة")}
-              <select className="mt-2 w-full rounded-xl border bg-card p-3 font-normal" value={transcriptionLanguage} disabled={stage !== "idle"} onChange={e => setTranscriptionLanguage(e.target.value as "auto" | "en" | "ar")}>
-                <option value="auto">{copy("Automatic · Arabic / English", "تلقائي · العربية / الإنجليزية")}</option>
-                <option value="ar">العربية</option><option value="en">English</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="h-4 w-4 accent-primary" checked={autoTranscribe} disabled={stage !== "idle"} onChange={e => setAutoTranscribe(e.target.checked)} />{copy("Convert to text after saving", "تحويل إلى نص بعد الحفظ")}</label>
-          </div>
-          <div>
-            <ShieldCheck className="text-primary mb-3" />
-            <h2 className="text-xl">
-              {copy("Saved before it's sorted.", "محفوظة قبل ترتيبها.")}
-            </h2>
-            <p className="text-sm text-muted-foreground leading-7 mt-2">
-              {copy(
-                "Audio is saved on this device first. When connected, the app uploads it to your Idea inbox and adds a transcript when available. Your local original stays here.",
-                "يُحفظ الصوت على الجهاز أولًا. عند الاتصال يُرفع لصندوق الأفكار ويُضاف النص عند توفره. تبقى النسخة الأصلية هنا.",
-              )}
-            </p>
-          </div>
-          <div className="rounded-xl border bg-background p-4">
-            <p className="text-sm font-medium">
-              {copy(
-                "Know the subject already? Say it.",
-                "تعرف الموضوع؟ قل اسمه.",
-              )}
-            </p>
-            <p className="text-sm text-primary mt-2">
-              {copy(
-                "“Save this under Education. My idea is…”",
-                "«احفظ في التعليم. فكرتي هي…»",
-              )}
-            </p>
-            <p className="text-xs leading-6 text-muted-foreground mt-2">
-              {copy(
-                "Use the exact notebook name at the beginning. After transcription, a matching subject is suggested on your recording card. Tap it to file the idea.",
-                "قل اسم الدفتر بالضبط في البداية. بعد التفريغ يُقترح الموضوع المطابق على بطاقة التسجيل. اضغط عليه لحفظ الفكرة فيه.",
-              )}
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground leading-6">
-            {copy(
-              "Keep this page open while recording. The app requests that the screen stay awake, but phone locks and background recording depend on your browser. Use screen controls only when parked.",
-              "أبقِ الصفحة مفتوحة أثناء التسجيل. يحاول التطبيق إبقاء الشاشة مضاءة، لكن قفل الهاتف والتسجيل بالخلفية يعتمدان على المتصفح. استخدم الشاشة فقط أثناء التوقف.",
-            )}
-          </p>
-        </div>
+
+        <ol className="relative mx-auto mt-9 grid max-w-2xl grid-cols-3 gap-2 border-t pt-6 text-start">
+          {[
+            [<Mic size={16} key="i" />, copy("Speak", "تحدّث"), copy("Hands stay on the wheel", "يداك على المقود")],
+            [<Sparkles size={16} key="i" />, copy("Get text", "احصل على النص"), copy("Arabic or English", "بالعربية أو الإنجليزية")],
+            [<FolderCheck size={16} key="i" />, copy("File it", "صنّفها"), copy("One tap, when parked", "بلمسة عند التوقف")],
+          ].map(([icon, title, detail], index) => (
+            <li key={index} className="flex flex-col items-center gap-1.5 text-center sm:flex-row sm:items-start sm:gap-3 sm:text-start">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">{icon}</span>
+              <span>
+                <span className="block text-sm font-semibold">{title}</span>
+                <span className="block text-xs leading-5 text-muted-foreground">{detail}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
       </section>
+
       {error && (
-        <div
-          className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
-          role="alert"
-        >
-          {error}
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100" role="alert">
+          <span className="flex-1">{error}</span>
           {!ready && (
-            <Button
-              className="ms-3"
-              variant="outline"
-              onClick={() => location.reload()}
-            >
-              {copy("Retry storage", "إعادة محاولة التخزين")}
-            </Button>
+            <Button variant="outline" onClick={() => location.reload()}>{copy("Retry storage", "إعادة محاولة التخزين")}</Button>
           )}
         </div>
       )}
       {rescue && (
-        <div className="mt-4 rounded-xl border border-red-300 p-4">
-          <p className="font-medium mb-3">
-            {copy(
-              "Keep this page open until you rescue the audio.",
-              "أبقِ الصفحة مفتوحة حتى تحفظ نسخة الصوت.",
-            )}
-          </p>
-          <a
-            className="underline me-5"
-            href={rescue.url}
-            download={`rescue.${rescue.blob.type.includes("mp4") ? "m4a" : "webm"}`}
-          >
-            {copy("Download rescue recording", "تنزيل التسجيل الاحتياطي")}
-          </a>
-          <Button variant="outline" onClick={() => void retryRescue()}>
-            {copy("Retry device save", "إعادة الحفظ على الجهاز")}
-          </Button>
+        <div className="mt-4 rounded-2xl border border-red-300 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/30">
+          <p className="mb-3 font-medium">{copy("Keep this page open until you rescue the audio.", "أبقِ الصفحة مفتوحة حتى تحفظ نسخة الصوت.")}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild>
+              <a href={rescue.url} download={`rescue.${rescue.blob.type.includes("mp4") ? "m4a" : "webm"}`}>
+                <Download size={15} className="me-2" />{copy("Download rescue recording", "تنزيل التسجيل الاحتياطي")}
+              </a>
+            </Button>
+            <Button variant="outline" onClick={() => void retryRescue()}>{copy("Retry device save", "إعادة الحفظ على الجهاز")}</Button>
+          </div>
         </div>
       )}
-      <div className="my-8 rounded-xl border bg-card px-5 py-4 text-sm">
-        <strong>{copy("Faster next time", "أسرع في المرة القادمة")}</strong>
-        <p className="mt-2 text-xs leading-6 text-muted-foreground">
-          {copy(
-            "Alt + R starts or stops recording while this app is open. You can bookmark the quick-start link or use it in your phone's Open URL shortcut. Microphone permission is still required; automatic launch depends on the browser.",
-            "يبدأ Alt + R التسجيل أو يوقفه أثناء فتح التطبيق. يمكنك حفظ رابط البدء السريع أو إضافته لاختصار فتح رابط في هاتفك. يلزم إذن الميكروفون، والبدء التلقائي يعتمد على المتصفح.",
-          )}
-        </p>
-        <a
-          className="inline-block mt-2 text-primary underline text-xs"
-          href={`${import.meta.env.BASE_URL}record?start=1&limit=60`}
-        >
-          {copy(
-            "Quick-start link · stop after 1 minute",
-            "رابط البدء السريع · توقف بعد دقيقة",
-          )}
-        </a>
-      </div>
-      <section>
-        <div className="flex justify-between flex-wrap gap-4 items-center mb-5">
+
+      <section className="mt-12">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="text-2xl">{copy("Your recordings", "تسجيلاتك")}</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {copy(
-                "Listen, choose a subject, and develop the idea when you're ready.",
-                "استمع واختر الموضوع وطوّر الفكرة عندما تكون مستعدًا.",
-              )}
+            <h2 className="text-3xl">{copy("Your voice notes", "ملاحظاتك الصوتية")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {toSort.length
+                ? copy(`${toSort.length} waiting for a subject. Tap one to file it.`, `${toSort.length} بانتظار موضوع. اضغط على موضوع لحفظها.`)
+                : finished.length
+                  ? copy("Everything is filed. Nice and tidy.", "كل شيء مصنّف ومرتب.")
+                  : copy("Your recordings will appear here, ready to sort.", "ستظهر تسجيلاتك هنا جاهزة للتصنيف.")}
+              {pending > 0 && ` · ${copy(`${pending} uploading`, `${pending} قيد الرفع`)}`}
             </p>
           </div>
-          <div className="flex rounded-lg border p-1 bg-card">
-            <Button
-              size="sm"
-              variant={filter === "all" ? "secondary" : "ghost"}
-              aria-pressed={filter === "all"}
-              onClick={() => setFilter("all")}
-            >
-              {copy("All", "الكل")}
-            </Button>
-            <Button
-              size="sm"
-              variant={filter === "pending" ? "secondary" : "ghost"}
-              aria-pressed={filter === "pending"}
-              onClick={() => setFilter("pending")}
-            >
-              {copy("Waiting to sync", "بانتظار المزامنة")} ({pending})
-            </Button>
+          <div className="flex rounded-full border bg-card p-1 shadow-sm" role="tablist" aria-label={copy("Filter voice notes", "تصفية الملاحظات")}>
+            {([
+              ["sort", copy("To sort", "للتصنيف"), toSort.length],
+              ["filed", copy("Filed", "مصنّفة"), filed.length],
+              ["all", copy("All", "الكل"), finished.length],
+            ] as const).map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={filter === value}
+                onClick={() => setFilter(value)}
+                className={`h-9 rounded-full px-4 text-sm font-medium transition-colors ${filter === value ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {label} <span className="ms-0.5 opacity-70">{count}</span>
+              </button>
+            ))}
           </div>
         </div>
-        {completed.length ? (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {completed.map((record) => (
-              <RecordingCard key={record.id} record={record} />
+        {shown.length ? (
+          <div className="space-y-5">
+            {shown.map((record) => (
+              <RecordingCard key={record.id} record={record} subjects={subjects} inboxIds={inboxIds} />
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed p-9 text-center text-muted-foreground">
-            <Mic className="mx-auto mb-3" />
-            <p>
-              {filter === "pending"
-                ? copy(
-                    "Nothing waiting to sync.",
-                    "لا تسجيلات بانتظار المزامنة.",
-                  )
-                : copy(
-                    "Your next idea belongs here.",
-                    "هنا مكان فكرتك القادمة.",
-                  )}
+          <div className="rounded-3xl border border-dashed px-6 py-12 text-center">
+            <span className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
+              {filter === "sort" && finished.length ? <CheckCircle2 size={26} /> : <Mic size={26} />}
+            </span>
+            <p className="font-serif text-xl">
+              {filter === "sort" && finished.length
+                ? copy("All sorted", "كل شيء مصنّف")
+                : filter === "filed"
+                  ? copy("Nothing filed yet", "لا شيء مصنّف بعد")
+                  : copy("Your next idea belongs here", "هنا مكان فكرتك القادمة")}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {filter === "sort" && finished.length
+                ? copy("Every voice note has a subject.", "كل ملاحظة صوتية لها موضوع.")
+                : copy("Tap the microphone above and say what you're thinking.", "اضغط على الميكروفون وقل ما تفكر فيه.")}
             </p>
           </div>
         )}
       </section>
+
+      <details className="group mt-12 rounded-3xl border bg-card px-5 py-4 shadow-sm open:pb-5 sm:px-6">
+        <summary className="flex cursor-pointer list-none items-center gap-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+          <Lightbulb size={18} className="text-accent" />
+          {copy("Tips for capturing on the go", "نصائح للتسجيل أثناء التنقل")}
+          <ChevronDown size={16} className="ms-auto text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <ul className="mt-4 space-y-4 text-sm leading-6 text-muted-foreground">
+          <li>
+            <strong className="text-foreground">{copy("Say the subject first. ", "قل اسم الموضوع أولًا. ")}</strong>
+            {copy("Start with “Save this under Education. My idea is…” and that subject is suggested at the top of the card.", "ابدأ بـ «احفظ في التعليم. فكرتي هي…» وسيظهر الموضوع مقترحًا أعلى البطاقة.")}
+          </li>
+          <li>
+            <strong className="text-foreground">{copy("One-tap start. ", "بدء بلمسة واحدة. ")}</strong>
+            {copy("Add this link to your home screen or a phone shortcut to open the app already recording: ", "أضف هذا الرابط إلى الشاشة الرئيسية أو اختصار في الهاتف ليفتح التطبيق ويبدأ التسجيل مباشرة: ")}
+            <a className="text-primary underline" href={`${import.meta.env.BASE_URL}record?start=1`}>{copy("quick-start link", "رابط البدء السريع")}</a>.
+          </li>
+          <li>
+            <strong className="text-foreground">{copy("Drive safely. ", "قُد بأمان. ")}</strong>
+            {copy("Keep the phone mounted and the page open. The screen stays awake while recording. File your notes when parked.", "ثبّت الهاتف وأبقِ الصفحة مفتوحة. تبقى الشاشة مضاءة أثناء التسجيل. صنّف ملاحظاتك عند التوقف.")}
+          </li>
+          <li>
+            <strong className="text-foreground">{copy("Nothing is lost. ", "لا شيء يضيع. ")}</strong>
+            {copy("Audio is saved on this device first, then uploaded when you're online. Phone calls or locking the screen can stop a recording early.", "يُحفظ الصوت على الجهاز أولًا ثم يُرفع عند الاتصال. قد تؤدي المكالمات أو قفل الشاشة إلى إيقاف التسجيل مبكرًا.")}
+          </li>
+        </ul>
+      </details>
     </main>
   );
 }

@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { RecordingStore, type LocalRecording } from "@/lib/recording-store";
 import { maxTranscriptionAttempts, syncRecording, transcribeRecording } from "@/lib/recording-sync";
 import { useLanguage } from "@/lib/i18n";
+import { readRecorderPrefs } from "@/lib/recorder-prefs";
 
 const preview = import.meta.env.VITE_DESIGN_PREVIEW === "true";
 export const recordingStore = new RecordingStore(
@@ -42,6 +43,8 @@ type RecorderContextValue = {
   stage: Stage;
   seconds: number;
   audioLevel: number;
+  /** Current microphone level (0–1), read on demand for smooth animation. */
+  readLevel: () => number;
   activeId: string | null;
   ready: boolean;
   error: string | null;
@@ -99,6 +102,14 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     const list = await recordingStore.list();
     if (mounted.current) setRecords(list);
+  }, []);
+  const readLevel = useCallback(() => {
+    const meter = session.current?.meter;
+    if (!meter) return 0;
+    const samples = new Uint8Array(meter.analyser.fftSize);
+    meter.analyser.getByteTimeDomainData(samples);
+    const rms = Math.sqrt(samples.reduce((sum, value) => sum + ((value - 128) / 128) ** 2, 0) / samples.length);
+    return Math.min(1, rms * 4);
   }, []);
   const sync = useCallback(
     async (force = false) => {
@@ -434,12 +445,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       if (current) {
         const elapsed = Math.floor((Date.now() - current.started) / 1000);
         setSeconds(elapsed);
-        if (current.meter) {
-          const samples = new Uint8Array(current.meter.analyser.fftSize);
-          current.meter.analyser.getByteTimeDomainData(samples);
-          const rms = Math.sqrt(samples.reduce((sum, value) => sum + ((value - 128) / 128) ** 2, 0) / samples.length);
-          setAudioLevel(Math.min(1, rms * 4));
-        }
+        if (current.meter) setAudioLevel(readLevel());
         if (elapsed >= current.limit) stop();
       }
     }, 500);
@@ -472,7 +478,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("visibilitychange", visibility);
       stop();
     };
-  }, [acquireWakeLock, refresh, stop, sync]);
+  }, [acquireWakeLock, readLevel, refresh, stop, sync]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (stage !== "idle" || rescue) {
@@ -496,7 +502,10 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         return;
       event.preventDefault();
       if (session.current) stop();
-      else void start();
+      else {
+        const prefs = readRecorderPrefs();
+        void start(prefs.subjectId, prefs.limit, { language: prefs.language, autoTranscribe: prefs.autoTranscribe });
+      }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
@@ -509,6 +518,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         stage,
         seconds,
         audioLevel,
+        readLevel,
         activeId,
         ready,
         error,
