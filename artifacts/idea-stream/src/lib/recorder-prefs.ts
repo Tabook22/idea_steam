@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 export type SpokenLanguage = "auto" | "en" | "ar";
 export type RecorderPrefs = {
   subjectId: number | null;
@@ -30,4 +32,21 @@ export function writeRecorderPrefs(prefs: RecorderPrefs) {
   try {
     localStorage.setItem(KEY, JSON.stringify(prefs));
   } catch { /* Ignore unavailable storage. */ }
+}
+
+const listeners = new Set<(prefs: RecorderPrefs) => void>();
+
+/** Shared, persisted recorder choices; every mounted control stays in sync. */
+export function useRecorderPrefs() {
+  const [prefs, setPrefs] = useState<RecorderPrefs>(readRecorderPrefs);
+  useEffect(() => {
+    listeners.add(setPrefs);
+    return () => { listeners.delete(setPrefs); };
+  }, []);
+  const update = (change: Partial<RecorderPrefs>) => {
+    const next = { ...readRecorderPrefs(), ...prefs, ...change };
+    writeRecorderPrefs(next);
+    listeners.forEach((listener) => listener(next));
+  };
+  return [prefs, update] as const;
 }

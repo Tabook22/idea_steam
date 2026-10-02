@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useLanguage } from "@/lib/i18n";
+import { QuickRecord, useStartRecording } from "@/components/quick-record";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
@@ -48,6 +49,7 @@ export default function HomePage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const startRecording = useStartRecording();
   const [newNotebook, setNewNotebook] = useState(false);
   const [capture, setCapture] = useState<{
     id: number;
@@ -67,7 +69,7 @@ export default function HomePage() {
     openingCapture || createSubject.isPending || isLoading || !!error;
 
   async function quickCapture(mode: CaptureMode) {
-    if (mode === "voice") { navigate("/record"); return; }
+    if (mode === "voice") { void startRecording(); return; }
     if (captureDisabled) return;
     setOpeningCapture(true);
     try {
@@ -264,6 +266,7 @@ export default function HomePage() {
           </span>
         </header>
         <main id="main-content" className="workspace-content">
+          <QuickRecord />
           <section className="workspace-welcome">
             <div>
               <p className="eyebrow">

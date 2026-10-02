@@ -18,6 +18,7 @@ import RecorderPage from "@/pages/recorder";
 import { RecorderProvider } from "@/components/recorder-provider";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
+import { RecordFab } from "@/components/quick-record";
 import {
   Route,
   Redirect,
@@ -129,6 +130,7 @@ function AppContent() {
             )}
             <TopNav />
             <Router />
+            <RecordFab />
             <Toaster />
           </RecorderProvider>
         </TooltipProvider>

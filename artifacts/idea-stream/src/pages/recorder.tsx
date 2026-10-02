@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -21,7 +21,6 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
-  Square,
   Timer,
   Trash2,
   WifiOff,
@@ -35,16 +34,11 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { recordingStore, useRecorder, withRecordingLock } from "@/components/recorder-provider";
+import { OptionPill } from "@/components/option-pill";
 import type { LocalRecording } from "@/lib/recording-store";
 import { spokenSubject, recordingTitle } from "@/lib/recording-utils";
 import { useLanguage } from "@/lib/i18n";
-import {
-  RECORDING_LIMITS,
-  readRecorderPrefs,
-  writeRecorderPrefs,
-  type RecorderPrefs,
-  type SpokenLanguage,
-} from "@/lib/recorder-prefs";
+import { RECORDING_LIMITS, useRecorderPrefs as usePrefs, type SpokenLanguage } from "@/lib/recorder-prefs";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,136 +57,11 @@ import {
 const LIMITS = RECORDING_LIMITS;
 const INBOX_TITLES = ["Idea inbox", "صندوق الأفكار"];
 
-function usePrefs() {
-  const [prefs, setPrefs] = useState<RecorderPrefs>(readRecorderPrefs);
-  const update = (change: Partial<RecorderPrefs>) =>
-    setPrefs((current) => {
-      const next = { ...current, ...change };
-      writeRecorderPrefs(next);
-      return next;
-    });
-  return [prefs, update] as const;
-}
-
 const clock = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 
 function limitLabel(value: number, copy: (en: string, ar: string) => string) {
   return value < 60 ? copy("30 sec", "٣٠ ثانية") : `${value / 60} ${copy("min", "دقيقة")}`;
-}
-
-/** Live bars driven by the microphone level. */
-function LevelBars({ readLevel, bars = 28, className = "" }: { readLevel: () => number; bars?: number; className?: string }) {
-  const refs = useRef<Array<HTMLSpanElement | null>>([]);
-  useEffect(() => {
-    const history = new Array(bars).fill(0);
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timer = window.setInterval(() => {
-      history.shift();
-      history.push(readLevel());
-      history.forEach((level, index) => {
-        const bar = refs.current[index];
-        if (bar) bar.style.transform = `scaleY(${Math.max(0.08, Math.min(1, level * 1.6))})`;
-      });
-    }, reduce ? 400 : 80);
-    return () => clearInterval(timer);
-  }, [bars, readLevel]);
-  return (
-    <div className={`flex h-20 items-center justify-center gap-[5px] ${className}`} aria-hidden="true">
-      {Array.from({ length: bars }, (_, index) => (
-        <span
-          key={index}
-          ref={(element) => { refs.current[index] = element; }}
-          className="h-full w-[5px] rounded-full bg-current transition-transform duration-75"
-          style={{ transform: "scaleY(0.08)", opacity: 0.35 + (index / bars) * 0.65 }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** Full-screen, high-contrast recording view: one huge target to stop and save. */
-function DrivingMode({ destination, limit }: { destination: string; limit: number }) {
-  const { isArabic } = useLanguage();
-  const copy = (en: string, ar: string) => (isArabic ? ar : en);
-  const { stage, seconds, stop, readLevel, audioLevel } = useRecorder();
-  const stopButton = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    stopButton.current?.focus();
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previous; };
-  }, []);
-  const saving = stage === "saving";
-  const remaining = Math.max(0, limit - seconds);
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={copy("Recording in progress", "التسجيل جارٍ")}
-      className="fixed inset-0 z-[60] flex flex-col bg-[hsl(158_38%_11%)] text-[hsl(43_30%_95%)]"
-      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
-    >
-      <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-8">
-        <span className="inline-flex items-center gap-2.5 rounded-full bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-200">
-          <span className="relative flex h-2.5 w-2.5">
-            {!saving && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />}
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
-          </span>
-          {saving ? copy("Saving…", "جارٍ الحفظ…") : copy("Recording", "يسجّل الآن")}
-        </span>
-        <span className="inline-flex min-w-0 items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm">
-          <FolderCheck size={16} className="shrink-0" />
-          <span className="truncate">{destination}</span>
-        </span>
-      </div>
-      <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="font-mono text-7xl font-light tabular-nums tracking-wider sm:text-8xl" role="timer" aria-live="off">
-          {clock(seconds)}
-        </p>
-        <LevelBars readLevel={readLevel} className="mt-8 w-full max-w-md text-emerald-300" />
-        <p className="mt-4 text-base text-white/70" role="status">
-          {saving
-            ? copy("Keeping your idea safe on this device…", "نحفظ فكرتك على هذا الجهاز…")
-            : audioLevel > 0.04
-              ? copy("Listening. Speak naturally.", "أستمع إليك. تحدّث بشكل طبيعي.")
-              : copy("Speak toward your phone", "تحدّث باتجاه الهاتف")}
-        </p>
-        <p className="mt-2 text-sm text-white/45">
-          {copy("Stops by itself in", "يتوقف تلقائيًا بعد")} {clock(remaining)}
-        </p>
-      </div>
-      <div className="px-4 pb-5 sm:px-8 sm:pb-8">
-        <button
-          ref={stopButton}
-          type="button"
-          disabled={saving}
-          onClick={stop}
-          className="flex h-[30vh] min-h-36 max-h-72 w-full flex-col items-center justify-center gap-3 rounded-[2rem] bg-red-600 text-white shadow-2xl shadow-red-950/50 transition active:scale-[0.98] disabled:opacity-70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/60"
-        >
-          {saving ? <Loader2 size={48} className="animate-spin" /> : <Square size={46} fill="currentColor" />}
-          <span className="text-2xl font-semibold">{copy("Tap to stop & save", "اضغط للإيقاف والحفظ")}</span>
-          <span className="text-sm text-white/75">Alt + R</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** A native select styled as a compact pill: accessible, and large enough to tap. */
-function OptionPill({ icon, label, children, ...props }: {
-  icon: ReactNode; label: string; children: ReactNode;
-} & SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <label className="group relative inline-flex h-11 min-w-0 max-w-full items-center gap-2 rounded-full border bg-card ps-3.5 pe-9 text-sm shadow-sm transition-colors hover:border-primary/40 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-      <span className="shrink-0 text-primary">{icon}</span>
-      <span className="sr-only">{label}</span>
-      <select {...props} className="min-w-0 max-w-[13rem] cursor-pointer appearance-none truncate bg-transparent font-medium outline-none disabled:cursor-not-allowed">
-        {children}
-      </select>
-      <ChevronDown size={15} className="pointer-events-none absolute end-3 text-muted-foreground" />
-    </label>
-  );
 }
 
 function Step({ number, done, active, children }: { number: number; done: boolean; active?: boolean; children: ReactNode }) {
@@ -680,9 +549,6 @@ export default function RecorderPage() {
   );
   // A remembered subject that was deleted falls back to the inbox.
   const destinationId = prefs.subjectId !== null && choices.some((subject) => subject.id === prefs.subjectId) ? prefs.subjectId : null;
-  const destination = destinationId !== null
-    ? choices.find((subject) => subject.id === destinationId)!.title
-    : copy("Idea inbox", "صندوق الأفكار");
 
   const finished = records.filter((record) => record.status !== "recording");
   const isFiled = (record: LocalRecording) => record.subjectId !== null && !inboxIds.has(record.subjectId) && subjects.some((subject) => subject.id === record.subjectId);
@@ -703,11 +569,8 @@ export default function RecorderPage() {
     begin();
   }, [ready]);
 
-  const recording = stage === "recording" || stage === "saving";
-
   return (
     <main className="mx-auto max-w-4xl px-4 pb-28 pt-2 sm:px-8">
-      {recording && <DrivingMode destination={destination} limit={prefs.limit} />}
 
       <div className="flex items-center justify-between gap-3">
         <Link href="/app" className="inline-flex items-center gap-2 py-3 text-sm text-muted-foreground hover:text-foreground">

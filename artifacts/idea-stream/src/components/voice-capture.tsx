@@ -1,11 +1,13 @@
 import { Link } from "wouter";
 import { Mic, Square } from "lucide-react";
 import { useRecorder } from "@/components/recorder-provider";
+import { useStartRecording } from "@/components/quick-record";
 import { useLanguage } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 
 export function VoiceCapture({ subjectId }: { subjectId: number }) {
-  const { start, stop, stage, seconds, ready, error, rescue } = useRecorder();
+  const { stop, stage, seconds, ready, error, rescue } = useRecorder();
+  const record = useStartRecording();
   const { isArabic } = useLanguage();
   return (
     <div className="flex flex-col items-center text-center rounded-xl bg-primary/5 p-7 gap-4">
@@ -16,7 +18,7 @@ export function VoiceCapture({ subjectId }: { subjectId: number }) {
         disabled={
           !ready || !!rescue || stage === "starting" || stage === "saving"
         }
-        onClick={() => (stage === "recording" ? stop() : void start(subjectId))}
+        onClick={() => (stage === "recording" ? stop() : void record(subjectId))}
       >
         {stage === "recording" ? (
           <Square className="!h-8 !w-8" />

@@ -8,12 +8,12 @@ import {
   type ReactNode,
 } from "react";
 import { Link } from "wouter";
-import { Mic, Square } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RecordingStore, type LocalRecording } from "@/lib/recording-store";
 import { maxTranscriptionAttempts, syncRecording, transcribeRecording } from "@/lib/recording-sync";
 import { useLanguage } from "@/lib/i18n";
 import { readRecorderPrefs } from "@/lib/recorder-prefs";
+import { DrivingMode } from "@/components/recording-overlay";
 
 const preview = import.meta.env.VITE_DESIGN_PREVIEW === "true";
 export const recordingStore = new RecordingStore(
@@ -38,6 +38,7 @@ type Session = {
   limit: number;
   meter?: { context: AudioContext; analyser: AnalyserNode };
 };
+type RecordingTarget = { subjectId: number | null; limit: number; autoTranscribe: boolean };
 type RecorderContextValue = {
   records: LocalRecording[];
   stage: Stage;
@@ -45,6 +46,8 @@ type RecorderContextValue = {
   audioLevel: number;
   /** Current microphone level (0–1), read on demand for smooth animation. */
   readLevel: () => number;
+  /** Where the current recording will be filed, for the recording screen. */
+  target: RecordingTarget | null;
   activeId: string | null;
   ready: boolean;
   error: string | null;
@@ -84,6 +87,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState<LocalRecording[]>([]);
   const [stage, setStage] = useState<Stage>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
+  const [target, setTarget] = useState<RecordingTarget | null>(null);
   const [seconds, setSeconds] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -202,6 +206,11 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     async (subjectId: number | null = null, limit = 900, options?: { language: "auto" | "en" | "ar"; autoTranscribe: boolean }) => {
       if (session.current || preparing.current || rescue) return;
       preparing.current = true;
+      setTarget({
+        subjectId,
+        limit: Math.min(900, Math.max(10, limit)),
+        autoTranscribe: options?.autoTranscribe ?? true,
+      });
       setStage("starting");
       setError(null);
       let release = () => {};
@@ -519,6 +528,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         seconds,
         audioLevel,
         readLevel,
+        target,
         activeId,
         ready,
         error,
@@ -547,26 +557,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           </Link>
         </div>
       )}
-      {stage !== "idle" && (
-        <div
-          className="fixed bottom-4 inset-x-4 z-50 mx-auto max-w-md flex items-center gap-3 rounded-2xl bg-primary text-primary-foreground p-3 shadow-xl"
-          role="status"
-        >
-          <Mic className="h-5 w-5 animate-pulse" />
-          <Link href="/record" className="flex-1 text-sm">
-            {isArabic ? "جارٍ التسجيل" : "Recording"} ·{" "}
-            {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
-          </Link>
-          <button
-            onClick={stop}
-            disabled={stage !== "recording"}
-            className="flex items-center gap-2 rounded-xl bg-white/20 px-4 py-3 text-sm"
-          >
-            <Square size={16} />
-            {isArabic ? "إيقاف وحفظ" : "Stop & save"}
-          </button>
-        </div>
-      )}
+      {stage !== "idle" && <DrivingMode />}
     </RecorderContext.Provider>
   );
 }
