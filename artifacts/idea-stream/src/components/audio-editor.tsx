@@ -22,12 +22,16 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { appPath } from "@/lib/app-path";
-import { formatTime, keptRanges, mergeRanges, nextAudible, totalLength, type Range } from "@/lib/audio-ranges";
+import { EditedTimeline, formatTime, mergeRanges, type Range } from "@/lib/audio-ranges";
 import { useLanguage } from "@/lib/i18n";
 
 type Segment = { at: number; start: number; end: number };
 
-/** Cut parts out of a library recording: select on the waveform, remove or keep, preview, save. */
+/**
+ * Cut parts out of a library recording. A removed part disappears at once and the rest is
+ * joined, so the waveform, timer, and playback always show the result. Cuts are tracked
+ * against the original, which the server keeps for "Restore original".
+ */
 export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; title: string; onClose: () => void }) {
   const { isArabic } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
@@ -35,14 +39,17 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const { toast } = useToast();
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
   const [loadError, setLoadError] = useState("");
+  /** Removed parts, in the ORIGINAL recording's time. */
   const [removed, setRemoved] = useState<Range[]>([]);
   const [history, setHistory] = useState<Range[][]>([]);
+  /** Selection and playhead, in EDITED time (the joined result). */
   const [selection, setSelection] = useState<Range | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [saving, setSaving] = useState(false);
   const [width, setWidth] = useState(320);
+  const [flash, setFlash] = useState<number | null>(null);
   const context = useRef<AudioContext | null>(null);
   const sources = useRef<AudioBufferSourceNode[]>([]);
   const schedule = useRef<Segment[]>([]);
@@ -51,6 +58,16 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const canvas = useRef<HTMLCanvasElement>(null);
   const drag = useRef<{ mode: "new" | "start" | "end"; anchor: number; moved: boolean } | null>(null);
   const duration = buffer?.duration ?? 0;
+  const timeline = useMemo(() => new EditedTimeline(removed, duration), [removed, duration]);
+  const length = timeline.length;
+
+  const stop = useCallback(() => {
+    cancelAnimationFrame(frame.current);
+    for (const source of sources.current) { try { source.stop(); } catch { /* already stopped */ } }
+    sources.current = [];
+    schedule.current = [];
+    setPlaying(false);
+  }, []);
 
   // Load and decode the recording once.
   useEffect(() => {
@@ -73,7 +90,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
       stop();
       void context.current?.close().catch(() => {});
     };
-  }, [item.url]);
+  }, [item.url, stop]);
 
   useEffect(() => {
     const element = scroller.current;
@@ -84,54 +101,46 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   }, [buffer]);
 
   const contentWidth = Math.round(width * zoom);
+
+  // Waveform of the edited result: only kept audio, joined end to end.
   const peaks = useMemo(() => {
-    if (!buffer) return [];
+    if (!buffer || length <= 0) return [];
     const data = buffer.getChannelData(0);
+    const rate = buffer.sampleRate;
     const bars = Math.max(60, Math.floor(contentWidth / 3));
-    const step = Math.max(1, Math.floor(data.length / bars));
     const result: number[] = [];
     for (let bar = 0; bar < bars; bar++) {
       let peak = 0;
-      for (let i = bar * step, end = Math.min(data.length, i + step); i < end; i += 4) peak = Math.max(peak, Math.abs(data[i]));
+      for (const piece of timeline.originalPieces((bar / bars) * length, ((bar + 1) / bars) * length)) {
+        const from = Math.floor(piece.start * rate);
+        const to = Math.min(data.length, Math.ceil(piece.end * rate));
+        for (let i = from; i < to; i += 4) peak = Math.max(peak, Math.abs(data[i]));
+      }
       result.push(peak);
     }
     const loudest = Math.max(0.01, ...result);
     return result.map((value) => value / loudest);
-  }, [buffer, contentWidth]);
+  }, [buffer, timeline, length, contentWidth]);
 
-  // Draw the waveform; removed parts are drawn faint.
   useEffect(() => {
     const element = canvas.current;
-    if (!element || !peaks.length) return;
+    if (!element) return;
+    if (!peaks.length) { element.getContext("2d")?.clearRect(0, 0, element.width, element.height); return; }
     const ratio = window.devicePixelRatio || 1;
     const height = 120;
     element.width = contentWidth * ratio;
     element.height = height * ratio;
     const draw = element.getContext("2d")!;
     draw.scale(ratio, ratio);
-    const styles = getComputedStyle(element);
-    const keep = styles.getPropertyValue("--wave-keep").trim() || "#29563f";
-    const gone = styles.getPropertyValue("--wave-gone").trim() || "#d4a5a5";
+    draw.fillStyle = getComputedStyle(element).getPropertyValue("--wave-keep").trim() || "#29563f";
     const barWidth = contentWidth / peaks.length;
-    const merged = mergeRanges(removed, duration);
     peaks.forEach((peak, index) => {
-      const time = ((index + 0.5) / peaks.length) * duration;
-      const isRemoved = merged.some(({ start, end }) => time >= start && time < end);
       const barHeight = Math.max(2, peak * (height - 10));
-      draw.fillStyle = isRemoved ? gone : keep;
       draw.fillRect(index * barWidth + 0.5, (height - barHeight) / 2, Math.max(1, barWidth - 1), barHeight);
     });
-  }, [peaks, removed, duration, contentWidth]);
+  }, [peaks, contentWidth]);
 
-  const stop = useCallback(() => {
-    cancelAnimationFrame(frame.current);
-    for (const source of sources.current) { try { source.stop(); } catch { /* already stopped */ } }
-    sources.current = [];
-    schedule.current = [];
-    setPlaying(false);
-  }, []);
-
-  /** Plays the given parts back to back, moving the playhead along the original timeline. */
+  /** Plays original-time segments back to back; the playhead follows in edited time. */
   const playSegments = useCallback((segments: Range[]) => {
     const ctx = context.current;
     if (!ctx || !buffer || !segments.length) return;
@@ -151,38 +160,33 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     const tick = () => {
       const now = ctx.currentTime;
       const current = schedule.current.find((segment) => now < segment.at + (segment.end - segment.start));
-      if (!current) { setPlayhead(schedule.current.at(-1)?.end ?? 0); stop(); return; }
-      setPlayhead(now < current.at ? current.start : current.start + (now - current.at));
+      if (!current) { setPlayhead(timeline.toEdited(schedule.current.at(-1)?.end ?? 0)); stop(); return; }
+      setPlayhead(timeline.toEdited(now < current.at ? current.start : current.start + (now - current.at)));
       frame.current = requestAnimationFrame(tick);
     };
     frame.current = requestAnimationFrame(tick);
-  }, [buffer, stop]);
+  }, [buffer, stop, timeline]);
 
-  const playFromHead = () => {
-    const from = nextAudible(playhead >= duration - 0.05 ? 0 : playhead, removed, duration);
-    if (from === null) return;
-    playSegments(keptRanges(removed, duration)
-      .filter(({ end }) => end > from)
-      .map(({ start, end }) => ({ start: Math.max(start, from), end })));
-  };
+  const playEdited = (from: number, to = length) => playSegments(timeline.originalPieces(from, to));
+  const playFromHead = () => playEdited(playhead >= length - 0.05 ? 0 : playhead);
 
   const timeAt = (event: ReactPointerEvent<HTMLDivElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     let ratio = (event.clientX - box.left) / box.width;
     if (isArabic) ratio = 1 - ratio;
-    return Math.min(duration, Math.max(0, ratio * duration));
+    return Math.min(length, Math.max(0, ratio * length));
   };
   const handleHit = (event: ReactPointerEvent<HTMLDivElement>, time: number) => {
     if (!selection) return null;
     const box = event.currentTarget.getBoundingClientRect();
-    const tolerance = (16 / box.width) * duration;
+    const tolerance = (16 / box.width) * length;
     if (Math.abs(time - selection.start) < tolerance) return "start" as const;
     if (Math.abs(time - selection.end) < tolerance) return "end" as const;
     return null;
   };
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!buffer) return;
+    if (!buffer || length <= 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     const time = timeAt(event);
     const handle = handleHit(event, time);
@@ -195,7 +199,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     const current = drag.current;
     if (!current) return;
     const time = timeAt(event);
-    current.moved = current.moved || Math.abs(time - current.anchor) > duration / 400;
+    current.moved = current.moved || Math.abs(time - current.anchor) > length / 400;
     setSelection({ start: Math.min(current.anchor, time), end: Math.max(current.anchor, time) });
   }
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
@@ -207,34 +211,56 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
       setSelection(null);
       const time = timeAt(event);
       setPlayhead(time);
-      if (playing) {
-        const from = nextAudible(time, removed, duration);
-        if (from !== null) playSegments(keptRanges(removed, duration).filter(({ end }) => end > from).map(({ start, end }) => ({ start: Math.max(start, from), end })));
-      }
+      if (playing) playEdited(time);
     }
   }
 
-  const change = (next: Range[]) => {
+  /** Applies new cuts (original time); the waveform closes the gap immediately. */
+  const change = (next: Range[], playheadAfter?: number) => {
+    stop();
     setHistory((list) => [...list.slice(-30), removed]);
     setRemoved(mergeRanges(next, duration));
     setSelection(null);
-    stop();
+    if (playheadAfter !== undefined) setPlayhead(playheadAfter);
+  };
+  const removeSelection = () => {
+    if (!selection) return;
+    change([...removed, ...timeline.originalPieces(selection.start, selection.end)], selection.start);
+    // Briefly mark the join so it's clear where the two sides now meet.
+    setFlash(selection.start);
+    window.setTimeout(() => setFlash(null), 1400);
+  };
+  const keepOnlySelection = () => {
+    if (!selection) return;
+    const keep = timeline.originalPieces(selection.start, selection.end);
+    const everythingElse: Range[] = [];
+    let cursor = 0;
+    for (const piece of keep) {
+      everythingElse.push({ start: cursor, end: piece.start });
+      cursor = piece.end;
+    }
+    everythingElse.push({ start: cursor, end: duration });
+    change(everythingElse, 0);
   };
   const nudge = (edge: "start" | "end", delta: number) => setSelection((current) => {
     if (!current) return current;
-    const next = { ...current, [edge]: Math.min(duration, Math.max(0, current[edge] + delta)) };
+    const next = { ...current, [edge]: Math.min(length, Math.max(0, current[edge] + delta)) };
     return next.end - next.start >= 0.05 ? next : current;
   });
-
-  const kept = keptRanges(removed, duration);
-  const newLength = totalLength(kept);
+  const undo = () => {
+    stop();
+    setRemoved(history.at(-1) ?? []);
+    setHistory((list) => list.slice(0, -1));
+    setSelection(null);
+    setPlayhead(0);
+  };
 
   async function save() {
     if (!removed.length || saving) return;
     setSaving(true);
     stop();
     try {
-      await editAudioLibraryItem(item.id, { keep: kept });
+      await editAudioLibraryItem(item.id, { keep: timeline.kept });
       await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
       toast({
         title: copy("Recording edited", "تم تحرير التسجيل"),
@@ -248,8 +274,9 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     }
   }
 
-  const left = (time: number) => `${(time / Math.max(duration, 0.001)) * 100}%`;
+  const at = (time: number) => `${(time / Math.max(length, 0.001)) * 100}%`;
   const side = isArabic ? "right" : "left";
+  const cuts = mergeRanges(removed, duration);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
@@ -273,7 +300,9 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
           ) : (
             <>
               <p className="mb-2 text-xs text-muted-foreground">
-                {copy("Drag across the part you want to change. Tap to move the playhead.", "اسحب على الجزء الذي تريد تغييره. انقر لتحريك مؤشر التشغيل.")}
+                {cuts.length
+                  ? copy("This is the edited recording. Red lines show where parts were cut and the rest joined.", "هذا هو التسجيل بعد التحرير. الخطوط الحمراء تبيّن مواضع القص والوصل.")
+                  : copy("Drag across the part you want to remove. Tap to move the playhead.", "اسحب على الجزء الذي تريد حذفه. انقر لتحريك مؤشر التشغيل.")}
               </p>
               <div ref={scroller} className="overflow-x-auto rounded-xl border bg-card" dir="ltr">
                 <div
@@ -287,39 +316,44 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                 >
                   <canvas
                     ref={canvas}
-                    className="absolute inset-0 h-full w-full [--wave-gone:#e2b4b4] [--wave-keep:#29563f] dark:[--wave-gone:#6b3a3a] dark:[--wave-keep:#6fbf98]"
+                    className="absolute inset-0 h-full w-full [--wave-keep:#29563f] dark:[--wave-keep:#6fbf98]"
                     style={{ transform: isArabic ? "scaleX(-1)" : undefined }}
                   />
-                  {mergeRanges(removed, duration).map((range) => (
-                    <div key={`${range.start}`} className="pointer-events-none absolute inset-y-0 bg-red-500/10 [background-image:repeating-linear-gradient(135deg,transparent_0_6px,rgba(220,38,38,0.12)_6px_8px)]"
-                      style={{ [side]: left(range.start), width: left(range.end - range.start) }} />
+                  {timeline.joins().map((point) => (
+                    <div key={point} className={`pointer-events-none absolute inset-y-0 w-0 border-s-2 border-dashed transition-colors ${flash !== null && Math.abs(flash - point) < 0.01 ? "border-red-600" : "border-red-500/60"}`}
+                      style={{ [side]: at(point) }}>
+                      <Scissors size={12} className="absolute -start-[7px] top-1 rounded-full bg-card text-red-600" />
+                    </div>
                   ))}
                   {selection && selection.end > selection.start && (
                     <div className="pointer-events-none absolute inset-y-0 border-x-2 border-primary bg-primary/15"
-                      style={{ [side]: left(selection.start), width: left(selection.end - selection.start) }}>
+                      style={{ [side]: at(selection.start), width: at(selection.end - selection.start) }}>
                       <span className="absolute -start-[7px] top-1/2 h-8 w-3 -translate-y-1/2 rounded-full bg-primary shadow" />
                       <span className="absolute -end-[7px] top-1/2 h-8 w-3 -translate-y-1/2 rounded-full bg-primary shadow" />
                     </div>
                   )}
-                  <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-600" style={{ [side]: left(playhead) }} />
+                  <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-600" style={{ [side]: at(playhead) }} />
                 </div>
               </div>
               <div className="mt-1 flex justify-between text-[11px] tabular-nums text-muted-foreground">
                 <span>0:00</span>
                 <span className="font-medium text-foreground">{formatTime(playhead, true)}</span>
-                <span>{formatTime(duration)}</span>
+                <span>
+                  {formatTime(length)}
+                  {cuts.length > 0 && <span className="ms-1 line-through opacity-60">{formatTime(duration)}</span>}
+                </span>
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button className="h-11 rounded-full px-5" onClick={() => (playing ? stop() : playFromHead())}>
                   {playing ? <Pause size={17} className="me-2" fill="currentColor" /> : <Play size={17} className="me-2 rtl:-scale-x-100" fill="currentColor" />}
-                  {playing ? copy("Pause", "إيقاف مؤقت") : removed.length ? copy("Preview result", "معاينة النتيجة") : copy("Play", "تشغيل")}
+                  {playing ? copy("Pause", "إيقاف مؤقت") : copy("Play", "تشغيل")}
                 </Button>
                 <label className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
                   <ZoomIn size={15} />
                   <span className="sr-only">{copy("Zoom", "تكبير")}</span>
-                  <input type="range" min={1} max={Math.max(1, Math.min(40, Math.ceil(duration / 10)))} step={1} value={zoom}
-                    onChange={(event) => setZoom(Number(event.target.value))} className="w-28 accent-[hsl(var(--primary))]" disabled={duration < 20} />
+                  <input type="range" min={1} max={Math.max(1, Math.min(40, Math.ceil(length / 10)))} step={1} value={zoom}
+                    onChange={(event) => setZoom(Number(event.target.value))} className="w-28 accent-[hsl(var(--primary))]" disabled={length < 20} />
                 </label>
               </div>
 
@@ -337,39 +371,42 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                         <button type="button" aria-label={copy(`${edge} 0.1 s later`, "أبعد 0.1 ث")} onClick={() => nudge(edge, 0.1)} className="grid h-7 w-7 place-items-center rounded-full border bg-background"><Plus size={13} /></button>
                       </span>
                     ))}
-                    <button type="button" onClick={() => playSegments([selection])} className="inline-flex items-center gap-1 font-medium text-primary">
+                    <button type="button" onClick={() => playEdited(selection.start, selection.end)} className="inline-flex items-center gap-1 font-medium text-primary">
                       <Play size={13} fill="currentColor" className="rtl:-scale-x-100" />{copy("Play selection", "تشغيل المحدد")}
                     </button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Button variant="destructive" className="h-11 rounded-full" onClick={() => change([...removed, selection])}>
-                      <Scissors size={16} className="me-2" />{copy("Remove selection", "احذف المحدد")}
+                    <Button variant="destructive" className="h-11 rounded-full" onClick={removeSelection}>
+                      <Scissors size={16} className="me-2" />{copy("Cut out & join", "اقطع وصِل")}
                     </Button>
-                    <Button variant="outline" className="h-11 rounded-full" onClick={() => change([...removed, { start: 0, end: selection.start }, { start: selection.end, end: duration }])}>
+                    <Button variant="outline" className="h-11 rounded-full" onClick={keepOnlySelection}>
                       <Crop size={16} className="me-2" />{copy("Keep only selection", "احتفظ بالمحدد فقط")}
                     </Button>
                   </div>
                 </div>
               )}
 
-              {removed.length > 0 && (
+              {cuts.length > 0 && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">{copy("Removed parts", "الأجزاء المحذوفة")}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">{copy("Cut out", "المقطوع")}</p>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" className="h-8" disabled={!history.length} onClick={() => { setRemoved(history.at(-1) ?? []); setHistory((list) => list.slice(0, -1)); stop(); }}>
+                      <Button size="sm" variant="ghost" className="h-8" disabled={!history.length} onClick={undo}>
                         <Undo2 size={14} className="me-1" />{copy("Undo", "تراجع")}
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-8" onClick={() => change([])}>
+                      <Button size="sm" variant="ghost" className="h-8" onClick={() => change([], 0)}>
                         <RotateCcw size={14} className="me-1" />{copy("Reset", "إعادة")}
                       </Button>
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {mergeRanges(removed, duration).map((range) => (
-                      <span key={`${range.start}`} className="inline-flex items-center gap-1 rounded-full bg-red-50 py-1 ps-3 pe-1 text-xs tabular-nums text-red-800 dark:bg-red-950/40 dark:text-red-200">
+                    {cuts.map((range) => (
+                      <span key={`${range.start}-${range.end}`} className="inline-flex items-center gap-1 rounded-full bg-red-50 py-1 ps-3 pe-1 text-xs tabular-nums text-red-800 dark:bg-red-950/40 dark:text-red-200"
+                        title={copy("Times in the original recording", "الأوقات في التسجيل الأصلي")}>
+                        <Scissors size={11} className="me-0.5" />
                         {formatTime(range.start, true)}–{formatTime(range.end, true)}
-                        <button type="button" aria-label={copy("Put this part back", "أعد هذا الجزء")} onClick={() => change(mergeRanges(removed, duration).filter((r) => r.start !== range.start || r.end !== range.end))} className="grid h-6 w-6 place-items-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/40">
+                        <span className="opacity-70">({(range.end - range.start).toFixed(1)} {copy("s", "ث")})</span>
+                        <button type="button" aria-label={copy("Put this part back", "أعد هذا الجزء")} onClick={() => change(cuts.filter((r) => r.start !== range.start || r.end !== range.end), 0)} className="grid h-6 w-6 place-items-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/40">
                           <X size={12} />
                         </button>
                       </span>
@@ -383,12 +420,12 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
 
         <div className="flex items-center gap-3 border-t px-4 py-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
           <p className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
-            {buffer && removed.length > 0
-              ? <><span className="font-medium text-foreground">{copy("New length", "الطول الجديد")} {formatTime(newLength)}</span> · {copy("was", "كان")} {formatTime(duration)}<br /></>
+            {buffer && cuts.length > 0
+              ? <><span className="font-medium text-foreground">{copy("New length", "الطول الجديد")} {formatTime(length)}</span> · {copy("was", "كان")} {formatTime(duration)}<br /></>
               : null}
             {copy("Your original is kept and can be restored.", "يُحفظ الأصل ويمكن استعادته.")}
           </p>
-          <Button className="h-11 shrink-0 rounded-full px-5" disabled={!removed.length || saving || newLength < 0.3} onClick={() => void save()}>
+          <Button className="h-11 shrink-0 rounded-full px-5" disabled={!cuts.length || saving || length < 0.3} onClick={() => void save()}>
             {saving ? <Loader2 size={16} className="me-2 animate-spin" /> : <Scissors size={16} className="me-2" />}
             {saving ? copy("Saving…", "جارٍ الحفظ…") : copy("Save edit", "احفظ التعديل")}
           </Button>
