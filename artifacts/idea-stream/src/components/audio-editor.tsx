@@ -332,6 +332,12 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     stop();
   };
 
+  /** Picking the Cut tool with a part already selected cuts that part (after asking). */
+  const chooseTool = (id: Tool) => {
+    setTool(id);
+    if (id === "cut" && selection && !pendingCut) requestCut(selection);
+  };
+
   const undo = () => {
     if (!undoStack.length) return;
     stop();
@@ -500,7 +506,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
         case " ": handled(); togglePlay(); break;
         case "Delete": case "Backspace": if (selection && !pendingCut) { handled(); requestCut(selection); } break;
         case "v": case "V": setTool("select"); break;
-        case "c": case "C": setTool("cut"); break;
+        case "c": case "C": chooseTool("cut"); break;
         case "z": case "Z": setTool("zoom"); break;
         case "h": case "H": setTool("hand"); break;
         case "r": case "R": setTool("loop"); break;
@@ -598,7 +604,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const cursor = { select: "cursor-text", cut: "cursor-crosshair", zoom: "cursor-zoom-in", hand: drag.current?.kind === "pan" ? "cursor-grabbing" : "cursor-grab", loop: "cursor-col-resize" }[tool];
   const tools: Array<[Tool, ReactNode, string, string, string]> = [
     ["select", <MousePointer2 size={17} />, copy("Select", "تحديد"), "V", copy("Drag to select a part. Tap to move the playhead.", "اسحب لتحديد جزء. انقر لتحريك مؤشر التشغيل.")],
-    ["cut", <Scissors size={17} />, copy("Cut", "قص"), "C", copy("Drag over a part: it is cut out when you let go, and the rest joins up.", "اسحب على جزء: يُقص عند الإفلات ويتصل الباقي.")],
+    ["cut", <Scissors size={17} />, copy("Cut", "قص"), "C", copy("Drag over a part to cut it out, or pick Cut after selecting a part. The rest joins up.", "اسحب على جزء لقصه، أو اختر القص بعد تحديد جزء. ويتصل الباقي.")],
     ["zoom", <ZoomIn size={17} />, copy("Zoom", "تكبير"), "Z", copy("Click to zoom in. Drag a box to zoom into exactly that part. Alt/Shift-click to zoom out.", "انقر للتكبير. اسحب مربعًا للتكبير على ذلك الجزء تمامًا. Alt/Shift مع النقر للتصغير.")],
     ["hand", <Hand size={17} />, copy("Pan", "تحريك"), "H", copy("Drag to move along the recording when zoomed in.", "اسحب للتنقل في التسجيل عند التكبير.")],
     ["loop", <Repeat size={17} />, copy("A–B loop", "تكرار A–B"), "R", copy("Drag over the section you want to listen to on repeat.", "اسحب على المقطع الذي تريد سماعه مكررًا.")],
@@ -628,7 +634,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
             {/* Toolbar */}
             <div className="sticky top-0 z-20 flex items-center gap-1 overflow-x-auto border-b border-white/10 bg-[#102219] px-2 py-1.5 [scrollbar-width:none]" role="toolbar" aria-label={copy("Editing tools", "أدوات التحرير")}>
               {tools.map(([id, icon, label, shortcut]) => (
-                <ToolButton key={id} active={tool === id} onClick={() => setTool(id)} label={label} shortcut={shortcut}>{icon}</ToolButton>
+                <ToolButton key={id} active={tool === id} onClick={() => chooseTool(id)} label={label} shortcut={shortcut}>{icon}</ToolButton>
               ))}
               <Divider />
               <ToolButton onClick={() => seekTo(0)} label={copy("To start", "إلى البداية")} shortcut="Home"><SkipBack size={16} /></ToolButton>
