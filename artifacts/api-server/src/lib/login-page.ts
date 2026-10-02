@@ -45,6 +45,8 @@ export function loginPage({ base, next, error, username = "" }: {
 <meta name="color-scheme" content="light dark">
 <title>Sign in · Idea Stream</title>
 <link rel="icon" href="${base}/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="${base}/apple-touch-icon.png">
+<link rel="manifest" href="${base}/manifest.webmanifest">
 <style>
 ${face("DM Sans Variable", fonts.sans)}
 ${face("Playfair Display Variable", fonts.serif)}

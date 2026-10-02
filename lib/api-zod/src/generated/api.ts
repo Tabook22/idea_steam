@@ -464,6 +464,47 @@ export const ExtractYoutubeTranscriptResponse = zod.object({
 
 
 /**
+ * Case-insensitive; Arabic letter variants and diacritics are treated as equivalent.
+ * @summary Search ideas, transcripts, notebooks, and drafts
+ */
+export const searchWorkspaceQueryQMin = 2;
+export const searchWorkspaceQueryQMax = 200;
+
+
+
+export const SearchWorkspaceQueryParams = zod.object({
+  "q": zod.coerce.string().min(searchWorkspaceQueryQMin).max(searchWorkspaceQueryQMax)
+})
+
+export const SearchWorkspaceResponse = zod.object({
+  "query": zod.string(),
+  "ideas": zod.array(zod.object({
+  "id": zod.number().int(),
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "source": zod.string(),
+  "snippet": zod.string().describe('Text around the first match.'),
+  "matchedIn": zod.enum(['content', 'transcript', 'note', 'attachment']),
+  "createdAt": zod.coerce.date()
+})),
+  "subjects": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "snippet": zod.string(),
+  "ideaCount": zod.number().int()
+})),
+  "drafts": zod.array(zod.object({
+  "id": zod.number().int(),
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "tone": zod.string(),
+  "snippet": zod.string(),
+  "updatedAt": zod.coerce.date()
+}))
+})
+
+
+/**
  * @summary Request a presigned URL for file upload
  */
 

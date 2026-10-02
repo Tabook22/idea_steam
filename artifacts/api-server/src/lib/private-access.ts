@@ -4,8 +4,9 @@ import { loginPage, type LoginError } from "./login-page";
 
 const COOKIE = "idea_stream_session";
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
-// Fonts and the icon are public files the login page needs before sign-in.
-const PUBLIC_ASSET = /^\/(?:assets\/[\w.-]+\.woff2|favicon\.svg)$/;
+// Fonts, icons, and the app manifest contain nothing private. The login page needs them,
+// and Android fetches the manifest and icons without cookies when installing the app.
+const PUBLIC_ASSET = /^\/(?:assets\/[\w.-]+\.woff2|favicon\.svg|apple-touch-icon\.png|icon-[\w-]+\.png|manifest\.webmanifest)$/;
 
 /** Optional single-owner gate for a private VPS. This is not multi-user account isolation. */
 export function privateAccess(env = process.env): RequestHandler {

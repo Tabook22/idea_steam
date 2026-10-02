@@ -87,6 +87,50 @@ export interface YoutubeTranscript {
   text: string;
 }
 
+export type SearchIdeaHitMatchedIn = typeof SearchIdeaHitMatchedIn[keyof typeof SearchIdeaHitMatchedIn];
+
+
+export const SearchIdeaHitMatchedIn = {
+  content: 'content',
+  transcript: 'transcript',
+  note: 'note',
+  attachment: 'attachment',
+} as const;
+
+export interface SearchIdeaHit {
+  id: number;
+  subjectId: number;
+  subjectTitle: string;
+  source: string;
+  /** Text around the first match. */
+  snippet: string;
+  matchedIn: SearchIdeaHitMatchedIn;
+  createdAt: string;
+}
+
+export interface SearchSubjectHit {
+  id: number;
+  title: string;
+  snippet: string;
+  ideaCount: number;
+}
+
+export interface SearchDraftHit {
+  id: number;
+  subjectId: number;
+  subjectTitle: string;
+  tone: string;
+  snippet: string;
+  updatedAt: string;
+}
+
+export interface SearchResults {
+  query: string;
+  ideas: SearchIdeaHit[];
+  subjects: SearchSubjectHit[];
+  drafts: SearchDraftHit[];
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -277,4 +321,12 @@ export const CompilationDownloadInputFormat = {
 export interface CompilationDownloadInput {
   format: CompilationDownloadInputFormat;
 }
+
+export type SearchWorkspaceParams = {
+/**
+ * @minLength 2
+ * @maxLength 200
+ */
+q: string;
+};
 

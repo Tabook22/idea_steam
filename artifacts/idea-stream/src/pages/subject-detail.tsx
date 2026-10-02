@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useLocation, useParams } from "wouter";
+import { useHashFocus } from "@/lib/use-hash-focus";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -61,6 +62,8 @@ export default function SubjectDetailPage() {
       queryKey: getGetSubjectQueryKey(subjectId),
     },
   });
+
+  useHashFocus(!!subjectDetail);
 
   const updateSubject = useUpdateSubject();
   const deleteSubject = useDeleteSubject();

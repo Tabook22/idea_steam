@@ -33,6 +33,8 @@ import type {
   IdeaUpdate,
   NoteTranslation,
   NoteTranslationInput,
+  SearchResults,
+  SearchWorkspaceParams,
   Subject,
   SubjectDetail,
   SubjectInput,
@@ -1811,6 +1813,91 @@ export const useExtractYoutubeTranscript = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getExtractYoutubeTranscriptMutationOptions(options));
     }
+
+export const getSearchWorkspaceUrl = (params: SearchWorkspaceParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/search?${stringifiedParams}` : `/api/search`
+}
+
+/**
+ * Case-insensitive; Arabic letter variants and diacritics are treated as equivalent.
+ * @summary Search ideas, transcripts, notebooks, and drafts
+ */
+export const searchWorkspace = async (params: SearchWorkspaceParams, options?: Parameters<typeof customFetch>[1]): Promise<SearchResults> => {
+
+  return customFetch<SearchResults>(getSearchWorkspaceUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchWorkspaceQueryKey = (params?: SearchWorkspaceParams,) => {
+    return [
+    `/api/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchWorkspaceQueryOptions = <TData = Awaited<ReturnType<typeof searchWorkspace>>, TError = ErrorType<void>>(params: SearchWorkspaceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchWorkspace>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchWorkspaceQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchWorkspace>>> = ({ signal }) => searchWorkspace(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchWorkspace>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchWorkspaceQueryResult = NonNullable<Awaited<ReturnType<typeof searchWorkspace>>>
+export type SearchWorkspaceQueryError = ErrorType<void>
+
+
+/**
+ * @summary Search ideas, transcripts, notebooks, and drafts
+ */
+
+export function useSearchWorkspace<TData = Awaited<ReturnType<typeof searchWorkspace>>, TError = ErrorType<void>>(
+ params: SearchWorkspaceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchWorkspace>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchWorkspaceQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getRequestUploadUrlUrl = () => {
 

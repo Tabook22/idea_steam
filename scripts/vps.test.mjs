@@ -189,6 +189,10 @@ test("private sign-in uses a styled page and session cookie, never the browser's
     assert.equal(browserApi.headers.get("www-authenticate"), null);
     assert.equal((await fetch(`${origin}/api/subjects`)).headers.get("www-authenticate"), 'Basic realm="Idea Stream", charset="UTF-8"');
 
+    // Android installs the app by fetching the manifest and icons without cookies.
+    for (const path of ["/manifest.webmanifest", "/icon-192.png", "/icon-maskable-512.png", "/apple-touch-icon.png"])
+      assert.equal((await fetch(`${origin}${path}`, { redirect: "manual" })).status, 200, path);
+    assert.equal((await fetch(`${origin}/share?url=x`, { redirect: "manual", headers: { Accept: "text/html" } })).status, 303);
     const wrong = await login({ username: "owner", password: "nope", next: "/record" });
     assert.equal(wrong.status, 401);
     assert.match(await wrong.text(), /don't match/);

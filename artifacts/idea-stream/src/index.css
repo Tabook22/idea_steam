@@ -341,6 +341,10 @@ a {
   outline: 2px solid hsl(var(--primary));
   outline-offset: 4px;
 }
+/* The search dialog's field: the open dialog and caret already show focus. */
+input[data-search-field]:focus-visible {
+  outline: none;
+}
 .workspace-shell {
   display: flex;
   min-height: 100dvh;

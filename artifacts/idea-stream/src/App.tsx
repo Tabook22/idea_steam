@@ -15,10 +15,12 @@ import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home";
 import SubjectDetailPage from "@/pages/subject-detail";
 import RecorderPage from "@/pages/recorder";
+import SharePage from "@/pages/share";
 import { RecorderProvider } from "@/components/recorder-provider";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 import { RecordFab } from "@/components/quick-record";
+import { WorkspaceSearch } from "@/components/workspace-search";
 import {
   Route,
   Redirect,
@@ -60,6 +62,7 @@ function TopNav() {
   const { data } = useCapabilities();
   return (
     <div className="flex items-center justify-end gap-3 px-4 py-3">
+      <WorkspaceSearch />
       <LanguageToggle />
       {data?.signOut && (
         <form method="post" action={appPath("/logout", import.meta.env.BASE_URL)}>
@@ -101,6 +104,7 @@ function Router() {
         <Route path="/">{() => <Redirect to="/app" />}</Route>
         <Route path="/app" component={HomePage} />
         <Route path="/record" component={RecorderPage} />
+        <Route path="/share" component={SharePage} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
         <Route path="/sign-in/*?">{() => <Redirect to="/app" />}</Route>
         <Route path="/sign-up/*?">{() => <Redirect to="/app" />}</Route>

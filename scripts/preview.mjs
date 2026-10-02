@@ -247,6 +247,30 @@ const api = createHttpServer(async (req, res) => {
         return send({});
       }
     }
+    if (path === "/api/search") {
+      // Same matching rules as the real API: case, Arabic letter variants and diacritics are ignored.
+      const fold = { "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ة": "ه", "ى": "ي" };
+      const norm = (value = "") => value.toLocaleLowerCase().replace(/<[^>]+>/g, " ")
+        .replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱةى]/g, (c) => fold[c]).replace(/\s+/g, " ").trim();
+      const q = (url.searchParams.get("q") || "").trim();
+      const needle = norm(q);
+      if (needle.length < 2) return send({ error: "Type at least two characters to search." }, 400);
+      const title = (id) => notebooks.find((n) => n.id === id)?.title || "";
+      const hits = (text) => norm(text).includes(needle);
+      return send({
+        query: q,
+        ideas: ideas.filter((i) => hits(i.content) || (i.attachments || []).some((a) => hits([a.transcript, a.note, a.extractedText, a.name].join(" "))))
+          .map((i) => {
+            const fromAttachment = !hits(i.content) && (i.attachments || []).find((a) => hits([a.transcript, a.note].join(" ")));
+            return { id: i.id, subjectId: i.subjectId, subjectTitle: title(i.subjectId), source: i.source,
+              snippet: fromAttachment ? (fromAttachment.transcript || fromAttachment.note) : i.content,
+              matchedIn: fromAttachment ? (fromAttachment.transcript && hits(fromAttachment.transcript) ? "transcript" : "note") : "content",
+              createdAt: i.createdAt };
+          }),
+        subjects: notebooks.filter((n) => hits(`${n.title} ${n.intro}`)).map((n) => ({ id: n.id, title: n.title, snippet: n.intro, ideaCount: serialize(n).ideaCount })),
+        drafts: drafts.filter((d) => hits(d.content)).map((d) => ({ id: d.id, subjectId: d.subjectId, subjectTitle: title(d.subjectId), tone: d.tone, snippet: d.content.replace(/[#*]/g, "").slice(0, 160), updatedAt: d.updatedAt })),
+      });
+    }
     if (path === "/api/youtube-transcripts")
       return send({
         text: "[Preview captions] Every meaningful project starts with an idea. Capture the thought, collect the connections, then create something new.",

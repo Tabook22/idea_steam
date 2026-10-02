@@ -18,6 +18,8 @@ tags:
     description: AI conversations grounded in an individual idea
   - name: compilation
     description: Turning collected ideas into drafts
+  - name: search
+    description: Finding ideas, notebooks, and drafts
   - name: transcription
     description: Converting recorded audio into editable text
   - name: Storage
@@ -371,6 +373,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/YoutubeTranscript"
+  /search:
+    get:
+      operationId: searchWorkspace
+      tags: [search]
+      summary: Search ideas, transcripts, notebooks, and drafts
+      description: Case-insensitive; Arabic letter variants and diacritics are treated as equivalent.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 200
+      responses:
+        "200":
+          description: Matches, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+        "400":
+          description: Query too short or too long
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -519,6 +544,74 @@ components:
       properties:
         text:
           type: string
+    SearchIdeaHit:
+      type: object
+      required: [id, subjectId, subjectTitle, source, snippet, matchedIn, createdAt]
+      properties:
+        id:
+          type: integer
+        subjectId:
+          type: integer
+        subjectTitle:
+          type: string
+        source:
+          type: string
+        snippet:
+          type: string
+          description: Text around the first match.
+        matchedIn:
+          type: string
+          enum: [content, transcript, note, attachment]
+        createdAt:
+          type: string
+          format: date-time
+    SearchSubjectHit:
+      type: object
+      required: [id, title, snippet, ideaCount]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        snippet:
+          type: string
+        ideaCount:
+          type: integer
+    SearchDraftHit:
+      type: object
+      required: [id, subjectId, subjectTitle, tone, snippet, updatedAt]
+      properties:
+        id:
+          type: integer
+        subjectId:
+          type: integer
+        subjectTitle:
+          type: string
+        tone:
+          type: string
+        snippet:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    SearchResults:
+      type: object
+      required: [query, ideas, subjects, drafts]
+      properties:
+        query:
+          type: string
+        ideas:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchIdeaHit"
+        subjects:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchSubjectHit"
+        drafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchDraftHit"
     HealthStatus:
       type: object
       properties:

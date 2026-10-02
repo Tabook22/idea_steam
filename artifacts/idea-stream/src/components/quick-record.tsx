@@ -239,7 +239,7 @@ export function RecordFab() {
     };
   }, [location]);
 
-  if (location.startsWith("/record") || stage !== "idle" || cardVisible) return null;
+  if (location.startsWith("/record") || location.startsWith("/share") || stage !== "idle" || cardVisible) return null;
   return (
     <div className="fixed bottom-5 end-5 z-40 md:hidden" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
       <RecButton
