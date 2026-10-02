@@ -547,6 +547,26 @@ paths:
                 $ref: "#/components/schemas/AudioLibraryWords"
         "404":
           description: Not in the library
+  /audio-library/{itemId}/enhance:
+    post:
+      operationId: enhanceAudioLibraryItem
+      tags: [audio-library]
+      summary: Reduce background noise and even out loudness; the original is kept for restoring
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AudioEnhanceInput"
+      responses:
+        "200":
+          description: Improved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
   /audio-library/{itemId}/restore:
     post:
       operationId: restoreAudioLibraryItem
@@ -904,6 +924,17 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TimedWord"
+    AudioEnhanceInput:
+      type: object
+      properties:
+        denoise:
+          type: boolean
+          default: true
+          description: Remove low rumble and steady background noise.
+        level:
+          type: boolean
+          default: true
+          description: Even out loudness to a comfortable listening level.
     AudioRange:
       type: object
       required: [start, end]

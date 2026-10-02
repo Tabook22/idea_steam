@@ -11,6 +11,7 @@ import {
   AddToAudioLibraryBody,
   CreateLibraryRecordingBody,
   EditAudioLibraryItemBody,
+  EnhanceAudioLibraryItemBody,
   JoinAudioLibraryItemsBody,
   TranscribeLibraryItemBody,
   UpdateAudioLibraryItemBody,
@@ -23,7 +24,7 @@ import {
   transcriptionFailure,
   wordsForStoredAudio,
 } from "../lib/stored-transcription";
-import { AudioEditError, joinRecordings, keepRanges, storedDuration } from "../lib/audio-edit";
+import { AudioEditError, enhanceRecording, joinRecordings, keepRanges, storedDuration } from "../lib/audio-edit";
 import { aiConfigured } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
@@ -256,6 +257,29 @@ router.post("/audio-library/:itemId/words", async (req, res): Promise<void> => {
   } catch (error) {
     const [code, message] = transcriptionFailure(error);
     res.status(code).json({ error: message });
+  }
+});
+
+router.post("/audio-library/:itemId/enhance", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  const body = EnhanceAudioLibraryItemBody.safeParse(req.body ?? {});
+  if (!params.success || !body.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  try {
+    const improved = await enhanceRecording(current.url, { denoise: body.data.denoise ?? true, level: body.data.level ?? true });
+    // Timing is unchanged, so the transcript and word timings stay valid.
+    const [updated] = await db.update(audioLibraryTable).set({
+      url: improved.url,
+      mimeType: improved.mimeType,
+      originalUrl: current.originalUrl ?? current.url,
+    }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
+      .returning({ id: audioLibraryTable.id });
+    if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
+    const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
+    res.json(serialize(saved));
+  } catch (error) {
+    editFailure(res, error);
   }
 });
 

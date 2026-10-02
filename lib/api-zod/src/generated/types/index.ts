@@ -7,6 +7,7 @@
  */
 
 export * from './audioEditInput';
+export * from './audioEnhanceInput';
 export * from './audioJoinInput';
 export * from './audioLibraryAdd';
 export * from './audioLibraryItem';

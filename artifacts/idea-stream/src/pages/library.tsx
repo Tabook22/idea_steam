@@ -15,6 +15,7 @@ import {
   Merge,
   RotateCcw,
   Scissors,
+  Wand2,
   Loader2,
   Mic,
   Pause,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import {
   deleteAudioLibraryItem,
+  enhanceAudioLibraryItem,
   joinAudioLibraryItems,
   restoreAudioLibraryItem,
   getListAudioLibraryQueryKey,
@@ -102,6 +104,9 @@ export default function LibraryPage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinTitle, setJoinTitle] = useState("");
   const [joining, setJoining] = useState(false);
+  const [improving, setImproving] = useState<AudioLibraryItem | null>(null);
+  const [improveOptions, setImproveOptions] = useState({ denoise: true, level: true });
+  const [improveBusy, setImproveBusy] = useState(false);
   const audio = useRef<HTMLAudioElement>(null);
   const pendingDeletes = useRef(new Map<number, number>());
   const fallbackTitle = copy("Voice note", "ملاحظة صوتية");
@@ -270,6 +275,26 @@ export default function LibraryPage() {
       toast({ variant: "destructive", title: copy("Couldn't join them", "تعذر الدمج"), description: (error as { data?: { error?: string } })?.data?.error });
     } finally {
       setJoining(false);
+    }
+  }
+
+  async function improve() {
+    if (!improving) return;
+    setImproveBusy(true);
+    try {
+      if (activeId === improving.id) { audio.current?.pause(); setActiveId(null); }
+      const updated = await enhanceAudioLibraryItem(improving.id, improveOptions);
+      await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+      setImproving(null);
+      toast({
+        title: copy("Sound improved", "تم تحسين الصوت"),
+        description: copy("Have a listen. The original is kept: use Restore original to compare.", "استمع إليه. الأصل محفوظ: استخدم «استعادة الأصل» للمقارنة."),
+        action: <ToastAction altText={copy("Play", "تشغيل")} onClick={() => play(updated)}>{copy("Play", "تشغيل")}</ToastAction>,
+      });
+    } catch (error) {
+      toast({ variant: "destructive", title: copy("Couldn't improve the sound", "تعذر تحسين الصوت"), description: (error as { data?: { error?: string } })?.data?.error });
+    } finally {
+      setImproveBusy(false);
     }
   }
 
@@ -527,6 +552,9 @@ export default function LibraryPage() {
                       <button type="button" className="inline-flex items-center gap-1 font-medium text-primary hover:underline" onClick={() => { if (activeId === item.id) audio.current?.pause(); setEditing(item); }}>
                         <Scissors size={12} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}
                       </button>
+                      <button type="button" className="inline-flex items-center gap-1 font-medium text-primary hover:underline" onClick={() => setImproving(item)}>
+                        <Wand2 size={12} />{copy("Improve sound", "تحسين الصوت")}
+                      </button>
                       {item.edited && (
                         <button type="button" className="inline-flex items-center gap-1 font-medium text-primary hover:underline" onClick={() => setRestoring(item)}>
                           <RotateCcw size={12} />{copy("Restore original", "استعادة الأصل")}
@@ -611,6 +639,30 @@ export default function LibraryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!improving} onOpenChange={(open) => { if (!open && !improveBusy) setImproving(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogTitle className="flex items-center gap-2"><Wand2 size={18} className="text-primary" />{copy("Improve sound", "تحسين الصوت")}</DialogTitle>
+          <DialogDescription>{copy("Good for recordings made in the car or a noisy room. Your original is kept.", "مناسب للتسجيلات في السيارة أو المكان المزعج. يُحفظ الأصل.")}</DialogDescription>
+          {([
+            ["denoise", copy("Reduce background noise", "خفّض الضوضاء الخلفية"), copy("Road, engine, fan, and air-conditioning hum", "صوت الطريق والمحرك والمروحة والمكيف")],
+            ["level", copy("Even out volume", "وحّد مستوى الصوت"), copy("Quiet recordings become clear; loud ones never distort", "تصبح التسجيلات الخافتة واضحة، ولا تتشوه العالية")],
+          ] as const).map(([key, label, detail]) => (
+            <label key={key} className="flex cursor-pointer items-start gap-3 rounded-xl border p-3">
+              <input type="checkbox" className="mt-1 h-4 w-4 accent-[hsl(var(--primary))]" checked={improveOptions[key]} disabled={improveBusy}
+                onChange={(event) => setImproveOptions((current) => ({ ...current, [key]: event.target.checked }))} />
+              <span><span className="block text-sm font-medium">{label}</span><span className="block text-xs text-muted-foreground">{detail}</span></span>
+            </label>
+          ))}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" disabled={improveBusy} onClick={() => setImproving(null)}>{copy("Cancel", "إلغاء")}</Button>
+            <Button disabled={improveBusy || (!improveOptions.denoise && !improveOptions.level)} onClick={() => void improve()}>
+              {improveBusy ? <Loader2 size={16} className="me-2 animate-spin" /> : <Wand2 size={16} className="me-2" />}
+              {improveBusy ? copy("Improving…", "جارٍ التحسين…") : copy("Improve", "حسّن")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={joinOpen} onOpenChange={(open) => { if (!joining) setJoinOpen(open); }}>
         <DialogContent className="max-w-md">

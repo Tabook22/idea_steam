@@ -209,6 +209,13 @@ export interface AudioLibraryWords {
   words: TimedWord[];
 }
 
+export interface AudioEnhanceInput {
+  /** Remove low rumble and steady background noise. */
+  denoise?: boolean;
+  /** Even out loudness to a comfortable listening level. */
+  level?: boolean;
+}
+
 export interface AudioRange {
   /** @minimum 0 */
   start: number;

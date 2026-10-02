@@ -21,6 +21,7 @@ import type {
 
 import type {
   AudioEditInput,
+  AudioEnhanceInput,
   AudioJoinInput,
   AudioLibraryAdd,
   AudioLibraryItem,
@@ -2513,6 +2514,95 @@ export const useGetAudioLibraryWords = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getGetAudioLibraryWordsMutationOptions(options));
+    }
+
+export const getEnhanceAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/enhance`
+}
+
+/**
+ * @summary Reduce background noise and even out loudness; the original is kept for restoring
+ */
+export const enhanceAudioLibraryItem = async (itemId: number,
+    audioEnhanceInput: AudioEnhanceInput, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getEnhanceAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(audioEnhanceInput)
+  }
+);}
+
+
+
+
+
+export const getEnhanceAudioLibraryItemMutationKey = () => ['enhanceAudioLibraryItem'] as const;
+
+export const getEnhanceAudioLibraryItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enhanceAudioLibraryItem>>, TError,EnhanceAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enhanceAudioLibraryItem>>, TError,EnhanceAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getEnhanceAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enhanceAudioLibraryItem>>, EnhanceAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  enhanceAudioLibraryItem(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnhanceAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof enhanceAudioLibraryItem>>>
+    export type EnhanceAudioLibraryItemMutationBody = BodyType<AudioEnhanceInput>
+    export type EnhanceAudioLibraryItemMutationError = ErrorType<unknown>
+    export type EnhanceAudioLibraryItemMutationVariables = {itemId: number;data: BodyType<AudioEnhanceInput>}
+
+    /**
+ * @summary Reduce background noise and even out loudness; the original is kept for restoring
+ */
+export const useEnhanceAudioLibraryItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enhanceAudioLibraryItem>>, TError,EnhanceAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enhanceAudioLibraryItem>>,
+        TError,
+        EnhanceAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getEnhanceAudioLibraryItemMutationOptions(options));
     }
 
 export const getRestoreAudioLibraryItemUrl = (itemId: number,) => {

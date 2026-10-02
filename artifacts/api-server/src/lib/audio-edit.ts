@@ -153,3 +153,24 @@ export async function storedDuration(url: string) {
   const source = await storedFile(url);
   return Math.max(1, Math.round(await audioDuration(source.path)));
 }
+
+export type EnhanceOptions = { denoise: boolean; level: boolean };
+
+/**
+ * Cleaner sound for recordings made on the move: removes low rumble and steady background
+ * noise (road, fan, air conditioning) and evens out loudness to a comfortable level.
+ * Timing is unchanged, so the transcript and word timings stay valid.
+ */
+export async function enhanceRecording(url: string, { denoise, level }: EnhanceOptions) {
+  if (!denoise && !level) throw new AudioEditError(400, "Choose at least one improvement.");
+  const source = await storedFile(url);
+  return withWorkspace(async (dir) => {
+    const filters = [NORMALIZE];
+    if (denoise) filters.push("highpass=f=80", "afftdn=nr=12:nf=-30:tn=1");
+    // Podcast-style loudness; true peak capped so it never clips.
+    if (level) filters.push("loudnorm=I=-16:TP=-1.5:LRA=11");
+    const output = join(dir, "enhanced.webm");
+    await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-af", filters.join(","), ...encode, output]);
+    return publish(output, source.prefix);
+  });
+}

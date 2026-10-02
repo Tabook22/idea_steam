@@ -732,6 +732,38 @@ export const GetAudioLibraryWordsResponse = zod.object({
 
 
 /**
+ * @summary Reduce background noise and even out loudness; the original is kept for restoring
+ */
+export const EnhanceAudioLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const enhanceAudioLibraryItemBodyDenoiseDefault = true;
+export const enhanceAudioLibraryItemBodyLevelDefault = true;
+
+export const EnhanceAudioLibraryItemBody = zod.object({
+  "denoise": zod.boolean().default(enhanceAudioLibraryItemBodyDenoiseDefault).describe('Remove low rumble and steady background noise.'),
+  "level": zod.boolean().default(enhanceAudioLibraryItemBodyLevelDefault).describe('Even out loudness to a comfortable listening level.')
+})
+
+export const EnhanceAudioLibraryItemResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Undo all edits and go back to the original recording
  */
 export const RestoreAudioLibraryItemParams = zod.object({
