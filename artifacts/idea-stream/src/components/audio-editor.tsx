@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  Bookmark,
   Crop,
   Sparkles,
   Type,
@@ -408,6 +409,12 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                     className="absolute inset-0 h-full w-full [--wave-keep:#29563f] dark:[--wave-keep:#6fbf98]"
                     style={{ transform: isArabic ? "scaleX(-1)" : undefined }}
                   />
+                  {(item.marks ?? []).filter((mark) => !cuts.some((cut) => mark >= cut.start && mark < cut.end)).map((mark) => (
+                    <div key={`mark-${mark}`} className="pointer-events-none absolute inset-y-0 w-0 border-s-2 border-amber-400" style={{ [side]: at(timeline.toEdited(mark)) }}
+                      title={copy("Bookmark", "علامة")}>
+                      <Bookmark size={13} className="absolute -start-[7px] bottom-1 fill-amber-400 text-amber-500" />
+                    </div>
+                  ))}
                   {timeline.joins().map((point) => (
                     <div key={point} className={`pointer-events-none absolute inset-y-0 w-0 border-s-2 border-dashed transition-colors ${flash !== null && Math.abs(flash - point) < 0.01 ? "border-red-600" : "border-red-500/60"}`}
                       style={{ [side]: at(point) }}>

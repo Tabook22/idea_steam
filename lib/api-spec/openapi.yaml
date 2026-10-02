@@ -567,6 +567,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/chapters:
+    post:
+      operationId: makeAudioLibraryChapters
+      tags: [audio-library]
+      summary: AI chapters (topic titles with start times) and a short summary, in the recording's language
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      responses:
+        "200":
+          description: The item with chapters and summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
   /audio-library/{itemId}/restore:
     post:
       operationId: restoreAudioLibraryItem
@@ -840,7 +854,7 @@ components:
             $ref: "#/components/schemas/SearchDraftHit"
     AudioLibraryItem:
       type: object
-      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, capturedAt, createdAt]
+      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, capturedAt, createdAt]
       properties:
         id:
           type: integer
@@ -870,6 +884,17 @@ components:
         hasWords:
           type: boolean
           description: Word timings are already stored, so "Edit by text" opens instantly.
+        marks:
+          type: array
+          description: Seconds where "Mark" was tapped while recording.
+          items:
+            type: number
+        chapters:
+          type: [array, "null"]
+          items:
+            $ref: "#/components/schemas/AudioChapter"
+        summary:
+          type: [string, "null"]
         capturedAt:
           type: string
           format: date-time
@@ -897,6 +922,12 @@ components:
         capturedAt:
           type: string
           format: date-time
+        marks:
+          type: array
+          maxItems: 100
+          items:
+            type: number
+            minimum: 0
     LibraryTranscriptionInput:
       type: object
       properties:
@@ -935,6 +966,14 @@ components:
           type: boolean
           default: true
           description: Even out loudness to a comfortable listening level.
+    AudioChapter:
+      type: object
+      required: [start, title]
+      properties:
+        start:
+          type: number
+        title:
+          type: string
     AudioRange:
       type: object
       required: [start, end]
@@ -1067,6 +1106,13 @@ components:
           type: integer
           minimum: 0
           description: Length of an audio recording, when known.
+        marks:
+          type: array
+          maxItems: 100
+          description: Seconds where "Mark" was tapped while recording.
+          items:
+            type: number
+            minimum: 0
     Idea:
       type: object
       required: [id, subjectId, content, source, attachments, createdAt]

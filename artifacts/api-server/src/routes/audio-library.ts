@@ -25,7 +25,8 @@ import {
   wordsForStoredAudio,
 } from "../lib/stored-transcription";
 import { AudioEditError, enhanceRecording, joinRecordings, keepRanges, storedDuration } from "../lib/audio-edit";
-import { aiConfigured } from "@workspace/integrations-openai-ai-server";
+import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
+import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
 
 const router: IRouter = Router();
 
@@ -49,6 +50,7 @@ export async function addRecordingsToLibrary(
       mimeType: item.mimeType ?? null,
       durationSeconds: item.durationSeconds ?? null,
       transcript: item.transcript ?? null,
+      marks: cleanMarks(item.marks),
       sourceIdeaId: idea.id,
       sourceSubjectTitle: subjectTitle,
       capturedAt: idea.createdAt,
@@ -75,6 +77,9 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
     sourceSubjectTitle: item.sourceSubjectTitle,
     edited: item.originalUrl !== null,
     hasWords: item.words !== null,
+    marks: item.marks ?? [],
+    chapters: item.chapters,
+    summary: item.summary,
     capturedAt: item.capturedAt.toISOString(),
     createdAt: item.createdAt.toISOString(),
   };
@@ -105,6 +110,7 @@ router.post("/audio-library", async (req, res): Promise<void> => {
       mimeType: attachment.mimeType ?? null,
       durationSeconds: attachment.durationSeconds ?? null,
       transcript: attachment.transcript ?? null,
+      marks: cleanMarks(attachment.marks),
       sourceIdeaId: row.idea.id,
       sourceSubjectTitle: row.subjectTitle,
       capturedAt: row.idea.createdAt,
@@ -130,6 +136,7 @@ router.post("/audio-library/recordings", async (req, res): Promise<void> => {
       mimeType: body.data.mimeType ?? null,
       durationSeconds: body.data.durationSeconds ?? null,
       clientCaptureId: body.data.clientCaptureId,
+      marks: cleanMarks(body.data.marks, body.data.durationSeconds ?? Infinity),
       ...(body.data.capturedAt ? { capturedAt: new Date(body.data.capturedAt) } : {}),
     })
     // A retried upload (same capture ID or file) returns the existing entry.
@@ -194,11 +201,16 @@ router.post("/audio-library/join", async (req, res): Promise<void> => {
   const ordered = body.data.itemIds.map((id) => rows.find((row) => row.id === id)!);
   try {
     const joined = await joinRecordings(ordered.map((row) => row.url));
+    const parts = await Promise.all(ordered.map(async (row) => ({
+      marks: row.marks ?? [],
+      duration: row.durationSeconds ?? await storedDuration(row.url).catch(() => 0),
+    })));
     const [created] = await db.insert(audioLibraryTable).values({
       url: joined.url,
       mimeType: joined.mimeType,
       durationSeconds: joined.durationSeconds,
       title: body.data.title?.trim() || null,
+      marks: joinMarks(parts),
       // Until the new text arrives, show the pieces' text in order.
       transcript: ordered.every((row) => row.transcript) ? ordered.map((row) => row.transcript).join("\n\n") : null,
     }).returning({ id: audioLibraryTable.id });
@@ -224,6 +236,10 @@ router.post("/audio-library/:itemId/edit", async (req, res): Promise<void> => {
       durationSeconds: edited.durationSeconds,
       transcript: null,
       words: null,
+      chapters: null,
+      summary: null,
+      marks: remapMarks(current.marks ?? [], body.data.keep),
+      originalMarks: current.originalMarks ?? current.marks ?? [],
       originalUrl: current.originalUrl ?? current.url,
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
@@ -272,6 +288,7 @@ router.post("/audio-library/:itemId/enhance", async (req, res): Promise<void> =>
     const [updated] = await db.update(audioLibraryTable).set({
       url: improved.url,
       mimeType: improved.mimeType,
+      originalMarks: current.originalMarks ?? current.marks ?? [],
       originalUrl: current.originalUrl ?? current.url,
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
@@ -280,6 +297,45 @@ router.post("/audio-library/:itemId/enhance", async (req, res): Promise<void> =>
     res.json(serialize(saved));
   } catch (error) {
     editFailure(res, error);
+  }
+});
+
+router.post("/audio-library/:itemId/chapters", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
+  const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  if (current.chapters) { const [saved] = await select().where(eq(audioLibraryTable.id, current.id)); res.json(serialize(saved)); return; }
+  if (!aiConfigured) { res.status(503).json({ error: "AI is not configured yet, so chapters can't be made. Your recording is unchanged." }); return; }
+  try {
+    let words = current.words;
+    if (!words) {
+      if (!isStoredAudioUrl(current.url)) { res.status(400).json({ error: "Only recordings saved in this app can be used." }); return; }
+      const result = await wordsForStoredAudio(canonicalStorageUrl(current.url), "auto");
+      words = result.words;
+      await db.update(audioLibraryTable).set({ words, ...(current.transcript ? {} : { transcript: result.text }) })
+        .where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)));
+    }
+    if (!words.length) { res.status(422).json({ error: "No speech was detected in this recording." }); return; }
+    const duration = current.durationSeconds ?? words[words.length - 1].end;
+    const lines = transcriptSegments(words).map(({ start, text }) => `[${start.toFixed(1)}] ${text}`).join("\n");
+    const response = await openai.chat.completions.create({
+      model: process.env.OPENAI_TEXT_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "gpt-5.6-luna" : "gpt-4.1-mini"),
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: "You organise a person's spoken voice note. Split it into chapters where the topic changes, and write a summary. Use the SAME language as the transcript (Arabic stays Arabic, English stays English). Return JSON: {\"summary\": \"one or two sentences\", \"chapters\": [{\"start\": seconds, \"title\": \"2-6 word topic\"}]}. Start times must be taken from the [seconds] markers. A short note may have a single chapter. Do not invent content." },
+        { role: "user", content: lines.slice(0, 60_000) },
+      ],
+    }, { timeout: 90_000, maxRetries: 0 });
+    const parsed = parseChapters(JSON.parse(response.choices[0]?.message?.content || "{}"), duration);
+    if (!parsed) { res.status(422).json({ error: "Chapters couldn't be made for this recording. Please try again." }); return; }
+    await db.update(audioLibraryTable).set({ chapters: parsed.chapters, summary: parsed.summary || null })
+      .where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)));
+    const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
+    res.json(serialize(saved));
+  } catch (error) {
+    const [code, message] = transcriptionFailure(error);
+    res.status(code).json({ error: message });
   }
 });
 
@@ -292,7 +348,8 @@ router.post("/audio-library/:itemId/restore", async (req, res): Promise<void> =>
   try {
     const durationSeconds = await storedDuration(current.originalUrl).catch(() => null);
     await db.update(audioLibraryTable)
-      .set({ url: current.originalUrl, originalUrl: null, durationSeconds, transcript: null, words: null })
+      .set({ url: current.originalUrl, originalUrl: null, durationSeconds, transcript: null, words: null,
+        marks: current.originalMarks ?? current.marks ?? [], originalMarks: null, chapters: null, summary: null })
       .where(eq(audioLibraryTable.id, current.id));
     retranscribe(current.id, current.originalUrl);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));

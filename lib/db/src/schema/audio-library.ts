@@ -25,6 +25,12 @@ export const audioLibraryTable = pgTable(
     originalUrl: text("original_url"),
     /** Word timings of the current audio (cleared when the audio changes). */
     words: jsonb("words").$type<Array<{ word: string; start: number; end: number }>>(),
+    /** Seconds where the user tapped "Mark" while recording (kept in step with cuts and joins). */
+    marks: jsonb("marks").$type<number[]>().notNull().default([]),
+    originalMarks: jsonb("original_marks").$type<number[]>(),
+    /** AI chapters and summary of the current audio (cleared when its timing changes). */
+    chapters: jsonb("chapters").$type<Array<{ start: number; title: string }>>(),
+    summary: text("summary"),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

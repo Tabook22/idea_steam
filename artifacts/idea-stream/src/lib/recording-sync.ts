@@ -100,6 +100,7 @@ export async function syncRecording(
         mimeType: record.uploadedAudio.mimeType,
         capturedAt: record.capturedAt,
         ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}),
+        ...(record.marks?.length ? { marks: record.marks } : {}),
       });
       await store.patch(id, { status: "synced", libraryItemId: item.id, error: undefined, nextRetryAt: 0, attempts: 0 });
       changed?.();
@@ -135,7 +136,7 @@ export async function syncRecording(
       capturedAt: record.capturedAt,
       content: record.transcript || record.title,
       source: "voice",
-      attachments: [{ type: "audio", ...record.uploadedAudio, ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}) }],
+      attachments: [{ type: "audio", ...record.uploadedAudio, ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}), ...(record.marks?.length ? { marks: record.marks } : {}) }],
     });
     await store.patch(id, {
       status: "synced",

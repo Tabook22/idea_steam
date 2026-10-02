@@ -14,6 +14,8 @@ import {
   ListMusic,
   Merge,
   RotateCcw,
+  Bookmark,
+  Sparkles,
   Scissors,
   Wand2,
   Loader2,
@@ -31,6 +33,7 @@ import {
   enhanceAudioLibraryItem,
   joinAudioLibraryItems,
   restoreAudioLibraryItem,
+  makeAudioLibraryChapters,
   getListAudioLibraryQueryKey,
   updateAudioLibraryItem,
   useListAudioLibrary,
@@ -141,6 +144,33 @@ export default function LibraryPage() {
   const totalSeconds = visible.reduce((sum, item) => sum + (item.durationSeconds ?? 0), 0);
   const dayFormat = useMemo(() => new Intl.DateTimeFormat(language, { weekday: "long", day: "numeric", month: "long", year: "numeric" }), [language]);
   const timeFormat = useMemo(() => new Intl.DateTimeFormat(language, { hour: "numeric", minute: "2-digit" }), [language]);
+
+  const pendingSeek = useRef<number | null>(null);
+  const [chaptering, setChaptering] = useState<number | null>(null);
+  /** Plays a recording from a given second (used by bookmarks and chapters). */
+  function playAt(item: AudioLibraryItem, seconds: number) {
+    const element = audio.current;
+    if (!element) return;
+    setPlayAll(false);
+    if (activeId === item.id) {
+      element.currentTime = seconds;
+      void element.play().catch(() => {});
+      return;
+    }
+    pendingSeek.current = seconds;
+    play(item);
+  }
+  async function makeChapters(item: AudioLibraryItem) {
+    setChaptering(item.id);
+    try {
+      await makeAudioLibraryChapters(item.id);
+      await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+    } catch (error) {
+      toast({ variant: "destructive", title: copy("Couldn't make chapters", "تعذر إنشاء الفصول"), description: (error as { data?: { error?: string } })?.data?.error });
+    } finally {
+      setChaptering(null);
+    }
+  }
 
   function play(item: AudioLibraryItem) {
     const element = audio.current;
@@ -324,6 +354,7 @@ export default function LibraryPage() {
         onLoadedMetadata={(event) => {
           const element = event.currentTarget;
           element.playbackRate = speed;
+          if (pendingSeek.current !== null) { element.currentTime = pendingSeek.current; pendingSeek.current = null; }
           if (Number.isFinite(element.duration)) rememberLength(element.duration);
         }}
         onDurationChange={(event) => { if (Number.isFinite(event.currentTarget.duration)) rememberLength(event.currentTarget.duration); }}
@@ -497,6 +528,8 @@ export default function LibraryPage() {
                         <span className="tabular-nums">{current ? `${clock(position)} / ${clock(total)}` : clock(total)}</span>
                         {item.sourceSubjectTitle && ` · ${item.sourceSubjectTitle}`}
                         {item.edited && <> · <span className="font-medium text-primary">{copy("edited", "معدّل")}</span></>}
+                        {item.marks.length > 0 && <> · <span className="text-amber-700 dark:text-amber-300">🔖 {item.marks.length}</span></>}
+                        {item.chapters && item.chapters.length > 1 && <> · {copy(`${item.chapters.length} chapters`, `${item.chapters.length} فصول`)}</>}
                       </span>
                     </button>
                   )}
@@ -534,6 +567,9 @@ export default function LibraryPage() {
                       }}
                       className="absolute inset-x-0 bottom-0 h-2.5 cursor-pointer touch-none"
                     >
+                      {total ? item.marks.map((mark) => (
+                        <span key={mark} className="pointer-events-none absolute bottom-0 h-2 w-0.5 rounded-full bg-amber-500" style={{ insetInlineStart: `${Math.min(100, (mark / total) * 100)}%` }} />
+                      )) : null}
                       <div className="absolute inset-x-0 bottom-0 h-[3px] bg-primary/15">
                         <div className="h-full bg-primary transition-[width] duration-200" style={{ width: `${progress}%` }} />
                       </div>
@@ -542,6 +578,39 @@ export default function LibraryPage() {
                 </div>
                 {open && (
                   <div className="space-y-2 bg-muted/20 px-3 pb-3 pt-1 ps-[3.6rem]">
+                    {item.marks.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">{copy("Bookmarks", "العلامات")}</span>
+                        {item.marks.map((mark) => (
+                          <button key={mark} type="button" onClick={() => playAt(item, mark)}
+                            className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium tabular-nums text-amber-900 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-100">
+                            <Bookmark size={11} />{clock(mark)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {item.chapters ? (
+                      <div className="rounded-xl border bg-card p-3">
+                        {item.summary && <p dir="auto" className="text-sm leading-6">{item.summary}</p>}
+                        {item.chapters.length > 0 && (
+                          <ol className="mt-2 space-y-0.5">
+                            {item.chapters.map((chapter) => (
+                              <li key={chapter.start}>
+                                <button type="button" onClick={() => playAt(item, chapter.start)} className="flex w-full items-baseline gap-2 rounded-lg px-2 py-1 text-start text-sm hover:bg-primary/5">
+                                  <span className="shrink-0 text-xs tabular-nums text-primary">{clock(chapter.start)}</span>
+                                  <span dir="auto" className="min-w-0">{chapter.title}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" className="h-8 rounded-full" disabled={chaptering === item.id} onClick={() => void makeChapters(item)}>
+                        {chaptering === item.id ? <Loader2 size={13} className="me-1.5 animate-spin" /> : <Sparkles size={13} className="me-1.5" />}
+                        {chaptering === item.id ? copy("Reading and organising…", "جارٍ القراءة والتنظيم…") : copy("Chapters & summary", "فصول وملخص")}
+                      </Button>
+                    )}
                     {item.transcript && (
                       <p dir="auto" className="whitespace-pre-wrap text-sm leading-6 text-foreground/80">{item.transcript}</p>
                     )}

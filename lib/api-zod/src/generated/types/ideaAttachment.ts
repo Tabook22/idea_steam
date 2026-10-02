@@ -22,4 +22,10 @@ export interface IdeaAttachment {
      * @minimum 0
      */
   durationSeconds?: number;
+  /**
+     * Seconds where "Mark" was tapped while recording.
+     * @maxItems 100
+     * @items.minimum 0
+     */
+  marks?: number[];
 }

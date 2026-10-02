@@ -24,6 +24,8 @@ export interface LocalRecording {
   /** "library": saved only to the audio library, with no idea in any subject. */
   destination?: "library";
   libraryItemId?: number;
+  /** Seconds where "Mark" was tapped while recording. */
+  marks?: number[];
   error?: string;
   attempts: number;
   nextRetryAt: number;

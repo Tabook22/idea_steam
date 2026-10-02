@@ -63,6 +63,10 @@ export const GetSubjectParams = zod.object({
 
 export const getSubjectResponseTwoIdeasItemAttachmentsItemDurationSecondsMin = 0;
 
+export const getSubjectResponseTwoIdeasItemAttachmentsItemMarksItemMin = 0;
+
+export const getSubjectResponseTwoIdeasItemAttachmentsItemMarksMax = 100;
+
 
 
 export const GetSubjectResponse = zod.object({
@@ -86,7 +90,8 @@ export const GetSubjectResponse = zod.object({
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
-  "durationSeconds": zod.number().int().min(getSubjectResponseTwoIdeasItemAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
+  "durationSeconds": zod.number().int().min(getSubjectResponseTwoIdeasItemAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
+  "marks": zod.array(zod.number().min(getSubjectResponseTwoIdeasItemAttachmentsItemMarksItemMin)).max(getSubjectResponseTwoIdeasItemAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
 })),
   "createdAt": zod.coerce.date()
 }))
@@ -140,6 +145,10 @@ export const createIdeaBodySourceDefault = `text`;
 
 export const createIdeaBodyAttachmentsItemDurationSecondsMin = 0;
 
+export const createIdeaBodyAttachmentsItemMarksItemMin = 0;
+
+export const createIdeaBodyAttachmentsItemMarksMax = 100;
+
 export const createIdeaBodyAttachmentsDefault = [];
 
 export const CreateIdeaBody = zod.object({
@@ -155,13 +164,18 @@ export const CreateIdeaBody = zod.object({
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
-  "durationSeconds": zod.number().int().min(createIdeaBodyAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
+  "durationSeconds": zod.number().int().min(createIdeaBodyAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
+  "marks": zod.array(zod.number().min(createIdeaBodyAttachmentsItemMarksItemMin)).max(createIdeaBodyAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
 })).default(createIdeaBodyAttachmentsDefault)
 })
 
 
 
 export const createIdeaResponseAttachmentsItemDurationSecondsMin = 0;
+
+export const createIdeaResponseAttachmentsItemMarksItemMin = 0;
+
+export const createIdeaResponseAttachmentsItemMarksMax = 100;
 
 
 
@@ -178,7 +192,8 @@ export const CreateIdeaResponse = zod.object({
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
-  "durationSeconds": zod.number().int().min(createIdeaResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
+  "durationSeconds": zod.number().int().min(createIdeaResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
+  "marks": zod.array(zod.number().min(createIdeaResponseAttachmentsItemMarksItemMin)).max(createIdeaResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -195,6 +210,10 @@ export const ListIdeasParams = zod.object({
 
 export const listIdeasResponseAttachmentsItemDurationSecondsMin = 0;
 
+export const listIdeasResponseAttachmentsItemMarksItemMin = 0;
+
+export const listIdeasResponseAttachmentsItemMarksMax = 100;
+
 
 
 export const ListIdeasResponseItem = zod.object({
@@ -210,7 +229,8 @@ export const ListIdeasResponseItem = zod.object({
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
-  "durationSeconds": zod.number().int().min(listIdeasResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
+  "durationSeconds": zod.number().int().min(listIdeasResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
+  "marks": zod.array(zod.number().min(listIdeasResponseAttachmentsItemMarksItemMin)).max(listIdeasResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -230,6 +250,10 @@ export const UpdateIdeaParams = zod.object({
 
 export const updateIdeaBodyAttachmentsItemDurationSecondsMin = 0;
 
+export const updateIdeaBodyAttachmentsItemMarksItemMin = 0;
+
+export const updateIdeaBodyAttachmentsItemMarksMax = 100;
+
 
 
 export const UpdateIdeaBody = zod.object({
@@ -243,13 +267,18 @@ export const UpdateIdeaBody = zod.object({
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
-  "durationSeconds": zod.number().int().min(updateIdeaBodyAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
+  "durationSeconds": zod.number().int().min(updateIdeaBodyAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
+  "marks": zod.array(zod.number().min(updateIdeaBodyAttachmentsItemMarksItemMin)).max(updateIdeaBodyAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
 })).optional()
 })
 
 
 
 export const updateIdeaResponseAttachmentsItemDurationSecondsMin = 0;
+
+export const updateIdeaResponseAttachmentsItemMarksItemMin = 0;
+
+export const updateIdeaResponseAttachmentsItemMarksMax = 100;
 
 
 
@@ -266,7 +295,8 @@ export const UpdateIdeaResponse = zod.object({
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
-  "durationSeconds": zod.number().int().min(updateIdeaResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
+  "durationSeconds": zod.number().int().min(updateIdeaResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
+  "marks": zod.array(zod.number().min(updateIdeaResponseAttachmentsItemMarksItemMin)).max(updateIdeaResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -537,6 +567,12 @@ export const ListAudioLibraryResponseItem = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -568,6 +604,12 @@ export const AddToAudioLibraryResponse = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -580,6 +622,10 @@ export const AddToAudioLibraryResponse = zod.object({
 export const createLibraryRecordingBodyDurationSecondsMin = 0;
 export const createLibraryRecordingBodyDurationSecondsMax = 86400;
 
+export const createLibraryRecordingBodyMarksItemMin = 0;
+
+export const createLibraryRecordingBodyMarksMax = 100;
+
 
 
 export const CreateLibraryRecordingBody = zod.object({
@@ -587,7 +633,8 @@ export const CreateLibraryRecordingBody = zod.object({
   "clientCaptureId": zod.string().uuid().describe('Stable recording ID so a retried upload is saved once.'),
   "mimeType": zod.string().optional(),
   "durationSeconds": zod.number().int().min(createLibraryRecordingBodyDurationSecondsMin).max(createLibraryRecordingBodyDurationSecondsMax).optional(),
-  "capturedAt": zod.coerce.date().optional()
+  "capturedAt": zod.coerce.date().optional(),
+  "marks": zod.array(zod.number().min(createLibraryRecordingBodyMarksItemMin)).max(createLibraryRecordingBodyMarksMax).optional()
 })
 
 export const CreateLibraryRecordingResponse = zod.object({
@@ -602,6 +649,12 @@ export const CreateLibraryRecordingResponse = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -632,6 +685,12 @@ export const TranscribeLibraryItemResponse = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -664,6 +723,12 @@ export const JoinAudioLibraryItemsResponse = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -703,6 +768,12 @@ export const EditAudioLibraryItemResponse = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -758,6 +829,42 @@ export const EnhanceAudioLibraryItemResponse = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary AI chapters (topic titles with start times) and a short summary, in the recording's language
+ */
+export const MakeAudioLibraryChaptersParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const MakeAudioLibraryChaptersResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -782,6 +889,12 @@ export const RestoreAudioLibraryItemResponse = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -818,6 +931,12 @@ export const UpdateAudioLibraryItemResponse = zod.object({
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
   "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })

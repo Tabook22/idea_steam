@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AudioChapter } from './audioChapter';
 
 export interface AudioLibraryItem {
   id: number;
@@ -39,6 +40,12 @@ export interface AudioLibraryItem {
   edited: boolean;
   /** Word timings are already stored, so "Edit by text" opens instantly. */
   hasWords: boolean;
+  /** Seconds where "Mark" was tapped while recording. */
+  marks: number[];
+  /** @nullable */
+  chapters: AudioChapter[] | null;
+  /** @nullable */
+  summary: string | null;
   capturedAt: Date;
   createdAt: Date;
 }

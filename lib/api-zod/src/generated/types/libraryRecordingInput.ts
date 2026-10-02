@@ -21,4 +21,9 @@ export interface LibraryRecordingInput {
      */
   durationSeconds?: number;
   capturedAt?: Date;
+  /**
+     * @maxItems 100
+     * @items.minimum 0
+     */
+  marks?: number[];
 }

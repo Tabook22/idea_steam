@@ -131,6 +131,11 @@ export interface SearchResults {
   drafts: SearchDraftHit[];
 }
 
+export interface AudioChapter {
+  start: number;
+  title: string;
+}
+
 export interface AudioLibraryItem {
   id: number;
   url: string;
@@ -164,6 +169,12 @@ export interface AudioLibraryItem {
   edited: boolean;
   /** Word timings are already stored, so "Edit by text" opens instantly. */
   hasWords: boolean;
+  /** Seconds where "Mark" was tapped while recording. */
+  marks: number[];
+  /** @nullable */
+  chapters: AudioChapter[] | null;
+  /** @nullable */
+  summary: string | null;
   capturedAt: string;
   createdAt: string;
 }
@@ -183,6 +194,11 @@ export interface LibraryRecordingInput {
      */
   durationSeconds?: number;
   capturedAt?: string;
+  /**
+     * @maxItems 100
+     * @items.minimum 0
+     */
+  marks?: number[];
 }
 
 export type LibraryTranscriptionInputLanguage = typeof LibraryTranscriptionInputLanguage[keyof typeof LibraryTranscriptionInputLanguage];
@@ -315,6 +331,12 @@ export interface IdeaAttachment {
      * @minimum 0
      */
   durationSeconds?: number;
+  /**
+     * Seconds where "Mark" was tapped while recording.
+     * @maxItems 100
+     * @items.minimum 0
+     */
+  marks?: number[];
 }
 
 export interface Idea {

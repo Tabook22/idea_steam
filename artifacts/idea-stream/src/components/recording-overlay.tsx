@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { FolderCheck, Loader2, Square } from "lucide-react";
+import { Bookmark, FolderCheck, Loader2, Square } from "lucide-react";
 import { useListSubjects } from "@workspace/api-client-react";
 import { useRecorder } from "@/components/recorder-provider";
 import { useLanguage } from "@/lib/i18n";
@@ -41,7 +41,7 @@ export function LevelBars({ readLevel, bars = 28, className = "" }: { readLevel:
 export function DrivingMode() {
   const { isArabic } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
-  const { stage, seconds, stop, readLevel, audioLevel, target } = useRecorder();
+  const { stage, seconds, stop, readLevel, audioLevel, target, addMark, markCount } = useRecorder();
   const { data: subjects = [] } = useListSubjects();
   const limit = target?.limit ?? 900;
   const destination = target?.libraryOnly
@@ -105,6 +105,20 @@ export function DrivingMode() {
         )}
       </div>
       <div className="px-4 pb-5 sm:px-8 sm:pb-8">
+        <button
+          type="button"
+          // Marks on touch-down: a second finger (while the first holds REC) gets no "click" on phones.
+          onPointerDown={addMark}
+          // Keyboard (Enter/Space) produces a click without a pointer; detail is 0 then.
+          onClick={(event) => { if (event.detail === 0) addMark(); }}
+          disabled={stage !== "recording"}
+          aria-label={copy("Mark this moment", "علّم هذه اللحظة")}
+          className="mb-3 flex h-16 w-full items-center justify-center gap-3 rounded-2xl border border-amber-300/40 bg-amber-400/15 text-lg font-semibold text-amber-100 transition active:scale-[0.98] active:bg-amber-400/30 disabled:opacity-50"
+        >
+          <Bookmark size={22} />
+          {copy("Mark this moment", "علّم هذه اللحظة")}
+          {markCount > 0 && <span className="rounded-full bg-amber-300 px-2.5 py-0.5 text-sm font-bold text-amber-950">{markCount}</span>}
+        </button>
         <button
           ref={stopButton}
           type="button"

@@ -2605,6 +2605,80 @@ export const useEnhanceAudioLibraryItem = <TError = ErrorType<unknown>,
       return useMutation(getEnhanceAudioLibraryItemMutationOptions(options));
     }
 
+export const getMakeAudioLibraryChaptersUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/chapters`
+}
+
+/**
+ * @summary AI chapters (topic titles with start times) and a short summary, in the recording's language
+ */
+export const makeAudioLibraryChapters = async (itemId: number, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+  return customFetch<AudioLibraryItem>(getMakeAudioLibraryChaptersUrl(itemId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMakeAudioLibraryChaptersMutationKey = () => ['makeAudioLibraryChapters'] as const;
+
+export const getMakeAudioLibraryChaptersMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof makeAudioLibraryChapters>>, TError,MakeAudioLibraryChaptersMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof makeAudioLibraryChapters>>, TError,MakeAudioLibraryChaptersMutationVariables, TContext> => {
+
+const mutationKey = getMakeAudioLibraryChaptersMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof makeAudioLibraryChapters>>, MakeAudioLibraryChaptersMutationVariables> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  makeAudioLibraryChapters(itemId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MakeAudioLibraryChaptersMutationResult = NonNullable<Awaited<ReturnType<typeof makeAudioLibraryChapters>>>
+
+    export type MakeAudioLibraryChaptersMutationError = ErrorType<unknown>
+    export type MakeAudioLibraryChaptersMutationVariables = {itemId: number}
+
+    /**
+ * @summary AI chapters (topic titles with start times) and a short summary, in the recording's language
+ */
+export const useMakeAudioLibraryChapters = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof makeAudioLibraryChapters>>, TError,MakeAudioLibraryChaptersMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof makeAudioLibraryChapters>>,
+        TError,
+        MakeAudioLibraryChaptersMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMakeAudioLibraryChaptersMutationOptions(options));
+    }
+
 export const getRestoreAudioLibraryItemUrl = (itemId: number,) => {
 
 

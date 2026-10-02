@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './audioChapter';
 export * from './audioEditInput';
 export * from './audioEnhanceInput';
 export * from './audioJoinInput';

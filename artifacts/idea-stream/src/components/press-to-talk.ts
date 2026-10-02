@@ -23,6 +23,8 @@ export function usePressToTalk({ onTap, onHoldStart, disabled }: {
   const pressed = useRef(false);
   const holding = useRef(false);
   const releasedEarly = useRef(false);
+  /** The finger holding the button; other fingers (e.g. tapping "Mark") never count as releasing it. */
+  const holder = useRef<number | null>(null);
   stageRef.current = stage;
   stopRef.current = stop;
 
@@ -36,7 +38,9 @@ export function usePressToTalk({ onTap, onHoldStart, disabled }: {
   }, [stage, stop]);
 
   useEffect(() => {
-    const up = () => {
+    const up = (event: Event) => {
+      if (event instanceof PointerEvent && holder.current !== null && event.pointerId !== holder.current) return;
+      holder.current = null;
       window.clearTimeout(timer.current);
       const wasHolding = holding.current;
       pressed.current = false;
@@ -60,6 +64,7 @@ export function usePressToTalk({ onTap, onHoldStart, disabled }: {
   return {
     onPointerDown(event: ReactPointerEvent<HTMLElement>) {
       if (disabled || event.button !== 0) return;
+      holder.current = event.pointerId;
       pressed.current = true;
       holding.current = false;
       window.clearTimeout(timer.current);

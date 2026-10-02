@@ -37,6 +37,7 @@ type Session = {
   release: () => void;
   limit: number;
   meter?: { context: AudioContext; analyser: AnalyserNode };
+  marks: number[];
 };
 export type StartOptions = {
   language: "auto" | "en" | "ar";
@@ -54,6 +55,9 @@ type RecorderContextValue = {
   audioLevel: number;
   /** Current microphone level (0–1), read on demand for smooth animation. */
   readLevel: () => number;
+  /** Bookmark the current moment of the recording. */
+  addMark: () => void;
+  markCount: number;
   /** Where the current recording will be filed, for the recording screen. */
   target: RecordingTarget | null;
   activeId: string | null;
@@ -95,6 +99,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState<LocalRecording[]>([]);
   const [stage, setStage] = useState<Stage>("idle");
   const [audioLevel, setAudioLevel] = useState(0);
+  const [markCount, setMarkCount] = useState(0);
   const [target, setTarget] = useState<RecordingTarget | null>(null);
   const [seconds, setSeconds] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -122,6 +127,16 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     meter.analyser.getByteTimeDomainData(samples);
     const rms = Math.sqrt(samples.reduce((sum, value) => sum + ((value - 128) / 128) ** 2, 0) / samples.length);
     return Math.min(1, rms * 4);
+  }, []);
+  const addMark = useCallback(() => {
+    const current = session.current;
+    if (!current || current.recorder.state !== "recording") return;
+    const at = Math.round(((Date.now() - current.started) / 1000) * 10) / 10;
+    // Ignore an accidental double tap.
+    if (current.marks.length && at - current.marks[current.marks.length - 1] < 0.5) return;
+    current.marks.push(at);
+    setMarkCount(current.marks.length);
+    try { navigator.vibrate?.([15, 60, 15]); } catch { /* optional */ }
   }, []);
   const sync = useCallback(
     async (force = false) => {
@@ -222,6 +237,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         libraryOnly: options?.libraryOnly ?? false,
       });
       setStage("starting");
+      setMarkCount(0);
       setError(null);
       let release = () => {};
       let stream: MediaStream | undefined;
@@ -287,6 +303,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           failed: false,
           interrupted: false,
           limit: Math.min(900, Math.max(10, limit)),
+          marks: [],
         };
         try {
           const context = new AudioContext();
@@ -352,6 +369,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
                 durationSeconds: Math.round(
                   (Date.now() - current.started) / 1000,
                 ),
+                marks: current.marks,
               });
               if ("speechSynthesis" in window) {
                 const cue = new SpeechSynthesisUtterance(
@@ -539,6 +557,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         seconds,
         audioLevel,
         readLevel,
+        addMark,
+        markCount,
         target,
         activeId,
         ready,
