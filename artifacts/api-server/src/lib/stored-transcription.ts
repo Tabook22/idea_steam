@@ -2,6 +2,7 @@ import {
   detectAudioFormat,
   ensureCompatibleFormat,
   speechToText,
+  speechToWords,
 } from "@workspace/integrations-openai-ai-server/audio";
 import { ObjectNotFoundError, ObjectStorageService } from "./storage-service";
 
@@ -16,6 +17,39 @@ export const isStoredAudioUrl = (url: string) => canonicalStorageUrl(url).starts
 const LIMIT = 24 * 1024 * 1024;
 const jobs = new Map<string, Promise<string>>();
 
+/** Downloads stored audio (24 MB limit) in a format the transcription service accepts. */
+async function loadStoredAudio(storageUrl: string) {
+  const file = await objectStorageService.getObjectEntityFile(storageUrl.slice("/api/storage".length));
+  const response = await objectStorageService.downloadObject(file, 0);
+  if (Number(response.headers.get("content-length")) > LIMIT) {
+    await response.body?.cancel();
+    throw new Error("audio-too-large");
+  }
+  const audio = Buffer.from(await response.arrayBuffer());
+  if (audio.length > LIMIT) throw new Error("audio-too-large");
+  const detected = detectAudioFormat(audio);
+  if (detected === "unknown") throw new Error("unsupported-audio");
+  return detected === "ogg" ? await ensureCompatibleFormat(audio) : { buffer: audio, format: detected };
+}
+
+const wordJobs = new Map<string, ReturnType<typeof speechToWords>>();
+
+/** Every word with its start and end time, for editing audio by editing text. */
+export async function wordsForStoredAudio(storageUrl: string, language: "auto" | "en" | "ar") {
+  let job = wordJobs.get(storageUrl);
+  if (!job) {
+    if (wordJobs.size + jobs.size >= 3) throw new TranscriptionBusyError();
+    job = loadStoredAudio(storageUrl).then((prepared) =>
+      speechToWords(prepared.buffer, prepared.format, language === "auto" ? undefined : language));
+    wordJobs.set(storageUrl, job);
+  }
+  try {
+    return await job;
+  } finally {
+    wordJobs.delete(storageUrl);
+  }
+}
+
 export class TranscriptionBusyError extends Error {
   constructor() { super("transcription-busy"); }
 }
@@ -29,17 +63,7 @@ export async function transcribeStoredAudio(storageUrl: string, language: "auto"
   if (!job) {
     if (jobs.size >= 2) throw new TranscriptionBusyError();
     job = (async () => {
-      const file = await objectStorageService.getObjectEntityFile(storageUrl.slice("/api/storage".length));
-      const response = await objectStorageService.downloadObject(file, 0);
-      if (Number(response.headers.get("content-length")) > LIMIT) {
-        await response.body?.cancel();
-        throw new Error("audio-too-large");
-      }
-      const audio = Buffer.from(await response.arrayBuffer());
-      if (audio.length > LIMIT) throw new Error("audio-too-large");
-      const detected = detectAudioFormat(audio);
-      if (detected === "unknown") throw new Error("unsupported-audio");
-      const prepared = detected === "ogg" ? await ensureCompatibleFormat(audio) : { buffer: audio, format: detected };
+      const prepared = await loadStoredAudio(storageUrl);
       return (await speechToText(prepared.buffer, prepared.format, language === "auto" ? undefined : language)).trim();
     })();
     jobs.set(storageUrl, job);

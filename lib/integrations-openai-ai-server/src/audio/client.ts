@@ -237,3 +237,26 @@ export async function speechToTextStream(
     }
   })();
 }
+
+export type TimedWord = { word: string; start: number; end: number };
+
+/** Transcript with a start and end time for every word (used to edit audio by editing text). */
+export async function speechToWords(
+  audioBuffer: Buffer,
+  format: Exclude<AudioFormat, "unknown"> = "wav",
+  language?: "en" | "ar",
+): Promise<{ text: string; words: TimedWord[] }> {
+  const file = await toFile(audioBuffer, `audio.${format}`);
+  // Word timestamps are available from whisper-1 with the verbose JSON format.
+  const response = await openai.audio.transcriptions.create({
+    file,
+    model: process.env.OPENAI_WORD_TIMING_MODEL || "whisper-1",
+    response_format: "verbose_json",
+    timestamp_granularities: ["word"],
+    ...(language ? { language } : {}),
+  }, { timeout: 180_000, maxRetries: 0 });
+  return {
+    text: response.text.trim(),
+    words: (response.words ?? []).map((item) => ({ word: item.word, start: item.start, end: item.end })),
+  };
+}

@@ -86,4 +86,5 @@ set +a
 "$PG_BIN/psql" "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$APP_ROOT/repo/lib/db/migrations/20261002_audio_library.sql"
 "$PG_BIN/psql" "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$APP_ROOT/repo/lib/db/migrations/20261003_library_recordings.sql"
 "$PG_BIN/psql" "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$APP_ROOT/repo/lib/db/migrations/20261004_audio_library_edits.sql"
+"$PG_BIN/psql" "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$APP_ROOT/repo/lib/db/migrations/20261005_audio_words.sql"
 printf 'Isolated database and service configuration are ready. No Nginx or main-app files changed.\n'

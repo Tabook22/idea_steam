@@ -10,4 +10,6 @@ export {
   textToSpeechStream,
   speechToText,
   speechToTextStream,
+  speechToWords,
+  type TimedWord,
 } from "./client";

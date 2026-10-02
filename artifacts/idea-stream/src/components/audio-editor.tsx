@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Crop,
+  Sparkles,
+  Type,
+  Wand2,
   Loader2,
   Minus,
   Pause,
@@ -15,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   editAudioLibraryItem,
+  getAudioLibraryWords,
   getListAudioLibraryQueryKey,
   type AudioLibraryItem,
 } from "@workspace/api-client-react";
@@ -23,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { appPath } from "@/lib/app-path";
 import { EditedTimeline, formatTime, mergeRanges, type Range } from "@/lib/audio-ranges";
+import { fillerIndexes, isWordRemoved, longPauses, rangesForWords, silentEdges, subtractRange, type TimedWord } from "@/lib/audio-cleanup";
 import { useLanguage } from "@/lib/i18n";
 
 type Segment = { at: number; start: number; end: number };
@@ -51,6 +56,10 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const [width, setWidth] = useState(320);
   const [flash, setFlash] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [words, setWords] = useState<TimedWord[] | null>(null);
+  const [wordsState, setWordsState] = useState<"idle" | "loading" | "error">("idle");
+  const [wordsError, setWordsError] = useState("");
+  const [note, setNote] = useState("");
   const context = useRef<AudioContext | null>(null);
   const sources = useRef<AudioBufferSourceNode[]>([]);
   const schedule = useRef<Segment[]>([]);
@@ -245,6 +254,69 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     everythingElse.push({ start: cursor, end: duration });
     change(everythingElse, 0);
   };
+  /** Applies a clean-up and says what it did ("Shortened 3 pauses · 4.2 s shorter"). */
+  const applyCleanup = (ranges: Range[], done: (count: number) => string, nothing: string) => {
+    if (!ranges.length) { setNote(nothing); return; }
+    const after = new EditedTimeline(mergeRanges([...removed, ...ranges], duration), duration).length;
+    change([...removed, ...ranges], 0);
+    setNote(`${done(ranges.length)} · ${copy(`${(length - after).toFixed(1)} s shorter`, `أقصر بـ ${(length - after).toFixed(1)} ث`)}`);
+  };
+  const samples = () => (buffer ? { data: buffer.getChannelData(0), rate: buffer.sampleRate } : null);
+  const trimEdges = () => {
+    const audio = samples();
+    if (audio) applyCleanup(silentEdges(audio.data, audio.rate), () => copy("Trimmed the silent start and end", "قُصّ الصمت في البداية والنهاية"), copy("No silent start or end found.", "لا يوجد صمت في البداية أو النهاية."));
+  };
+  const shortenPauses = () => {
+    const audio = samples();
+    if (audio) applyCleanup(longPauses(audio.data, audio.rate), (n) => copy(`Shortened ${n} long pause${n > 1 ? "s" : ""}`, `قُصّرت ${n} وقفة طويلة`), copy("No long pauses found.", "لا توجد وقفات طويلة."));
+  };
+
+  async function loadWords() {
+    if (words || wordsState === "loading") return words;
+    setWordsState("loading");
+    setWordsError("");
+    try {
+      const result = await getAudioLibraryWords(item.id, { language: "auto" });
+      setWords(result.words);
+      setWordsState("idle");
+      void queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+      return result.words;
+    } catch (error) {
+      setWordsError((error as { data?: { error?: string } })?.data?.error ?? copy("The words couldn't be read. Please try again.", "تعذرت قراءة الكلمات. حاول مجددًا."));
+      setWordsState("error");
+      return null;
+    }
+  }
+  const removeFillers = async () => {
+    const list = words ?? await loadWords();
+    if (!list) return;
+    const fillers = fillerIndexes(list).filter((index) => !isWordRemoved(list[index], removed));
+    const n = fillers.length;
+    applyCleanup(n ? rangesForWords(list, withCutNeighbours(list, fillers)) : [], () => copy(`Removed ${n} filler word${n > 1 ? "s" : ""}`, `حُذفت ${n} كلمة حشو`), copy("No filler words found.", "لم تُعثر على كلمات حشو."));
+  };
+  /** Adds already-cut neighbours so the gap between them is cut too (no leftover slivers). */
+  const withCutNeighbours = (list: TimedWord[], indexes: number[]) => {
+    const set = new Set(indexes);
+    for (const index of indexes)
+      for (const neighbour of [index - 1, index + 1])
+        if (list[neighbour] && isWordRemoved(list[neighbour], removed)) set.add(neighbour);
+    return [...set];
+  };
+  /** Tap a word to cut it; tap a cut word to bring it back. The waveform updates at once. */
+  const toggleWord = (index: number) => {
+    if (!words) return;
+    const word = words[index];
+    const previous = words[index - 1];
+    const next = words[index + 1];
+    setNote("");
+    if (isWordRemoved(word, removed)) {
+      change(subtractRange(mergeRanges(removed, duration), { start: previous?.end ?? 0, end: next?.start ?? duration }));
+      return;
+    }
+    change([...removed, ...rangesForWords(words, withCutNeighbours(words, [index]))]);
+  };
+  const fillerSet = useMemo(() => new Set(words ? fillerIndexes(words) : []), [words]);
+
   const nudge = (edge: "start" | "end", delta: number) => setSelection((current) => {
     if (!current) return current;
     const next = { ...current, [edge]: Math.min(length, Math.max(0, current[edge] + delta)) };
@@ -390,6 +462,58 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                   <input type="range" min={1} max={Math.max(1, Math.min(40, Math.ceil(length / 10)))} step={1} value={zoom}
                     onChange={(event) => setZoom(Number(event.target.value))} className="w-28 accent-[hsl(var(--primary))]" disabled={length < 20} />
                 </label>
+              </div>
+
+              <div className="mt-4">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  <Wand2 size={13} />{copy("Clean up", "تنظيف")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" className="h-9 rounded-full" onClick={trimEdges}>{copy("Trim silent start & end", "قص الصمت في الطرفين")}</Button>
+                  <Button variant="outline" size="sm" className="h-9 rounded-full" onClick={shortenPauses}>{copy("Shorten long pauses", "قصّر الوقفات الطويلة")}</Button>
+                  <Button variant="outline" size="sm" className="h-9 rounded-full" disabled={wordsState === "loading"} onClick={() => void removeFillers()}>
+                    {wordsState === "loading" ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Sparkles size={14} className="me-1.5" />}
+                    {copy("Remove filler words", "احذف كلمات الحشو")}{words ? ` (${[...fillerSet].filter((i) => !isWordRemoved(words[i], removed)).length})` : ""}
+                  </Button>
+                </div>
+                {note && <p className="mt-2 text-xs font-medium text-primary" role="status">{note}</p>}
+              </div>
+
+              <div className="mt-5 rounded-2xl border bg-card p-3">
+                <p className="flex items-center gap-1.5 text-sm font-semibold"><Type size={15} className="text-primary" />{copy("Edit by text", "التحرير بالنص")}</p>
+                {words ? (
+                  <>
+                    <p className="mt-1 text-xs text-muted-foreground">{copy("Tap words to cut them from the audio. Tap again to bring them back.", "انقر على الكلمات لقصّها من الصوت. انقر مجددًا لإعادتها.")}</p>
+                    <p dir="auto" className="mt-3 max-h-64 overflow-y-auto text-[15px] leading-9">
+                      {words.map((entry, index) => {
+                        const cut = isWordRemoved(entry, removed);
+                        return (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => toggleWord(index)}
+                            aria-pressed={cut}
+                            title={`${formatTime(entry.start, true)}`}
+                            className={`me-1 rounded px-0.5 transition-colors ${cut ? "bg-red-50 text-red-700/70 line-through decoration-2 dark:bg-red-950/40 dark:text-red-300/70" : "hover:bg-primary/10"} ${fillerSet.has(index) && !cut ? "underline decoration-amber-500 decoration-wavy underline-offset-4" : ""}`}
+                          >
+                            {entry.word.trim()}
+                          </button>
+                        );
+                      })}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {copy("See every word and remove parts by tapping words. Reading the words takes a few seconds the first time.", "اعرض كل كلمة واحذف الأجزاء بالنقر على الكلمات. تستغرق قراءة الكلمات بضع ثوانٍ في المرة الأولى.")}
+                    </p>
+                    {wordsState === "error" && <p className="mt-2 text-xs text-amber-800 dark:text-amber-300" role="alert">{wordsError}</p>}
+                    <Button size="sm" className="mt-3 h-9 rounded-full" disabled={wordsState === "loading"} onClick={() => void loadWords()}>
+                      {wordsState === "loading" ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Type size={14} className="me-1.5" />}
+                      {wordsState === "loading" ? copy("Reading the words…", "جارٍ قراءة الكلمات…") : copy("Show the words", "اعرض الكلمات")}
+                    </Button>
+                  </>
+                )}
               </div>
 
               {selection && selection.end - selection.start >= 0.05 && (

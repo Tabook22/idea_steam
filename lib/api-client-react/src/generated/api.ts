@@ -25,6 +25,7 @@ import type {
   AudioLibraryAdd,
   AudioLibraryItem,
   AudioLibraryUpdate,
+  AudioLibraryWords,
   Compilation,
   CompilationDownloadInput,
   CompilationInput,
@@ -2423,6 +2424,95 @@ export const useEditAudioLibraryItem = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getEditAudioLibraryItemMutationOptions(options));
+    }
+
+export const getGetAudioLibraryWordsUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/words`
+}
+
+/**
+ * @summary Every word of the recording with its start and end time (fetched once, then stored)
+ */
+export const getAudioLibraryWords = async (itemId: number,
+    libraryTranscriptionInput: LibraryTranscriptionInput, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryWords> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryWords>(getGetAudioLibraryWordsUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(libraryTranscriptionInput)
+  }
+);}
+
+
+
+
+
+export const getGetAudioLibraryWordsMutationKey = () => ['getAudioLibraryWords'] as const;
+
+export const getGetAudioLibraryWordsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getAudioLibraryWords>>, TError,GetAudioLibraryWordsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof getAudioLibraryWords>>, TError,GetAudioLibraryWordsMutationVariables, TContext> => {
+
+const mutationKey = getGetAudioLibraryWordsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof getAudioLibraryWords>>, GetAudioLibraryWordsMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  getAudioLibraryWords(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GetAudioLibraryWordsMutationResult = NonNullable<Awaited<ReturnType<typeof getAudioLibraryWords>>>
+    export type GetAudioLibraryWordsMutationBody = BodyType<LibraryTranscriptionInput>
+    export type GetAudioLibraryWordsMutationError = ErrorType<void>
+    export type GetAudioLibraryWordsMutationVariables = {itemId: number;data: BodyType<LibraryTranscriptionInput>}
+
+    /**
+ * @summary Every word of the recording with its start and end time (fetched once, then stored)
+ */
+export const useGetAudioLibraryWords = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getAudioLibraryWords>>, TError,GetAudioLibraryWordsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof getAudioLibraryWords>>,
+        TError,
+        GetAudioLibraryWordsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getGetAudioLibraryWordsMutationOptions(options));
     }
 
 export const getRestoreAudioLibraryItemUrl = (itemId: number,) => {

@@ -525,6 +525,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/words:
+    post:
+      operationId: getAudioLibraryWords
+      tags: [audio-library]
+      summary: Every word of the recording with its start and end time (fetched once, then stored)
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryTranscriptionInput"
+      responses:
+        "200":
+          description: Words with timings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryWords"
+        "404":
+          description: Not in the library
   /audio-library/{itemId}/restore:
     post:
       operationId: restoreAudioLibraryItem
@@ -798,7 +820,7 @@ components:
             $ref: "#/components/schemas/SearchDraftHit"
     AudioLibraryItem:
       type: object
-      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, capturedAt, createdAt]
+      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, capturedAt, createdAt]
       properties:
         id:
           type: integer
@@ -825,6 +847,9 @@ components:
         edited:
           type: boolean
           description: True after cutting; the original can be restored.
+        hasWords:
+          type: boolean
+          description: Word timings are already stored, so "Edit by text" opens instantly.
         capturedAt:
           type: string
           format: date-time
@@ -859,6 +884,26 @@ components:
           type: string
           enum: [auto, en, ar]
           default: auto
+    TimedWord:
+      type: object
+      required: [word, start, end]
+      properties:
+        word:
+          type: string
+        start:
+          type: number
+        end:
+          type: number
+    AudioLibraryWords:
+      type: object
+      required: [text, words]
+      properties:
+        text:
+          type: string
+        words:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimedWord"
     AudioRange:
       type: object
       required: [start, end]

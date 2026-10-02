@@ -37,6 +37,8 @@ export interface AudioLibraryItem {
   sourceSubjectTitle: string | null;
   /** True after cutting; the original can be restored. */
   edited: boolean;
+  /** Word timings are already stored, so "Edit by text" opens instantly. */
+  hasWords: boolean;
   capturedAt: Date;
   createdAt: Date;
 }

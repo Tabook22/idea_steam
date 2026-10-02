@@ -21,8 +21,10 @@ import {
   isStoredAudioUrl,
   transcribeStoredAudio,
   transcriptionFailure,
+  wordsForStoredAudio,
 } from "../lib/stored-transcription";
 import { AudioEditError, joinRecordings, keepRanges, storedDuration } from "../lib/audio-edit";
+import { aiConfigured } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
 
@@ -71,6 +73,7 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
     sourceSubjectId: subjectId,
     sourceSubjectTitle: item.sourceSubjectTitle,
     edited: item.originalUrl !== null,
+    hasWords: item.words !== null,
     capturedAt: item.capturedAt.toISOString(),
     createdAt: item.createdAt.toISOString(),
   };
@@ -219,6 +222,7 @@ router.post("/audio-library/:itemId/edit", async (req, res): Promise<void> => {
       mimeType: edited.mimeType,
       durationSeconds: edited.durationSeconds,
       transcript: null,
+      words: null,
       originalUrl: current.originalUrl ?? current.url,
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
@@ -231,6 +235,30 @@ router.post("/audio-library/:itemId/edit", async (req, res): Promise<void> => {
   }
 });
 
+router.post("/audio-library/:itemId/words", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  const body = TranscribeLibraryItemBody.safeParse(req.body ?? {});
+  if (!params.success || !body.success) { res.status(400).json({ error: "Invalid recording or language" }); return; }
+  const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  if (current.words) { res.json({ text: current.transcript ?? current.words.map((w) => w.word).join(" "), words: current.words }); return; }
+  if (!isStoredAudioUrl(current.url)) { res.status(400).json({ error: "Only recordings saved in this app can be edited." }); return; }
+  // Stored words need no AI; fetching new ones does.
+  if (!aiConfigured) { res.status(503).json({ error: "AI is not configured yet, so the words can't be read. Your recording is unchanged." }); return; }
+  try {
+    const result = await wordsForStoredAudio(canonicalStorageUrl(current.url), body.data.language ?? "auto");
+    if (!result.words.length) { res.status(422).json({ error: "No speech was detected in this recording." }); return; }
+    // Keep the timings only if the audio hasn't changed meanwhile.
+    await db.update(audioLibraryTable)
+      .set({ words: result.words, ...(current.transcript ? {} : { transcript: result.text }) })
+      .where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)));
+    res.json({ text: current.transcript ?? result.text, words: result.words });
+  } catch (error) {
+    const [code, message] = transcriptionFailure(error);
+    res.status(code).json({ error: message });
+  }
+});
+
 router.post("/audio-library/:itemId/restore", async (req, res): Promise<void> => {
   const params = UpdateAudioLibraryItemParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
@@ -240,7 +268,7 @@ router.post("/audio-library/:itemId/restore", async (req, res): Promise<void> =>
   try {
     const durationSeconds = await storedDuration(current.originalUrl).catch(() => null);
     await db.update(audioLibraryTable)
-      .set({ url: current.originalUrl, originalUrl: null, durationSeconds, transcript: null })
+      .set({ url: current.originalUrl, originalUrl: null, durationSeconds, transcript: null, words: null })
       .where(eq(audioLibraryTable.id, current.id));
     retranscribe(current.id, current.originalUrl);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));

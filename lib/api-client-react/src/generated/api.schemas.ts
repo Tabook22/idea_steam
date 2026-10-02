@@ -162,6 +162,8 @@ export interface AudioLibraryItem {
   sourceSubjectTitle: string | null;
   /** True after cutting; the original can be restored. */
   edited: boolean;
+  /** Word timings are already stored, so "Edit by text" opens instantly. */
+  hasWords: boolean;
   capturedAt: string;
   createdAt: string;
 }
@@ -194,6 +196,17 @@ export const LibraryTranscriptionInputLanguage = {
 
 export interface LibraryTranscriptionInput {
   language?: LibraryTranscriptionInputLanguage;
+}
+
+export interface TimedWord {
+  word: string;
+  start: number;
+  end: number;
+}
+
+export interface AudioLibraryWords {
+  text: string;
+  words: TimedWord[];
 }
 
 export interface AudioRange {

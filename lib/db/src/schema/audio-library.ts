@@ -1,4 +1,4 @@
-import { index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * The audio library: an independent list of recordings. Entries point at the same stored
@@ -23,6 +23,8 @@ export const audioLibraryTable = pgTable(
     clientCaptureId: text("client_capture_id").unique(),
     /** After cutting, the audio before the first edit, so it can be restored. */
     originalUrl: text("original_url"),
+    /** Word timings of the current audio (cleared when the audio changes). */
+    words: jsonb("words").$type<Array<{ word: string; start: number; end: number }>>(),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
