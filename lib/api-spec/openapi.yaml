@@ -581,6 +581,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/export:
+    get:
+      operationId: exportAudioLibraryItem
+      tags: [audio-library]
+      summary: Download the recording converted to another format (the stored recording is unchanged)
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [mp3, wav, m4a, ogg, opus, flac]
+        - name: quality
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [standard, high, best]
+            default: high
+      responses:
+        "200":
+          description: The converted audio file
+          content:
+            audio/*:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not in the library
   /audio-library/{itemId}/restore:
     post:
       operationId: restoreAudioLibraryItem

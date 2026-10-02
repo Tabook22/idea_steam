@@ -487,3 +487,29 @@ export type SearchWorkspaceParams = {
 q: string;
 };
 
+export type ExportAudioLibraryItemParams = {
+format: ExportAudioLibraryItemFormat;
+quality?: ExportAudioLibraryItemQuality;
+};
+
+export type ExportAudioLibraryItemFormat = typeof ExportAudioLibraryItemFormat[keyof typeof ExportAudioLibraryItemFormat];
+
+
+export const ExportAudioLibraryItemFormat = {
+  mp3: 'mp3',
+  wav: 'wav',
+  m4a: 'm4a',
+  ogg: 'ogg',
+  opus: 'opus',
+  flac: 'flac',
+} as const;
+
+export type ExportAudioLibraryItemQuality = typeof ExportAudioLibraryItemQuality[keyof typeof ExportAudioLibraryItemQuality];
+
+
+export const ExportAudioLibraryItemQuality = {
+  standard: 'standard',
+  high: 'high',
+  best: 'best',
+} as const;
+

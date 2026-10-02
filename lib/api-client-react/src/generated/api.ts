@@ -31,6 +31,7 @@ import type {
   CompilationDownloadInput,
   CompilationInput,
   CompilationUpdate,
+  ExportAudioLibraryItemParams,
   HealthStatus,
   Idea,
   IdeaChatExchange,
@@ -2678,6 +2679,95 @@ export const useMakeAudioLibraryChapters = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getMakeAudioLibraryChaptersMutationOptions(options));
     }
+
+export const getExportAudioLibraryItemUrl = (itemId: number,
+    params: ExportAudioLibraryItemParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/audio-library/${itemId}/export?${stringifiedParams}` : `/api/audio-library/${itemId}/export`
+}
+
+/**
+ * @summary Download the recording converted to another format (the stored recording is unchanged)
+ */
+export const exportAudioLibraryItem = async (itemId: number,
+    params: ExportAudioLibraryItemParams, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getExportAudioLibraryItemUrl(itemId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportAudioLibraryItemQueryKey = (itemId: number,
+    params?: ExportAudioLibraryItemParams,) => {
+    return [
+    `/api/audio-library/${itemId}/export`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getExportAudioLibraryItemQueryOptions = <TData = Awaited<ReturnType<typeof exportAudioLibraryItem>>, TError = ErrorType<void>>(itemId: number,
+    params: ExportAudioLibraryItemParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportAudioLibraryItem>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportAudioLibraryItemQueryKey(itemId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportAudioLibraryItem>>> = ({ signal }) => exportAudioLibraryItem(itemId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: itemId !== null && itemId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportAudioLibraryItem>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportAudioLibraryItemQueryResult = NonNullable<Awaited<ReturnType<typeof exportAudioLibraryItem>>>
+export type ExportAudioLibraryItemQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download the recording converted to another format (the stored recording is unchanged)
+ */
+
+export function useExportAudioLibraryItem<TData = Awaited<ReturnType<typeof exportAudioLibraryItem>>, TError = ErrorType<void>>(
+ itemId: number,
+    params: ExportAudioLibraryItemParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportAudioLibraryItem>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportAudioLibraryItemQueryOptions(itemId,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getRestoreAudioLibraryItemUrl = (itemId: number,) => {
 

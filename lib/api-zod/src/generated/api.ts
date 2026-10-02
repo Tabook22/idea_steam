@@ -871,6 +871,23 @@ export const MakeAudioLibraryChaptersResponse = zod.object({
 
 
 /**
+ * @summary Download the recording converted to another format (the stored recording is unchanged)
+ */
+export const ExportAudioLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const exportAudioLibraryItemQueryQualityDefault = `high`;
+
+export const ExportAudioLibraryItemQueryParams = zod.object({
+  "format": zod.enum(['mp3', 'wav', 'm4a', 'ogg', 'opus', 'flac']),
+  "quality": zod.enum(['standard', 'high', 'best']).default(exportAudioLibraryItemQueryQualityDefault)
+})
+
+export const ExportAudioLibraryItemResponse = zod.unknown()
+
+
+/**
  * @summary Undo all edits and go back to the original recording
  */
 export const RestoreAudioLibraryItemParams = zod.object({

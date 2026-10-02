@@ -42,6 +42,7 @@ import {
 import { appPath } from "@/lib/app-path";
 import { useRecorder } from "@/components/recorder-provider";
 import { AudioEditor } from "@/components/audio-editor";
+import { ExportDialog } from "@/components/export-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { usePressToTalk } from "@/components/press-to-talk";
 import { useRecorderPrefs } from "@/lib/recorder-prefs";
@@ -102,6 +103,7 @@ export default function LibraryPage() {
   const [confirm, setConfirm] = useState<AudioLibraryItem | null>(null);
   const [editing, setEditing] = useState<AudioLibraryItem | null>(null);
   const [restoring, setRestoring] = useState<AudioLibraryItem | null>(null);
+  const [exporting, setExporting] = useState<AudioLibraryItem | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<number[]>([]);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -533,15 +535,15 @@ export default function LibraryPage() {
                       </span>
                     </button>
                   )}
-                  <a
-                    href={appPath(item.url, import.meta.env.BASE_URL)}
-                    download={`${title.replace(/[<>:"/\\|?*]/g, "-").slice(0, 60)}.${item.mimeType?.includes("mp4") ? "m4a" : "webm"}`}
-                    aria-label={copy(`Download ${title}`, `تنزيل ${title}`)}
-                    title={copy("Download", "تنزيل")}
+                  <button
+                    type="button"
+                    onClick={() => setExporting(item)}
+                    aria-label={copy(`Download ${title} as MP3, WAV, or another format`, `تنزيل ${title} بصيغة MP3 أو WAV أو غيرها`)}
+                    title={copy("Download as… (MP3, WAV, …)", "تنزيل بصيغة… (MP3، WAV، …)")}
                     className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   >
                     <Download size={16} />
-                  </a>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setConfirm(item)}
@@ -708,6 +710,8 @@ export default function LibraryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ExportDialog item={exporting} title={exporting ? displayTitle(exporting, fallbackTitle) : ""} onClose={() => setExporting(null)} />
 
       <Dialog open={!!improving} onOpenChange={(open) => { if (!open && !improveBusy) setImproving(null); }}>
         <DialogContent className="max-w-md">

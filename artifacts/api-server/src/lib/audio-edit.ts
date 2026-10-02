@@ -174,3 +174,30 @@ export async function enhanceRecording(url: string, { denoise, level }: EnhanceO
     return publish(output, source.prefix);
   });
 }
+
+export const EXPORT_FORMATS = {
+  mp3: { ext: "mp3", mime: "audio/mpeg", qualities: { standard: ["-c:a", "libmp3lame", "-b:a", "128k"], high: ["-c:a", "libmp3lame", "-b:a", "192k"], best: ["-c:a", "libmp3lame", "-b:a", "320k"] }, container: "mp3" },
+  wav: { ext: "wav", mime: "audio/wav", qualities: { standard: ["-c:a", "pcm_s16le", "-ar", "16000"], high: ["-c:a", "pcm_s16le", "-ar", "44100"], best: ["-c:a", "pcm_s16le", "-ar", "48000"] }, container: "wav" },
+  m4a: { ext: "m4a", mime: "audio/mp4", qualities: { standard: ["-c:a", "aac", "-b:a", "96k"], high: ["-c:a", "aac", "-b:a", "128k"], best: ["-c:a", "aac", "-b:a", "192k"] }, container: "ipod" },
+  ogg: { ext: "ogg", mime: "audio/ogg", qualities: { standard: ["-c:a", "libvorbis", "-q:a", "4"], high: ["-c:a", "libvorbis", "-q:a", "6"], best: ["-c:a", "libvorbis", "-q:a", "8"] }, container: "ogg" },
+  opus: { ext: "opus", mime: "audio/ogg", qualities: { standard: ["-c:a", "libopus", "-b:a", "32k"], high: ["-c:a", "libopus", "-b:a", "64k"], best: ["-c:a", "libopus", "-b:a", "96k"] }, container: "opus" },
+  flac: { ext: "flac", mime: "audio/flac", qualities: { standard: ["-c:a", "flac", "-ar", "16000"], high: ["-c:a", "flac", "-ar", "44100"], best: ["-c:a", "flac", "-ar", "48000"] }, container: "flac" },
+} as const;
+export type ExportFormat = keyof typeof EXPORT_FORMATS;
+export type ExportQuality = "standard" | "high" | "best";
+
+/**
+ * Converts a recording to another format for download. `deliver` receives the finished file
+ * and must finish sending it before returning; the temporary copy is removed afterwards.
+ * The stored recording itself is not changed.
+ */
+export async function convertRecording(url: string, format: ExportFormat, quality: ExportQuality, deliver: (path: string, mime: string, ext: string) => Promise<void>) {
+  const source = await storedFile(url);
+  const spec = EXPORT_FORMATS[format];
+  return withWorkspace(async (dir) => {
+    const output = join(dir, `export.${spec.ext}`);
+    // Voice recordings are mono; keep them mono (smaller files, same sound).
+    await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-vn", "-ac", "1", ...spec.qualities[quality], "-f", spec.container, output], 300_000);
+    await deliver(output, spec.mime, spec.ext);
+  });
+}

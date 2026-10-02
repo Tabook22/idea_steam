@@ -11,6 +11,7 @@ import {
   AddToAudioLibraryBody,
   CreateLibraryRecordingBody,
   EditAudioLibraryItemBody,
+  ExportAudioLibraryItemQueryParams,
   EnhanceAudioLibraryItemBody,
   JoinAudioLibraryItemsBody,
   TranscribeLibraryItemBody,
@@ -24,7 +25,7 @@ import {
   transcriptionFailure,
   wordsForStoredAudio,
 } from "../lib/stored-transcription";
-import { AudioEditError, enhanceRecording, joinRecordings, keepRanges, storedDuration } from "../lib/audio-edit";
+import { AudioEditError, convertRecording, enhanceRecording, joinRecordings, keepRanges, storedDuration } from "../lib/audio-edit";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
 
@@ -336,6 +337,33 @@ router.post("/audio-library/:itemId/chapters", async (req, res): Promise<void> =
   } catch (error) {
     const [code, message] = transcriptionFailure(error);
     res.status(code).json({ error: message });
+  }
+});
+
+/** A safe file name from the recording's name or text, e.g. "Morning drive idea.mp3". */
+function exportName(item: AudioLibraryRecord, ext: string) {
+  const base = (item.title || item.transcript?.slice(0, 60) || `Voice note ${item.capturedAt.toISOString().slice(0, 10)}`)
+    .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Voice note";
+  return `${base}.${ext}`;
+}
+
+router.get("/audio-library/:itemId/export", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  const query = ExportAudioLibraryItemQueryParams.safeParse(req.query);
+  if (!params.success || !query.success) { res.status(400).json({ error: "Choose a format: mp3, wav, m4a, ogg, opus, or flac." }); return; }
+  const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  try {
+    await convertRecording(current.url, query.data.format, query.data.quality ?? "high", (path, mime, ext) => new Promise<void>((resolve, reject) => {
+      const name = exportName(current, ext);
+      // ASCII fallback plus the real (possibly Arabic) name, per RFC 6266.
+      const ascii = name.replace(/[^\x20-\x7e]/g, "_");
+      res.setHeader("Content-Disposition", `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.sendFile(path, { headers: { "Content-Type": mime } }, (error) => (error ? reject(error) : resolve()));
+    }));
+  } catch (error) {
+    if (!res.headersSent) editFailure(res, error);
   }
 });
 
