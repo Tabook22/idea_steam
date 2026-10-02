@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowUpDown,
   ArrowUpRight,
   Check,
   ChevronDown,
@@ -236,63 +237,58 @@ export default function LibraryPage() {
         className="hidden"
       />
 
-      <header className="relative mt-3 overflow-hidden rounded-[2rem] border bg-gradient-to-br from-[hsl(158_38%_14%)] to-[hsl(158_32%_22%)] px-6 py-8 text-[hsl(43_30%_95%)] shadow-sm sm:px-9">
-        <div className="pointer-events-none absolute -end-10 -top-16 h-56 w-56 rounded-full bg-emerald-300/10 blur-2xl" aria-hidden="true" />
-        <p className="relative flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-200/80">
-          <Headphones size={14} />{copy("Audio library", "مكتبة الصوت")}
-        </p>
-        <h1 className="relative mt-3 text-4xl font-medium text-[hsl(43_30%_96%)]">{copy("Every recording, in one place", "كل تسجيلاتك في مكان واحد")}</h1>
-        <p className="relative mt-3 max-w-lg text-sm leading-6 text-white/70">
-          {copy(
-            "A separate copy of each voice note. Listen any time. Removing one here never changes your notebooks.",
-            "نسخة مستقلة من كل ملاحظة صوتية. استمع في أي وقت. الإزالة من هنا لا تغيّر دفاترك أبدًا.",
-          )}
-        </p>
-        <div className="relative mt-6 flex flex-wrap items-center gap-3">
-          <Button
-            className="h-11 rounded-full bg-[hsl(43_30%_95%)] px-5 text-[hsl(158_38%_14%)] hover:bg-white"
-            disabled={!visible.length}
-            onClick={() => { setPlayAll(true); play(visible[0]); }}
-          >
-            <ListMusic size={17} className="me-2" />{copy("Play all", "تشغيل الكل")}
-          </Button>
-          <span className="text-sm text-white/65">
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-2xl font-medium">
+            <Headphones size={22} className="shrink-0 text-primary" />{copy("Audio library", "مكتبة الصوت")}
+          </h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {copy(`${visible.length} recordings`, `${visible.length} تسجيل`)}
             {totalSeconds > 0 && ` · ${clock(totalSeconds)}`}
-          </span>
+            <span className="hidden sm:inline"> · {copy("separate from your notebooks", "مستقلة عن دفاترك")}</span>
+          </p>
         </div>
-      </header>
+        <Button size="sm" className="h-9 shrink-0 rounded-full px-3.5" disabled={!visible.length} onClick={() => { setPlayAll(true); play(visible[0]); }}>
+          <ListMusic size={16} className="me-1.5" />{copy("Play all", "تشغيل الكل")}
+        </Button>
+      </div>
 
-      <div className="sticky top-0 z-20 -mx-4 mt-6 flex flex-wrap items-center gap-2 bg-background/90 px-4 py-3 backdrop-blur sm:-mx-8 sm:px-8">
-        <label className="relative flex h-11 min-w-0 flex-1 items-center rounded-full border bg-card ps-10 pe-3 shadow-sm focus-within:border-primary">
-          <Search size={16} className="absolute start-4 text-muted-foreground" />
+      <div className="sticky top-0 z-20 -mx-4 mt-3 flex items-center gap-2 bg-background/90 px-4 py-2 backdrop-blur sm:-mx-8 sm:px-8">
+        <label className="relative flex h-10 min-w-0 flex-1 items-center rounded-full border bg-card ps-9 pe-3 focus-within:border-primary">
+          <Search size={15} className="absolute start-3.5 text-muted-foreground" />
           <span className="sr-only">{copy("Filter recordings", "تصفية التسجيلات")}</span>
           <input
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
             data-bare-field
             dir="auto"
-            placeholder={copy("Filter by words or subject", "صفِّ بالكلمات أو الموضوع")}
+            placeholder={copy("Filter", "تصفية")}
             className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
           {filter && <button type="button" aria-label={copy("Clear", "مسح")} onClick={() => setFilter("")} className="text-muted-foreground"><X size={15} /></button>}
         </label>
-        <label className="relative inline-flex h-11 items-center rounded-full border bg-card ps-4 pe-9 text-sm font-medium shadow-sm">
+        <label className="relative inline-flex h-10 shrink-0 items-center rounded-full border bg-card ps-3 pe-8 text-sm">
+          <ArrowUpDown size={14} className="me-1.5 text-muted-foreground" />
           <span className="sr-only">{copy("Sort", "ترتيب")}</span>
-          <select value={sort} onChange={(event) => setSort(event.target.value as Sort)} className="cursor-pointer appearance-none bg-transparent outline-none">
-            <option value="newest">{copy("Newest first", "الأحدث أولًا")}</option>
-            <option value="oldest">{copy("Oldest first", "الأقدم أولًا")}</option>
-            <option value="longest">{copy("Longest first", "الأطول أولًا")}</option>
-            <option value="shortest">{copy("Shortest first", "الأقصر أولًا")}</option>
-            <option value="title">{copy("A to Z", "أبجديًا")}</option>
+          <select value={sort} onChange={(event) => setSort(event.target.value as Sort)} className="cursor-pointer appearance-none bg-transparent font-medium outline-none">
+            <option value="newest">{copy("Newest", "الأحدث")}</option>
+            <option value="oldest">{copy("Oldest", "الأقدم")}</option>
+            <option value="longest">{copy("Longest", "الأطول")}</option>
+            <option value="shortest">{copy("Shortest", "الأقصر")}</option>
+            <option value="title">{copy("A–Z", "أبجديًا")}</option>
           </select>
-          <ChevronDown size={15} className="pointer-events-none absolute end-3 text-muted-foreground" />
+          <ChevronDown size={14} className="pointer-events-none absolute end-2.5 text-muted-foreground" />
         </label>
       </div>
 
       {isLoading ? (
-        <div className="mt-4 space-y-3" aria-hidden="true">
-          {[0, 1, 2, 3].map((row) => <div key={row} className="h-24 animate-pulse rounded-2xl bg-muted/60" />)}
+        <div className="mt-2 divide-y overflow-hidden rounded-2xl border bg-card" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((row) => (
+            <div key={row} className="flex items-center gap-3 px-3 py-3">
+              <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
+              <div className="flex-1 space-y-1.5"><div className="h-3 w-2/3 animate-pulse rounded bg-muted" /><div className="h-2.5 w-1/3 animate-pulse rounded bg-muted" /></div>
+            </div>
+          ))}
         </div>
       ) : isError ? (
         <div className="mt-10 text-center" role="alert">
@@ -300,15 +296,15 @@ export default function LibraryPage() {
           <Button variant="outline" className="mt-3 rounded-full" onClick={() => void refetch()}>{copy("Try again", "حاول مجددًا")}</Button>
         </div>
       ) : !visible.length ? (
-        <div className="mt-8 rounded-3xl border border-dashed px-6 py-14 text-center">
-          <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary"><Headphones size={26} /></span>
-          <p className="mt-4 font-serif text-xl">{filter ? copy("No recordings match", "لا توجد تسجيلات مطابقة") : copy("Your library is empty", "مكتبتك فارغة")}</p>
+        <div className="mt-4 rounded-2xl border border-dashed px-6 py-10 text-center">
+          <Headphones size={24} className="mx-auto text-primary" />
+          <p className="mt-3 font-medium">{filter ? copy("No recordings match", "لا توجد تسجيلات مطابقة") : copy("Your library is empty", "مكتبتك فارغة")}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {filter ? copy("Try other words.", "جرّب كلمات أخرى.") : copy("Every voice note you record is added here automatically.", "كل ملاحظة صوتية تسجلها تُضاف هنا تلقائيًا.")}
           </p>
         </div>
       ) : (
-        <ol className="mt-2 space-y-3">
+        <ul className="mt-2 divide-y overflow-hidden rounded-2xl border bg-card">
           {visible.map((item) => {
             const captured = new Date(item.capturedAt);
             const day = dayFormat.format(captured);
@@ -318,130 +314,115 @@ export default function LibraryPage() {
             const total = current ? length ?? item.durationSeconds : item.durationSeconds;
             const progress = current && total ? Math.min(100, (position / total) * 100) : 0;
             const title = displayTitle(item, fallbackTitle);
+            const open = expanded === item.id;
             return (
               <li key={item.id}>
-                {header && <p className="mb-2 mt-5 px-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{header}</p>}
-                <article className={`rounded-2xl border bg-card p-4 shadow-sm transition-shadow ${current ? "border-primary/40 shadow-md ring-1 ring-primary/15" : "hover:shadow-md"}`}>
-                  <div className="flex items-start gap-3">
+                {header && (
+                  <p className="bg-muted/50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{header}</p>
+                )}
+                <div className={`relative flex items-center gap-2.5 py-2 ps-2.5 pe-1.5 transition-colors ${current ? "bg-primary/[0.06]" : "hover:bg-muted/40"}`}>
+                  <button
+                    type="button"
+                    onClick={() => { setPlayAll(false); play(item); }}
+                    aria-label={current && playing ? copy(`Pause ${title}`, `إيقاف ${title} مؤقتًا`) : copy(`Play ${title}`, `تشغيل ${title}`)}
+                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-full transition active:scale-95 ${current ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary hover:bg-primary/15"}`}
+                  >
+                    {current && playing ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" className="ms-0.5 rtl:-scale-x-100" />}
+                  </button>
+                  {renaming === item.id ? (
+                    <form className="flex min-w-0 flex-1 gap-1.5" onSubmit={(event) => { event.preventDefault(); void saveTitle(item); }}>
+                      <input
+                        autoFocus
+                        dir="auto"
+                        value={draftTitle}
+                        maxLength={200}
+                        onChange={(event) => setDraftTitle(event.target.value)}
+                        onKeyDown={(event) => { if (event.key === "Escape") setRenaming(null); }}
+                        placeholder={displayTitle({ title: null, transcript: item.transcript }, fallbackTitle)}
+                        aria-label={copy("Recording name", "اسم التسجيل")}
+                        className="h-9 min-w-0 flex-1 rounded-lg border bg-background px-2.5 text-sm outline-none focus:border-primary"
+                      />
+                      <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-lg" aria-label={copy("Save name", "حفظ الاسم")}><Check size={15} /></Button>
+                    </form>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => { setPlayAll(false); play(item); }}
-                      aria-label={current && playing ? copy(`Pause ${title}`, `إيقاف ${title} مؤقتًا`) : copy(`Play ${title}`, `تشغيل ${title}`)}
-                      className={`grid h-12 w-12 shrink-0 place-items-center rounded-full transition active:scale-95 ${current ? "bg-primary text-primary-foreground shadow-md shadow-primary/25" : "bg-primary/10 text-primary hover:bg-primary/15"}`}
+                      onClick={() => setExpanded(open ? null : item.id)}
+                      aria-expanded={open}
+                      className="min-w-0 flex-1 py-0.5 text-start"
                     >
-                      {current && playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ms-0.5 rtl:-scale-x-100" />}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      {renaming === item.id ? (
-                        <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); void saveTitle(item); }}>
-                          <input
-                            autoFocus
-                            dir="auto"
-                            value={draftTitle}
-                            maxLength={200}
-                            onChange={(event) => setDraftTitle(event.target.value)}
-                            onKeyDown={(event) => { if (event.key === "Escape") setRenaming(null); }}
-                            placeholder={displayTitle({ title: null, transcript: item.transcript }, fallbackTitle)}
-                            aria-label={copy("Recording name", "اسم التسجيل")}
-                            className="h-10 min-w-0 flex-1 rounded-xl border bg-background px-3 text-sm outline-none focus:border-primary"
-                          />
-                          <Button type="submit" size="icon" className="h-10 w-10 rounded-xl" aria-label={copy("Save name", "حفظ الاسم")}><Check size={16} /></Button>
-                        </form>
-                      ) : (
-                        <h2 dir="auto" className="font-sans text-[15px] font-semibold leading-6">{title}</h2>
-                      )}
-                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                        <span>{grouped ? timeFormat.format(captured) : dayFormat.format(captured)}</span>
-                        <span aria-hidden="true">·</span>
+                      <span dir="auto" className="block truncate text-sm font-medium leading-5">{title}</span>
+                      <span className="block truncate text-xs leading-5 text-muted-foreground">
+                        {grouped ? timeFormat.format(captured) : dayFormat.format(captured)}
+                        {" · "}
                         <span className="tabular-nums">{current ? `${clock(position)} / ${clock(total)}` : clock(total)}</span>
-                        {item.sourceSubjectTitle && (
-                          item.sourceSubjectId && item.sourceIdeaId ? (
-                            <Link href={`/subjects/${item.sourceSubjectId}#idea-${item.sourceIdeaId}`} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-foreground/80 hover:bg-primary/10 hover:text-primary">
-                              {item.sourceSubjectTitle}<ArrowUpRight size={11} />
-                            </Link>
-                          ) : (
-                            <span className="rounded-full bg-secondary px-2 py-0.5" title={copy("The original idea was deleted; this copy is kept.", "حُذفت الفكرة الأصلية؛ هذه النسخة محفوظة.")}>
-                              {item.sourceSubjectTitle}
-                            </span>
-                          )
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  {current && (
-                    <div className="mt-3 flex items-center gap-3">
-                      <div
-                        role="slider"
-                        tabIndex={0}
-                        aria-label={copy("Position", "الموضع")}
-                        aria-valuemin={0}
-                        aria-valuemax={Math.round(total ?? 0)}
-                        aria-valuenow={Math.round(position)}
-                        onPointerDown={seek}
-                        onKeyDown={(event) => {
-                          if (!audio.current) return;
-                          if (event.key === "ArrowRight") audio.current.currentTime += isArabic ? -5 : 5;
-                          if (event.key === "ArrowLeft") audio.current.currentTime += isArabic ? 5 : -5;
-                        }}
-                        className="group relative h-6 flex-1 cursor-pointer touch-none"
-                      >
-                        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-primary/15">
-                          <div className="h-full rounded-full bg-primary transition-[width] duration-200" style={{ width: `${progress}%` }} />
-                        </div>
-                        <span className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow ring-2 ring-card rtl:translate-x-1/2" style={{ insetInlineStart: `${progress}%` }} />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const following = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
-                          setSpeed(following);
-                          if (audio.current) audio.current.playbackRate = following;
-                        }}
-                        aria-label={copy("Playback speed", "سرعة التشغيل")}
-                        className="h-8 min-w-12 rounded-full border px-2 text-xs font-semibold tabular-nums hover:border-primary/40"
-                      >
-                        {speed}×
-                      </button>
-                      {playAll && (
-                        <button type="button" onClick={next} aria-label={copy("Next recording", "التسجيل التالي")} className="grid h-8 w-8 place-items-center rounded-full border hover:border-primary/40">
-                          <SkipForward size={14} className="rtl:-scale-x-100" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {item.transcript && (
-                    <button
-                      type="button"
-                      onClick={() => setExpanded(expanded === item.id ? null : item.id)}
-                      aria-expanded={expanded === item.id}
-                      className="mt-3 block w-full text-start"
-                    >
-                      <p dir="auto" className={`whitespace-pre-wrap rounded-xl bg-muted/40 px-3 py-2 font-serif text-[15px] leading-7 text-foreground/80 ${expanded === item.id ? "" : "line-clamp-2"}`}>
-                        {item.transcript}
-                      </p>
+                        {item.sourceSubjectTitle && ` · ${item.sourceSubjectTitle}`}
+                      </span>
                     </button>
                   )}
-
-                  <div className="mt-3 flex items-center gap-1 border-t pt-2">
-                    <Button size="sm" variant="ghost" className="h-9 px-2.5 text-muted-foreground" onClick={() => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }}>
-                      <Pencil size={14} className="me-1.5" />{copy("Rename", "إعادة تسمية")}
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-9 px-2.5 text-muted-foreground" asChild>
-                      <a href={appPath(item.url, import.meta.env.BASE_URL)} download={`${title.replace(/[<>:"/\\|?*]/g, "-").slice(0, 60)}.${item.mimeType?.includes("mp4") ? "m4a" : "webm"}`}>
-                        <Download size={14} className="me-1.5" />{copy("Download", "تنزيل")}
-                      </a>
-                    </Button>
-                    <Button size="sm" variant="ghost" className="ms-auto h-9 px-2.5 text-muted-foreground hover:text-destructive" onClick={() => setConfirm(item)}>
-                      <Trash2 size={14} className="me-1.5" />{copy("Remove", "إزالة")}
-                    </Button>
+                  <a
+                    href={appPath(item.url, import.meta.env.BASE_URL)}
+                    download={`${title.replace(/[<>:"/\\|?*]/g, "-").slice(0, 60)}.${item.mimeType?.includes("mp4") ? "m4a" : "webm"}`}
+                    aria-label={copy(`Download ${title}`, `تنزيل ${title}`)}
+                    title={copy("Download", "تنزيل")}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  >
+                    <Download size={16} />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setConfirm(item)}
+                    aria-label={copy(`Remove ${title} from the library`, `إزالة ${title} من المكتبة`)}
+                    title={copy("Remove from library", "إزالة من المكتبة")}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  {current && (
+                    <div
+                      role="slider"
+                      tabIndex={0}
+                      aria-label={copy("Position", "الموضع")}
+                      aria-valuemin={0}
+                      aria-valuemax={Math.round(total ?? 0)}
+                      aria-valuenow={Math.round(position)}
+                      onPointerDown={seek}
+                      onKeyDown={(event) => {
+                        if (!audio.current) return;
+                        if (event.key === "ArrowRight") audio.current.currentTime += isArabic ? -5 : 5;
+                        if (event.key === "ArrowLeft") audio.current.currentTime += isArabic ? 5 : -5;
+                      }}
+                      className="absolute inset-x-0 bottom-0 h-2.5 cursor-pointer touch-none"
+                    >
+                      <div className="absolute inset-x-0 bottom-0 h-[3px] bg-primary/15">
+                        <div className="h-full bg-primary transition-[width] duration-200" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {open && (
+                  <div className="space-y-2 bg-muted/20 px-3 pb-3 pt-1 ps-[3.6rem]">
+                    {item.transcript && (
+                      <p dir="auto" className="whitespace-pre-wrap text-sm leading-6 text-foreground/80">{item.transcript}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                      <button type="button" className="inline-flex items-center gap-1 font-medium text-primary hover:underline" onClick={() => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }}>
+                        <Pencil size={12} />{copy("Rename", "إعادة تسمية")}
+                      </button>
+                      {item.sourceSubjectId && item.sourceIdeaId ? (
+                        <Link href={`/subjects/${item.sourceSubjectId}#idea-${item.sourceIdeaId}`} className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+                          {copy("Open in", "افتح في")} {item.sourceSubjectTitle}<ArrowUpRight size={12} />
+                        </Link>
+                      ) : item.sourceSubjectTitle ? (
+                        <span className="text-muted-foreground">{copy("Original idea deleted; this copy is kept.", "حُذفت الفكرة الأصلية؛ هذه النسخة محفوظة.")}</span>
+                      ) : null}
+                    </div>
                   </div>
-                </article>
+                )}
               </li>
             );
           })}
-        </ol>
+        </ul>
       )}
 
       {active && (
@@ -458,6 +439,23 @@ export default function LibraryPage() {
             <p dir="auto" className="truncate text-sm font-semibold">{displayTitle(active, fallbackTitle)}</p>
             <p className="text-xs tabular-nums text-white/60">{clock(position)} / {clock(length ?? active.durationSeconds)}{playAll && ` · ${copy("playing all", "تشغيل الكل")}`}</p>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              const following = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
+              setSpeed(following);
+              if (audio.current) audio.current.playbackRate = following;
+            }}
+            aria-label={copy("Playback speed", "سرعة التشغيل")}
+            className="h-8 min-w-11 rounded-full border border-white/25 px-2 text-xs font-semibold tabular-nums hover:bg-white/10"
+          >
+            {speed}×
+          </button>
+          {playAll && (
+            <button type="button" onClick={next} aria-label={copy("Next recording", "التسجيل التالي")} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10">
+              <SkipForward size={15} className="rtl:-scale-x-100" />
+            </button>
+          )}
           <button type="button" aria-label={copy("Close player", "إغلاق المشغل")} onClick={() => { audio.current?.pause(); setActiveId(null); setPlayAll(false); }} className="grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10">
             <X size={16} />
           </button>
