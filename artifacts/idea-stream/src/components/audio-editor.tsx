@@ -50,6 +50,7 @@ type Drag =
   | { kind: "overview" };
 
 const WAVE_HEIGHT = 200;
+const ASK_KEY = "idea-stream-editor-confirm-cuts";
 const clock = (seconds: number) => {
   const value = Math.max(0, seconds);
   const minutes = Math.floor(value / 60);
@@ -100,6 +101,15 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const [words, setWords] = useState<TimedWord[] | null>(null);
   const [wordsState, setWordsState] = useState<"idle" | "loading" | "error">("idle");
   const [wordsError, setWordsError] = useState("");
+  /** A cut (or crop) waiting for the user's OK; shown in red on the waveform. */
+  const [pendingCut, setPendingCut] = useState<{ range: Range; kind: "cut" | "crop" } | null>(null);
+  const [askBeforeCut, setAskBeforeCut] = useState(() => {
+    try { return localStorage.getItem(ASK_KEY) !== "no"; } catch { return true; }
+  });
+  const rememberAsk = (ask: boolean) => {
+    setAskBeforeCut(ask);
+    try { localStorage.setItem(ASK_KEY, ask ? "yes" : "no"); } catch { /* optional */ }
+  };
 
   const context = useRef<AudioContext | null>(null);
   const sources = useRef<AudioBufferSourceNode[]>([]);
@@ -301,6 +311,27 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     outside.push({ start: cursor, end: duration });
     commit(outside, 0);
   };
+  /** Every cut and crop asks first (unless turned off); the part shows in red meanwhile. */
+  const requestCut = (range: Range, kind: "cut" | "crop" = "cut") => {
+    if (range.end - range.start < 0.02) return;
+    if (!askBeforeCut) { if (kind === "cut") cutRange(range); else cropTo(range); return; }
+    stop();
+    setSelection(range);
+    setPendingCut({ range, kind });
+  };
+  const confirmCut = () => {
+    if (!pendingCut) return;
+    const { range, kind } = pendingCut;
+    setPendingCut(null);
+    if (kind === "cut") cutRange(range); else cropTo(range);
+  };
+  const cancelCut = () => {
+    // Keep the part selected so it can be adjusted.
+    if (pendingCut) setSelection(pendingCut.range);
+    setPendingCut(null);
+    stop();
+  };
+
   const undo = () => {
     if (!undoStack.length) return;
     stop();
@@ -344,7 +375,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   };
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!buffer || length <= 0) return;
+    if (!buffer || length <= 0 || pendingCut) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     pointers.current.set(event.pointerId, event.clientX);
     if (pointers.current.size === 2) {
@@ -408,7 +439,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
         if (!dragged) { setSelection(null); seekTo(time); }
         break;
       case "cut":
-        if (dragged) cutRange(range); else seekTo(time);
+        if (dragged) requestCut(range); else seekTo(time);
         break;
       case "zoom":
         if (dragged) zoomTo(range);
@@ -455,12 +486,19 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || !buffer) return;
       const ctrl = event.ctrlKey || event.metaKey;
       const handled = () => event.preventDefault();
+      // While a cut waits for an answer: Enter confirms, Escape cancels, nothing else edits.
+      if (pendingCut) {
+        if (event.key === "Enter") { handled(); confirmCut(); }
+        else if (event.key === "Escape") { handled(); cancelCut(); }
+        else if (event.key === " ") { handled(); playEdited(pendingCut.range.start, pendingCut.range.end); }
+        return;
+      }
       if (ctrl && event.key.toLowerCase() === "z") { handled(); if (event.shiftKey) redo(); else undo(); return; }
       if (ctrl && event.key.toLowerCase() === "y") { handled(); redo(); return; }
       if (ctrl) return;
       switch (event.key) {
         case " ": handled(); togglePlay(); break;
-        case "Delete": case "Backspace": if (selection) { handled(); cutRange(selection); } break;
+        case "Delete": case "Backspace": if (selection && !pendingCut) { handled(); requestCut(selection); } break;
         case "v": case "V": setTool("select"); break;
         case "c": case "C": setTool("cut"); break;
         case "z": case "Z": setTool("zoom"); break;
@@ -570,7 +608,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
-      <DialogContent className="flex h-[100dvh] w-full max-w-6xl flex-col gap-0 overflow-hidden rounded-none border-0 bg-[#0b1712] p-0 text-white sm:h-[94vh] sm:rounded-2xl [&>button:last-child]:hidden" dir="ltr">
+      <DialogContent onEscapeKeyDown={(event) => { if (pendingCut) { event.preventDefault(); cancelCut(); } }} className="flex h-[100dvh] w-full max-w-6xl flex-col gap-0 overflow-hidden rounded-none border-0 bg-[#0b1712] p-0 text-white sm:h-[94vh] sm:rounded-2xl [&>button:last-child]:hidden" dir="ltr">
         {/* Title bar */}
         <div className="flex items-center gap-3 border-b border-white/10 px-4 py-2.5" style={{ paddingTop: "max(0.6rem, env(safe-area-inset-top))" }}>
           <Scissors size={17} className="shrink-0 text-emerald-400" />
@@ -586,7 +624,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
         ) : !buffer ? (
           <div className="grid flex-1 place-items-center"><Loader2 className="animate-spin text-emerald-400" /></div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
             {/* Toolbar */}
             <div className="sticky top-0 z-20 flex items-center gap-1 overflow-x-auto border-b border-white/10 bg-[#102219] px-2 py-1.5 [scrollbar-width:none]" role="toolbar" aria-label={copy("Editing tools", "أدوات التحرير")}>
               {tools.map(([id, icon, label, shortcut]) => (
@@ -610,8 +648,8 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
               <Divider />
               <ToolButton onClick={undo} label={copy("Undo", "تراجع")} shortcut="⌃Z" disabled={!undoStack.length}><Undo2 size={16} /></ToolButton>
               <ToolButton onClick={redo} label={copy("Redo", "إعادة")} shortcut="⌃Y" disabled={!redoStack.length}><Redo2 size={16} /></ToolButton>
-              <ToolButton onClick={() => selection && cutRange(selection)} label={copy("Cut selection", "قص المحدد")} shortcut="Del" disabled={!selection}><Scissors size={16} /></ToolButton>
-              <ToolButton onClick={() => selection && cropTo(selection)} label={copy("Keep only selection", "احتفظ بالمحدد فقط")} disabled={!selection}><Crop size={16} /></ToolButton>
+              <ToolButton onClick={() => selection && requestCut(selection)} label={copy("Cut selection", "قص المحدد")} shortcut="Del" disabled={!selection || !!pendingCut}><Scissors size={16} /></ToolButton>
+              <ToolButton onClick={() => selection && requestCut(selection, "crop")} label={copy("Keep only selection", "احتفظ بالمحدد فقط")} disabled={!selection || !!pendingCut}><Crop size={16} /></ToolButton>
             </div>
 
             {/* Time display */}
@@ -654,7 +692,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
               </div>
 
               {/* Ruler, with the A–B section */}
-              <div className="relative mt-2 h-6 select-none border-b border-white/15 text-[10px] text-white/45">
+              <div className="relative mt-2 h-6 select-none overflow-hidden border-b border-white/15 text-[10px] text-white/45">
                 {ticks.map((tick) => (
                   <span key={tick} className="absolute bottom-0 h-2 border-s border-white/30" style={{ left: x(tick) }}>
                     <span className="absolute -top-3.5 start-1 whitespace-nowrap font-mono tabular-nums">{formatTime(tick, span < 20)}</span>
@@ -707,7 +745,51 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                   </div>
                 )}
                 {inView(playhead) && <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" style={{ left: x(playhead) }} />}
+                {pendingCut && (
+                  pendingCut.kind === "cut" ? (
+                    <div className="pointer-events-none absolute inset-y-0 border-x-2 border-red-400 bg-red-500/35 [background-image:repeating-linear-gradient(135deg,transparent_0_7px,rgba(248,113,113,0.25)_7px_10px)]"
+                      style={{ left: x(pendingCut.range.start), width: w(pendingCut.range) }} />
+                  ) : (
+                    <>
+                      <div className="pointer-events-none absolute inset-y-0 bg-red-500/35" style={{ left: 0, width: x(pendingCut.range.start) }} />
+                      <div className="pointer-events-none absolute inset-y-0 bg-red-500/35" style={{ left: x(pendingCut.range.end), right: 0 }} />
+                    </>
+                  )
+                )}
               </div>
+              {pendingCut && (
+                <div className="relative z-10 -mt-[150px] mb-[38px] flex justify-center px-2" dir={isArabic ? "rtl" : "ltr"}
+                  onPointerDown={(event) => event.stopPropagation()}>
+                  <div role="alertdialog" aria-modal="false" aria-labelledby="cut-question"
+                    className="w-full max-w-md rounded-2xl border border-red-400/40 bg-[#1a0f0f]/95 p-4 shadow-2xl backdrop-blur">
+                    <p id="cut-question" className="flex items-center gap-2 text-sm font-semibold text-white">
+                      <Scissors size={16} className="text-red-400" />
+                      {pendingCut.kind === "cut" ? copy("Cut this part?", "قص هذا الجزء؟") : copy("Keep only this part and cut the rest?", "الاحتفاظ بهذا الجزء فقط وقص الباقي؟")}
+                    </p>
+                    <p className="mt-1 font-mono text-xs tabular-nums text-red-200" dir="ltr">
+                      {clock(pendingCut.range.start)} → {clock(pendingCut.range.end)} · {(pendingCut.range.end - pendingCut.range.start).toFixed(1)} s
+                      {pendingCut.kind === "crop" && ` · ${copy("removes", "يحذف")} ${(length - (pendingCut.range.end - pendingCut.range.start)).toFixed(1)} s`}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="ghost" className="h-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white"
+                        onClick={() => playEdited(pendingCut.range.start, pendingCut.range.end)}>
+                        <Play size={14} className="me-1.5" fill="currentColor" />{copy("Listen", "استمع")}
+                      </Button>
+                      <span className="flex-1" />
+                      <Button size="sm" variant="ghost" className="h-9 rounded-full text-white/80 hover:bg-white/10 hover:text-white" onClick={cancelCut}>
+                        {copy("Cancel", "إلغاء")} <kbd className="ms-1.5 text-[10px] opacity-60">Esc</kbd>
+                      </Button>
+                      <Button size="sm" autoFocus className="h-9 rounded-full bg-red-500 px-4 text-white hover:bg-red-400" onClick={confirmCut}>
+                        <Scissors size={14} className="me-1.5" />{pendingCut.kind === "cut" ? copy("Cut", "قص") : copy("Keep only this", "احتفظ بهذا فقط")} <kbd className="ms-1.5 text-[10px] opacity-70">↵</kbd>
+                      </Button>
+                    </div>
+                    <label className="mt-3 flex cursor-pointer items-center gap-2 text-[11px] text-white/50">
+                      <input type="checkbox" className="h-3.5 w-3.5 accent-red-500" onChange={(event) => rememberAsk(!event.target.checked)} />
+                      {copy("Don't ask again on this device", "لا تسأل مجددًا على هذا الجهاز")}
+                    </label>
+                  </div>
+                </div>
+              )}
 
               {/* Status bar */}
               <div className="flex flex-wrap items-center justify-between gap-2 py-2 text-[11px] text-white/50">
@@ -743,6 +825,12 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                 ) : (
                   <p className="text-xs text-white/50">{copy("Nothing cut yet. Use the ✂ Cut tool and drag over a part, or select a part and press Delete.", "لم يُقص شيء بعد. استخدم أداة ✂ القص واسحب على جزء، أو حدّد جزءًا واضغط Delete.")}</p>
                 ))}
+                {tab === "cuts" && (
+                  <label className="mt-3 flex cursor-pointer items-center gap-2 border-t border-white/10 pt-3 text-xs text-white/60">
+                    <input type="checkbox" className="h-4 w-4 accent-emerald-500" checked={askBeforeCut} onChange={(event) => rememberAsk(event.target.checked)} />
+                    {copy("Ask before cutting", "اسأل قبل القص")}
+                  </label>
+                )}
                 {tab === "cleanup" && (
                   <>
                     <div className="flex flex-wrap gap-2">
