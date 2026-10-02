@@ -50,6 +50,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const [saving, setSaving] = useState(false);
   const [width, setWidth] = useState(320);
   const [flash, setFlash] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
   const context = useRef<AudioContext | null>(null);
   const sources = useRef<AudioBufferSourceNode[]>([]);
   const schedule = useRef<Segment[]>([]);
@@ -194,6 +195,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
       ? { mode: handle, anchor: handle === "start" ? selection!.end : selection!.start, moved: true }
       : { mode: "new", anchor: time, moved: false };
     if (!handle) setSelection({ start: time, end: time });
+    setDragging(true);
   }
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const current = drag.current;
@@ -205,6 +207,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     const current = drag.current;
     drag.current = null;
+    setDragging(false);
     if (!current) return;
     if (!current.moved || (selection && selection.end - selection.start < 0.12)) {
       // A tap moves the playhead instead of selecting.
@@ -255,6 +258,18 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     setPlayhead(0);
   };
 
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if ((event.key === "Delete" || event.key === "Backspace") && selection && selection.end - selection.start >= 0.05 &&
+          !(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)) {
+        event.preventDefault();
+        removeSelection();
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  });
+
   async function save() {
     if (!removed.length || saving) return;
     setSaving(true);
@@ -300,7 +315,9 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
           ) : (
             <>
               <p className="mb-2 text-xs text-muted-foreground">
-                {cuts.length
+                {selection && selection.end - selection.start >= 0.05 && !dragging
+                  ? copy("Tap ✂ Cut to remove the selected part. The rest joins up.", "اضغط ✂ قص لحذف الجزء المحدد، ويتصل الباقي.")
+                  : cuts.length
                   ? copy("This is the edited recording. Red lines show where parts were cut and the rest joined.", "هذا هو التسجيل بعد التحرير. الخطوط الحمراء تبيّن مواضع القص والوصل.")
                   : copy("Drag across the part you want to remove. Tap to move the playhead.", "اسحب على الجزء الذي تريد حذفه. انقر لتحريك مؤشر التشغيل.")}
               </p>
@@ -333,6 +350,24 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                     </div>
                   )}
                   <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-600" style={{ [side]: at(playhead) }} />
+                  {selection && selection.end - selection.start >= 0.05 && !dragging && (
+                    <div
+                      className="absolute top-1.5 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-card p-1 shadow-lg ring-1 ring-black/10 rtl:translate-x-1/2"
+                      // Centred on the selection, but never pushed past the waveform's edges.
+                      style={{ [side]: `${Math.min(contentWidth - 60, Math.max(60, ((selection.start + selection.end) / 2 / Math.max(length, 0.001)) * contentWidth))}px` }}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onPointerUp={(event) => event.stopPropagation()}
+                    >
+                      <button type="button" onClick={removeSelection}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-3.5 text-sm font-semibold text-white shadow-sm active:scale-95">
+                        <Scissors size={15} />{copy("Cut", "قص")}
+                      </button>
+                      <button type="button" onClick={keepOnlySelection} aria-label={copy("Keep only selection", "احتفظ بالمحدد فقط")} title={copy("Keep only this", "احتفظ بهذا فقط")}
+                        className="grid h-9 w-9 place-items-center rounded-full text-foreground hover:bg-secondary active:scale-95">
+                        <Crop size={15} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="mt-1 flex justify-between text-[11px] tabular-nums text-muted-foreground">

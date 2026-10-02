@@ -22,6 +22,7 @@ import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 import { BottomNav } from "@/components/bottom-nav";
 import { CaptureSheet } from "@/components/capture-sheet";
+import { UpdateNotice } from "@/components/update-notice";
 import { WorkspaceSearch } from "@/components/workspace-search";
 import { TopBarHome } from "@/components/top-bar-home";
 import {
@@ -143,6 +144,7 @@ function AppContent() {
             <TopNav />
             <Router />
             <BottomNav />
+            <UpdateNotice />
             <CaptureSheet />
             <Toaster />
           </RecorderProvider>
