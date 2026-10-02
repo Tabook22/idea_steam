@@ -16,12 +16,14 @@ import HomePage from "@/pages/home";
 import SubjectDetailPage from "@/pages/subject-detail";
 import RecorderPage from "@/pages/recorder";
 import SharePage from "@/pages/share";
+import LibraryPage from "@/pages/library";
 import { RecorderProvider } from "@/components/recorder-provider";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
 import { BottomNav } from "@/components/bottom-nav";
 import { CaptureSheet } from "@/components/capture-sheet";
 import { WorkspaceSearch } from "@/components/workspace-search";
+import { TopBarHome } from "@/components/top-bar-home";
 import {
   Route,
   Redirect,
@@ -62,20 +64,24 @@ function TopNav() {
   const { isArabic } = useLanguage();
   const { data } = useCapabilities();
   return (
-    <div className="flex items-center justify-end gap-3 px-4 py-3">
+    <div className="flex items-center justify-between gap-2 px-4 py-3">
+      <TopBarHome />
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
       <WorkspaceSearch />
       <LanguageToggle />
       {data?.signOut && (
         <form method="post" action={appPath("/logout", import.meta.env.BASE_URL)}>
           <button
             type="submit"
-            className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-label={isArabic ? "تسجيل الخروج" : "Sign out"}
+            className="inline-flex h-9 items-center gap-2 rounded-lg px-2.5 sm:px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <LogOut size={16} />
-            {isArabic ? "تسجيل الخروج" : "Sign out"}
+            <span className="hidden sm:inline">{isArabic ? "تسجيل الخروج" : "Sign out"}</span>
           </button>
         </form>
       )}
+      </div>
     </div>
   );
 }
@@ -106,6 +112,7 @@ function Router() {
         <Route path="/app" component={HomePage} />
         <Route path="/record" component={RecorderPage} />
         <Route path="/share" component={SharePage} />
+        <Route path="/library" component={LibraryPage} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
         <Route path="/sign-in/*?">{() => <Redirect to="/app" />}</Route>
         <Route path="/sign-up/*?">{() => <Redirect to="/app" />}</Route>

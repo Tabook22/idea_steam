@@ -20,6 +20,8 @@ tags:
     description: Turning collected ideas into drafts
   - name: search
     description: Finding ideas, notebooks, and drafts
+  - name: audio-library
+    description: An independent list of every recording
   - name: transcription
     description: Converting recorded audio into editable text
   - name: Storage
@@ -396,6 +398,78 @@ paths:
                 $ref: "#/components/schemas/SearchResults"
         "400":
           description: Query too short or too long
+  /audio-library:
+    get:
+      operationId: listAudioLibrary
+      tags: [audio-library]
+      summary: List every recording in the audio library, newest first
+      responses:
+        "200":
+          description: Library items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AudioLibraryItem"
+    post:
+      operationId: addToAudioLibrary
+      tags: [audio-library]
+      summary: Add an idea's audio attachment to the library (for example, after removing it)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AudioLibraryAdd"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+        "200":
+          description: Already in the library
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+        "404":
+          description: Idea or audio attachment not found
+  /audio-library/{itemId}:
+    patch:
+      operationId: updateAudioLibraryItem
+      tags: [audio-library]
+      summary: Rename an item or record its measured length
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AudioLibraryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteAudioLibraryItem
+      tags: [audio-library]
+      summary: Remove an item from the library only; the idea and its audio are untouched
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      responses:
+        "204":
+          description: Removed from the library
+        "404":
+          description: Not found
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -452,6 +526,12 @@ components:
         type: integer
     IdeaId:
       name: ideaId
+      in: path
+      required: true
+      schema:
+        type: integer
+    AudioLibraryItemId:
+      name: itemId
       in: path
       required: true
       schema:
@@ -612,6 +692,58 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SearchDraftHit"
+    AudioLibraryItem:
+      type: object
+      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, capturedAt, createdAt]
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        title:
+          type: [string, "null"]
+          description: Set when renamed; otherwise null.
+        mimeType:
+          type: [string, "null"]
+        durationSeconds:
+          type: [integer, "null"]
+        transcript:
+          type: [string, "null"]
+        sourceIdeaId:
+          type: [integer, "null"]
+          description: The idea it came from, if that idea still exists.
+        sourceSubjectId:
+          type: [integer, "null"]
+          description: The idea's current subject, if the idea still exists.
+        sourceSubjectTitle:
+          type: [string, "null"]
+          description: The subject it was first saved in.
+        capturedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    AudioLibraryAdd:
+      type: object
+      required: [ideaId]
+      properties:
+        ideaId:
+          type: integer
+        attachmentIndex:
+          type: integer
+          minimum: 0
+          default: 0
+    AudioLibraryUpdate:
+      type: object
+      properties:
+        title:
+          type: [string, "null"]
+          maxLength: 200
+        durationSeconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
     HealthStatus:
       type: object
       properties:
@@ -686,6 +818,10 @@ components:
           type: string
         extractedText:
           type: string
+        durationSeconds:
+          type: integer
+          minimum: 0
+          description: Length of an audio recording, when known.
     Idea:
       type: object
       required: [id, subjectId, content, source, attachments, createdAt]

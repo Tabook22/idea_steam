@@ -27,6 +27,7 @@ export const ideasTable = pgTable("ideas", {
       note?: string;
       transcript?: string;
       extractedText?: string;
+      durationSeconds?: number;
     }>>()
     .notNull()
     .default([]),

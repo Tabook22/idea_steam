@@ -24,3 +24,4 @@ CREATE TABLE IF NOT EXISTS idea_compilation_images (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idea_compilation_images_compilation_object_idx ON idea_compilation_images(compilation_id, object_path);
 COMMIT;
+-- Later additions live in lib/db/migrations and are applied by deploy/vps/update.sh.

@@ -75,6 +75,22 @@ const ideas = [
   },
 ];
 const drafts = [];
+// Audio library: independent entries; removing one never touches the idea, and vice versa.
+const audioLibrary = [];
+const libraryItem = (entry) => {
+  const idea = ideas.find((i) => i.id === entry.sourceIdeaId);
+  return { ...entry, sourceIdeaId: idea ? idea.id : null, sourceSubjectId: idea ? idea.subjectId : null };
+};
+const addToLibrary = (idea, attachment) => {
+  const existing = audioLibrary.find((entry) => entry.url === attachment.url);
+  if (existing) return { entry: existing, created: false };
+  const entry = { id: ++nextId, url: attachment.url, title: null, mimeType: attachment.mimeType || null,
+    durationSeconds: attachment.durationSeconds ?? null, transcript: attachment.transcript || null,
+    sourceIdeaId: idea.id, sourceSubjectTitle: notebooks.find((n) => n.id === idea.subjectId)?.title || null,
+    capturedAt: idea.createdAt, createdAt: new Date().toISOString() };
+  audioLibrary.push(entry);
+  return { entry, created: true };
+};
 const audioUploads = new Map();
 const serialize = (notebook) => ({
   ...notebook,
@@ -177,6 +193,8 @@ const api = createHttpServer(async (req, res) => {
           };
           ideas.unshift(idea);
           notebook.updatedAt = idea.createdAt;
+          if (idea.source === "voice")
+            for (const attachment of idea.attachments) if (attachment.type === "audio") addToLibrary(idea, attachment);
           return send(idea, 201);
         }
         return send(ideas.filter((i) => i.subjectId === id));
@@ -208,6 +226,7 @@ const api = createHttpServer(async (req, res) => {
         ? "[نص تجريبي] هذه فكرة لتطوير التعليم. التسجيل الأصلي محفوظ."
         : "[Preview transcript] An idea about learning and creativity. Original recording preserved.";
       if (body.expectedContent === idea.content) idea.content = attachment.transcript;
+      for (const entry of audioLibrary) if (entry.url === attachment.url && !entry.transcript) entry.transcript = attachment.transcript;
       return send({ text: attachment.transcript, idea });
     }
     const ideaMatch = path.match(/^\/api\/ideas\/(\d+)$/);
@@ -245,6 +264,32 @@ const api = createHttpServer(async (req, res) => {
       if (req.method === "DELETE") {
         drafts.splice(index, 1);
         return send({});
+      }
+    }
+    if (path === "/api/audio-library") {
+      if (req.method === "GET")
+        return send([...audioLibrary].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt)).map(libraryItem));
+      if (req.method === "POST") {
+        const idea = ideas.find((i) => i.id === body.ideaId);
+        const attachment = idea?.attachments[body.attachmentIndex || 0];
+        if (!idea || attachment?.type !== "audio") return send({ error: "That recording was not found." }, 404);
+        const { entry, created } = addToLibrary(idea, attachment);
+        return send(libraryItem(entry), created ? 201 : 200);
+      }
+    }
+    const libraryMatch = path.match(/^\/api\/audio-library\/(\d+)$/);
+    if (libraryMatch) {
+      const index = audioLibrary.findIndex((entry) => entry.id === Number(libraryMatch[1]));
+      if (index < 0) return send({ error: "Not in the library" }, 404);
+      if (req.method === "PATCH") {
+        if (body.title !== undefined) audioLibrary[index].title = body.title?.trim() || null;
+        if (body.durationSeconds !== undefined) audioLibrary[index].durationSeconds = body.durationSeconds;
+        return send(libraryItem(audioLibrary[index]));
+      }
+      if (req.method === "DELETE") {
+        audioLibrary.splice(index, 1);
+        res.statusCode = 204;
+        return res.end();
       }
     }
     if (path === "/api/search") {

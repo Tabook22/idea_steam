@@ -11,6 +11,7 @@ import {
   Inbox,
   LayoutGrid,
   Lightbulb,
+  Headphones,
   Mic,
   Plus,
   Sparkles,
@@ -191,6 +192,7 @@ export default function HomePage() {
             {copy("Creation studio", "استوديو الإبداع")}
           </a>
           <Link href="/record" className="sidebar-link"><Mic size={18} />{copy("Recorder & inbox", "المسجل وصندوق التسجيلات")}</Link>
+          <Link href="/library" className="sidebar-link"><Headphones size={18} />{copy("Audio library", "مكتبة الصوت")}</Link>
         </nav>
         <div className="mt-10 flex justify-between items-center">
           <p className="sidebar-label mb-0">

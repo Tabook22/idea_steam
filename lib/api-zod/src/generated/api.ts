@@ -61,6 +61,8 @@ export const GetSubjectParams = zod.object({
 
 
 
+export const getSubjectResponseTwoIdeasItemAttachmentsItemDurationSecondsMin = 0;
+
 
 
 export const GetSubjectResponse = zod.object({
@@ -83,7 +85,8 @@ export const GetSubjectResponse = zod.object({
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
-  "extractedText": zod.string().optional()
+  "extractedText": zod.string().optional(),
+  "durationSeconds": zod.number().int().min(getSubjectResponseTwoIdeasItemAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
 })),
   "createdAt": zod.coerce.date()
 }))
@@ -135,6 +138,8 @@ export const CreateIdeaParams = zod.object({
 
 export const createIdeaBodySourceDefault = `text`;
 
+export const createIdeaBodyAttachmentsItemDurationSecondsMin = 0;
+
 export const createIdeaBodyAttachmentsDefault = [];
 
 export const CreateIdeaBody = zod.object({
@@ -149,11 +154,14 @@ export const CreateIdeaBody = zod.object({
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
-  "extractedText": zod.string().optional()
+  "extractedText": zod.string().optional(),
+  "durationSeconds": zod.number().int().min(createIdeaBodyAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
 })).default(createIdeaBodyAttachmentsDefault)
 })
 
 
+
+export const createIdeaResponseAttachmentsItemDurationSecondsMin = 0;
 
 
 
@@ -169,7 +177,8 @@ export const CreateIdeaResponse = zod.object({
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
-  "extractedText": zod.string().optional()
+  "extractedText": zod.string().optional(),
+  "durationSeconds": zod.number().int().min(createIdeaResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -183,6 +192,8 @@ export const ListIdeasParams = zod.object({
 })
 
 
+
+export const listIdeasResponseAttachmentsItemDurationSecondsMin = 0;
 
 
 
@@ -198,7 +209,8 @@ export const ListIdeasResponseItem = zod.object({
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
-  "extractedText": zod.string().optional()
+  "extractedText": zod.string().optional(),
+  "durationSeconds": zod.number().int().min(listIdeasResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -216,6 +228,8 @@ export const UpdateIdeaParams = zod.object({
 
 
 
+export const updateIdeaBodyAttachmentsItemDurationSecondsMin = 0;
+
 
 
 export const UpdateIdeaBody = zod.object({
@@ -228,11 +242,14 @@ export const UpdateIdeaBody = zod.object({
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
-  "extractedText": zod.string().optional()
+  "extractedText": zod.string().optional(),
+  "durationSeconds": zod.number().int().min(updateIdeaBodyAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
 })).optional()
 })
 
 
+
+export const updateIdeaResponseAttachmentsItemDurationSecondsMin = 0;
 
 
 
@@ -248,7 +265,8 @@ export const UpdateIdeaResponse = zod.object({
   "mimeType": zod.string().optional(),
   "note": zod.string().optional(),
   "transcript": zod.string().optional(),
-  "extractedText": zod.string().optional()
+  "extractedText": zod.string().optional(),
+  "durationSeconds": zod.number().int().min(updateIdeaResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -502,6 +520,97 @@ export const SearchWorkspaceResponse = zod.object({
   "updatedAt": zod.coerce.date()
 }))
 })
+
+
+/**
+ * @summary List every recording in the audio library, newest first
+ */
+export const ListAudioLibraryResponseItem = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+export const ListAudioLibraryResponse = zod.array(ListAudioLibraryResponseItem)
+
+
+/**
+ * @summary Add an idea's audio attachment to the library (for example, after removing it)
+ */
+export const addToAudioLibraryBodyAttachmentIndexDefault = 0;
+export const addToAudioLibraryBodyAttachmentIndexMin = 0;
+
+
+
+export const AddToAudioLibraryBody = zod.object({
+  "ideaId": zod.number().int(),
+  "attachmentIndex": zod.number().int().min(addToAudioLibraryBodyAttachmentIndexMin).default(addToAudioLibraryBodyAttachmentIndexDefault)
+})
+
+export const AddToAudioLibraryResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Rename an item or record its measured length
+ */
+export const UpdateAudioLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const updateAudioLibraryItemBodyTitleMax = 200;
+
+export const updateAudioLibraryItemBodyDurationSecondsMin = 0;
+export const updateAudioLibraryItemBodyDurationSecondsMax = 86400;
+
+
+
+export const UpdateAudioLibraryItemBody = zod.object({
+  "title": zod.string().max(updateAudioLibraryItemBodyTitleMax).nullish(),
+  "durationSeconds": zod.number().int().min(updateAudioLibraryItemBodyDurationSecondsMin).max(updateAudioLibraryItemBodyDurationSecondsMax).optional()
+})
+
+export const UpdateAudioLibraryItemResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Remove an item from the library only; the idea and its audio are untouched
+ */
+export const DeleteAudioLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const DeleteAudioLibraryItemResponse = zod.void()
 
 
 /**

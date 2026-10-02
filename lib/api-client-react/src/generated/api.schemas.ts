@@ -131,6 +131,58 @@ export interface SearchResults {
   drafts: SearchDraftHit[];
 }
 
+export interface AudioLibraryItem {
+  id: number;
+  url: string;
+  /**
+     * Set when renamed; otherwise null.
+     * @nullable
+     */
+  title: string | null;
+  /** @nullable */
+  mimeType: string | null;
+  /** @nullable */
+  durationSeconds: number | null;
+  /** @nullable */
+  transcript: string | null;
+  /**
+     * The idea it came from, if that idea still exists.
+     * @nullable
+     */
+  sourceIdeaId: number | null;
+  /**
+     * The idea's current subject, if the idea still exists.
+     * @nullable
+     */
+  sourceSubjectId: number | null;
+  /**
+     * The subject it was first saved in.
+     * @nullable
+     */
+  sourceSubjectTitle: string | null;
+  capturedAt: string;
+  createdAt: string;
+}
+
+export interface AudioLibraryAdd {
+  ideaId: number;
+  /** @minimum 0 */
+  attachmentIndex?: number;
+}
+
+export interface AudioLibraryUpdate {
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  title?: string | null;
+  /**
+     * @minimum 0
+     * @maximum 86400
+     */
+  durationSeconds?: number;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -180,6 +232,11 @@ export interface IdeaAttachment {
   note?: string;
   transcript?: string;
   extractedText?: string;
+  /**
+     * Length of an audio recording, when known.
+     * @minimum 0
+     */
+  durationSeconds?: number;
 }
 
 export interface Idea {

@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
+import { Headphones, Plus } from "lucide-react";
+import { addToAudioLibrary, getListAudioLibraryQueryKey, useListAudioLibrary } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
 import { appPath } from "@/lib/app-path";
 
 /** Works from any device using the original audio already saved on the server. */
-export function AudioTranscript({ ideaId, attachmentIndex, transcript }: {
-  ideaId: number; attachmentIndex: number; transcript?: string;
+export function AudioTranscript({ ideaId, attachmentIndex, transcript, url }: {
+  ideaId: number; attachmentIndex: number; transcript?: string; url: string;
 }) {
   const { isArabic } = useLanguage();
   const copy = (en: string, ar: string) => isArabic ? ar : en;
@@ -17,6 +20,18 @@ export function AudioTranscript({ ideaId, attachmentIndex, transcript }: {
   const [copied, setCopied] = useState(false);
   const queryClient = useQueryClient();
   const value = transcript || text;
+  const { data: library } = useListAudioLibrary();
+  const inLibrary = library?.some((item) => item.url === url);
+  const [adding, setAdding] = useState(false);
+  async function addToLibrary() {
+    setAdding(true);
+    try {
+      await addToAudioLibrary({ ideaId, attachmentIndex });
+      await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+    } catch {
+      setError(copy("Couldn't add it to the audio library.", "تعذرت إضافته إلى مكتبة الصوت."));
+    } finally { setAdding(false); }
+  }
   async function convert() {
     setBusy(true); setError("");
     try {
@@ -33,7 +48,12 @@ export function AudioTranscript({ ideaId, attachmentIndex, transcript }: {
     } finally { setBusy(false); }
   }
   return <div className="border-t p-3 space-y-3">
-    <p className="text-sm font-medium">{copy("Recording transcript", "نص التسجيل")}</p>
+    <div className="flex items-center justify-between gap-2">
+      <p className="text-sm font-medium">{copy("Recording transcript", "نص التسجيل")}</p>
+      {library && (inLibrary
+        ? <Link href="/library" className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary"><Headphones size={12} />{copy("In audio library", "في مكتبة الصوت")}</Link>
+        : <button type="button" disabled={adding} onClick={() => void addToLibrary()} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:border-primary/40 hover:text-primary disabled:opacity-60"><Plus size={12} />{copy("Add to audio library", "أضف إلى مكتبة الصوت")}</button>)}
+    </div>
     {value ? <>
       <p dir="auto" className="whitespace-pre-wrap text-sm leading-7 max-h-72 overflow-y-auto select-text">{value}</p>
       <div className="flex flex-wrap gap-2">

@@ -122,7 +122,7 @@ export async function syncRecording(
       capturedAt: record.capturedAt,
       content: record.transcript || record.title,
       source: "voice",
-      attachments: [{ type: "audio", ...record.uploadedAudio }],
+      attachments: [{ type: "audio", ...record.uploadedAudio, ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}) }],
     });
     await store.patch(id, {
       status: "synced",

@@ -17,4 +17,9 @@ export interface IdeaAttachment {
   note?: string;
   transcript?: string;
   extractedText?: string;
+  /**
+     * Length of an audio recording, when known.
+     * @minimum 0
+     */
+  durationSeconds?: number;
 }

@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { AudioLines, Home, Mic, Plus, Search } from "lucide-react";
+import { AudioLines, Headphones, Home, Mic, Plus } from "lucide-react";
 import { useListSubjects } from "@workspace/api-client-react";
 import { useRecorder } from "@/components/recorder-provider";
 import { openCapture } from "@/components/capture-sheet";
-import { openSearch } from "@/components/workspace-search";
 import { usePressToTalk } from "@/components/press-to-talk";
 import { isInbox } from "@/lib/inbox";
 import { useLanguage } from "@/lib/i18n";
@@ -67,7 +66,7 @@ export function BottomNav() {
       >
         <div className="mx-auto grid h-16 max-w-md grid-cols-5 items-stretch">
           <Tab href="/app" label={copy("Home", "الرئيسية")} icon={<Home size={22} />} active={location === "/app" || location === "/"} />
-          <Tab label={copy("Search", "بحث")} icon={<Search size={22} />} onClick={openSearch} />
+          <Tab href="/library" label={copy("Library", "المكتبة")} icon={<Headphones size={22} />} active={location.startsWith("/library")} />
           <div className="relative flex justify-center">
             <button
               type="button"

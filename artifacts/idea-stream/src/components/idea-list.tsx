@@ -306,7 +306,7 @@ function AttachmentCard({
       )}
       {attachment.type === "audio" && <>
         <div className="border-t px-2 py-2"><audio src={appPath(attachment.url, import.meta.env.BASE_URL)} controls preload="metadata" className="h-9 w-full" /></div>
-        <AudioTranscript ideaId={idea.id} attachmentIndex={attachmentIndex} transcript={attachment.transcript} />
+        <AudioTranscript ideaId={idea.id} attachmentIndex={attachmentIndex} transcript={attachment.transcript} url={attachment.url} />
       </>}
       <div className="border-t p-3">
         {isEditingNote ? (

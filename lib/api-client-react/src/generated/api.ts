@@ -20,6 +20,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AudioLibraryAdd,
+  AudioLibraryItem,
+  AudioLibraryUpdate,
   Compilation,
   CompilationDownloadInput,
   CompilationInput,
@@ -1898,6 +1901,334 @@ export function useSearchWorkspace<TData = Awaited<ReturnType<typeof searchWorks
 
 
 
+
+export const getListAudioLibraryUrl = () => {
+
+
+
+
+  return `/api/audio-library`
+}
+
+/**
+ * @summary List every recording in the audio library, newest first
+ */
+export const listAudioLibrary = async ( options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem[]> => {
+
+  return customFetch<AudioLibraryItem[]>(getListAudioLibraryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAudioLibraryQueryKey = () => {
+    return [
+    `/api/audio-library`
+    ] as const;
+    }
+
+
+export const getListAudioLibraryQueryOptions = <TData = Awaited<ReturnType<typeof listAudioLibrary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAudioLibrary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAudioLibraryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAudioLibrary>>> = ({ signal }) => listAudioLibrary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAudioLibrary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAudioLibraryQueryResult = NonNullable<Awaited<ReturnType<typeof listAudioLibrary>>>
+export type ListAudioLibraryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List every recording in the audio library, newest first
+ */
+
+export function useListAudioLibrary<TData = Awaited<ReturnType<typeof listAudioLibrary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAudioLibrary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAudioLibraryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddToAudioLibraryUrl = () => {
+
+
+
+
+  return `/api/audio-library`
+}
+
+/**
+ * @summary Add an idea's audio attachment to the library (for example, after removing it)
+ */
+export const addToAudioLibrary = async (audioLibraryAdd: AudioLibraryAdd, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getAddToAudioLibraryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(audioLibraryAdd)
+  }
+);}
+
+
+
+
+
+export const getAddToAudioLibraryMutationKey = () => ['addToAudioLibrary'] as const;
+
+export const getAddToAudioLibraryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addToAudioLibrary>>, TError,AddToAudioLibraryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addToAudioLibrary>>, TError,AddToAudioLibraryMutationVariables, TContext> => {
+
+const mutationKey = getAddToAudioLibraryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addToAudioLibrary>>, AddToAudioLibraryMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  addToAudioLibrary(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddToAudioLibraryMutationResult = NonNullable<Awaited<ReturnType<typeof addToAudioLibrary>>>
+    export type AddToAudioLibraryMutationBody = BodyType<AudioLibraryAdd>
+    export type AddToAudioLibraryMutationError = ErrorType<void>
+    export type AddToAudioLibraryMutationVariables = {data: BodyType<AudioLibraryAdd>}
+
+    /**
+ * @summary Add an idea's audio attachment to the library (for example, after removing it)
+ */
+export const useAddToAudioLibrary = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addToAudioLibrary>>, TError,AddToAudioLibraryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addToAudioLibrary>>,
+        TError,
+        AddToAudioLibraryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAddToAudioLibraryMutationOptions(options));
+    }
+
+export const getUpdateAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}`
+}
+
+/**
+ * @summary Rename an item or record its measured length
+ */
+export const updateAudioLibraryItem = async (itemId: number,
+    audioLibraryUpdate: AudioLibraryUpdate, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getUpdateAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(audioLibraryUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateAudioLibraryItemMutationKey = () => ['updateAudioLibraryItem'] as const;
+
+export const getUpdateAudioLibraryItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAudioLibraryItem>>, TError,UpdateAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAudioLibraryItem>>, TError,UpdateAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getUpdateAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAudioLibraryItem>>, UpdateAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  updateAudioLibraryItem(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateAudioLibraryItem>>>
+    export type UpdateAudioLibraryItemMutationBody = BodyType<AudioLibraryUpdate>
+    export type UpdateAudioLibraryItemMutationError = ErrorType<void>
+    export type UpdateAudioLibraryItemMutationVariables = {itemId: number;data: BodyType<AudioLibraryUpdate>}
+
+    /**
+ * @summary Rename an item or record its measured length
+ */
+export const useUpdateAudioLibraryItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAudioLibraryItem>>, TError,UpdateAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAudioLibraryItem>>,
+        TError,
+        UpdateAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateAudioLibraryItemMutationOptions(options));
+    }
+
+export const getDeleteAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}`
+}
+
+/**
+ * @summary Remove an item from the library only; the idea and its audio are untouched
+ */
+export const deleteAudioLibraryItem = async (itemId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAudioLibraryItemMutationKey = () => ['deleteAudioLibraryItem'] as const;
+
+export const getDeleteAudioLibraryItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAudioLibraryItem>>, TError,DeleteAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAudioLibraryItem>>, TError,DeleteAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getDeleteAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAudioLibraryItem>>, DeleteAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  deleteAudioLibraryItem(itemId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAudioLibraryItem>>>
+
+    export type DeleteAudioLibraryItemMutationError = ErrorType<void>
+    export type DeleteAudioLibraryItemMutationVariables = {itemId: number}
+
+    /**
+ * @summary Remove an item from the library only; the idea and its audio are untouched
+ */
+export const useDeleteAudioLibraryItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAudioLibraryItem>>, TError,DeleteAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAudioLibraryItem>>,
+        TError,
+        DeleteAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteAudioLibraryItemMutationOptions(options));
+    }
 
 export const getRequestUploadUrlUrl = () => {
 

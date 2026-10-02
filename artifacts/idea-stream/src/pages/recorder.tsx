@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Check,
   CheckCircle2,
@@ -573,9 +572,9 @@ export default function RecorderPage() {
     <main className="mx-auto max-w-4xl px-4 pb-28 pt-2 sm:px-8">
 
       <div className="flex items-center justify-between gap-3">
-        <Link href="/app" className="inline-flex items-center gap-2 py-3 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft size={16} className={isArabic ? "rotate-180" : ""} />
-          {copy("My notebooks", "دفاتري")}
+        <Link href="/library" className="inline-flex items-center gap-2 py-3 text-sm font-medium text-primary hover:underline">
+          <Headphones size={16} />
+          {copy("Open the audio library", "افتح مكتبة الصوت")}
         </Link>
         {!online && (
           <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">

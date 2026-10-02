@@ -5,8 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import htmlToDocx from "html-to-docx";
-import { and, asc, count, desc, eq, isNotNull, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, isNull, inArray } from "drizzle-orm";
 import {
+  audioLibraryTable,
   compilationImagesTable,
   db,
   ideaChatMessagesTable,
@@ -64,6 +65,7 @@ import {
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/storage-service";
 import sanitizeHtml from "sanitize-html";
 import { mergeRecordingTranscript } from "../lib/recording-transcript";
+import { addRecordingsToLibrary } from "./audio-library";
 import { normalizeYoutubeVideoUrl } from "../lib/youtube-url";
 
 const router: IRouter = Router();
@@ -419,6 +421,9 @@ router.post("/ideas/:ideaId/transcription", async (req, res): Promise<void> => {
       return updated;
     });
     if (!result) { res.status(409).json({ error: "The recording changed. Refresh and try again." }); return; }
+    await db.update(audioLibraryTable).set({ transcript: text })
+      .where(and(eq(audioLibraryTable.url, attachment.url), isNull(audioLibraryTable.transcript)))
+      .catch(() => { /* The library copy can be transcribed later; the idea is already saved. */ });
     const savedText = result.attachments.find(item => item.url === attachment.url)?.transcript || text;
     res.json({ text: savedText, idea: serializeIdea(result) });
   } catch (error) {
@@ -728,7 +733,7 @@ router.post("/subjects/:subjectId/ideas", async (req, res): Promise<void> => {
     const [existing] = await db.select().from(ideasTable).where(eq(ideasTable.clientCaptureId, body.data.clientCaptureId));
     if (existing) { res.status(200).json(CreateIdeaResponse.parse(serializeIdea(existing))); return; }
   }
-  const [destination] = await db.select({ id: subjectsTable.id }).from(subjectsTable).where(eq(subjectsTable.id, params.data.subjectId));
+  const [destination] = await db.select({ id: subjectsTable.id, title: subjectsTable.title }).from(subjectsTable).where(eq(subjectsTable.id, params.data.subjectId));
   if (!destination) { res.status(404).json({ error: "Subject not found" }); return; }
   const [inserted] = await db
     .insert(ideasTable)
@@ -744,6 +749,11 @@ router.post("/subjects/:subjectId/ideas", async (req, res): Promise<void> => {
     .returning();
   const idea = inserted ?? (body.data.clientCaptureId ? (await db.select().from(ideasTable).where(eq(ideasTable.clientCaptureId, body.data.clientCaptureId)))[0] : undefined);
   if (!idea) { res.status(409).json({ error: "Capture could not be saved" }); return; }
+  if (inserted) {
+    // Every new recording also gets its own entry in the audio library.
+    await addRecordingsToLibrary(db, inserted, destination.title).catch((error) =>
+      req.log?.warn({ err: error }, "Could not add recording to the audio library"));
+  }
 
   await db
     .update(subjectsTable)
