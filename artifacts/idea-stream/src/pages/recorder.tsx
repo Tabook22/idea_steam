@@ -104,7 +104,8 @@ function RecordingCard({ record, subjects, inboxIds }: {
   const filedSubject = record.subjectId !== null && !inboxIds.has(record.subjectId)
     ? subjects.find((subject) => subject.id === record.subjectId)
     : undefined;
-  const filed = !!filedSubject;
+  const inLibrary = record.destination === "library";
+  const filed = !!filedSubject || inLibrary;
   const choices = subjects.filter((subject) => !inboxIds.has(subject.id));
   const suggested = record.transcript ? spokenSubject(record.transcript, choices) : null;
   const suggestedSubject = suggested !== null && suggested !== record.subjectId
@@ -257,7 +258,7 @@ function RecordingCard({ record, subjects, inboxIds }: {
             {transcribing ? copy("Writing…", "يكتب…") : copy("Text", "النص")}
           </Step>
           <Step number={3} done={filed} active={hasText && !filed}>
-            {copy("Filed", "مُصنّف")}
+            {inLibrary ? copy("Library", "المكتبة") : copy("Filed", "مُصنّف")}
           </Step>
         </div>
       </div>
@@ -351,6 +352,19 @@ function RecordingCard({ record, subjects, inboxIds }: {
           </div>
         )}
 
+        {inLibrary ? (
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary/10 px-4 py-3">
+            <p className="flex items-center gap-2 text-sm">
+              <Headphones size={18} className="shrink-0 text-primary" />
+              {record.status === "synced"
+                ? copy("Saved to your audio library only", "محفوظ في مكتبة الصوت فقط")
+                : copy("Will be saved to your audio library", "سيُحفظ في مكتبة الصوت")}
+            </p>
+            <Button size="sm" variant="ghost" className="h-9 text-primary" asChild>
+              <Link href="/library">{copy("Open library", "افتح المكتبة")}<ArrowUpRight size={14} className="ms-1" /></Link>
+            </Button>
+          </div>
+        ) : (
         <div className="mt-6">
           {filed && !changing ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary/10 px-4 py-3">
@@ -440,6 +454,7 @@ function RecordingCard({ record, subjects, inboxIds }: {
             </div>
           )}
         </div>
+        )}
 
         {(error || (record.status !== "synced" && record.error)) && (
           <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" role="status">
@@ -550,7 +565,7 @@ export default function RecorderPage() {
   const destinationId = prefs.subjectId !== null && choices.some((subject) => subject.id === prefs.subjectId) ? prefs.subjectId : null;
 
   const finished = records.filter((record) => record.status !== "recording");
-  const isFiled = (record: LocalRecording) => record.subjectId !== null && !inboxIds.has(record.subjectId) && subjects.some((subject) => subject.id === record.subjectId);
+  const isFiled = (record: LocalRecording) => record.destination === "library" || record.subjectId !== null && !inboxIds.has(record.subjectId) && subjects.some((subject) => subject.id === record.subjectId);
   const toSort = finished.filter((record) => !isFiled(record));
   const filed = finished.filter(isFiled);
   const shown = filter === "sort" ? toSort : filter === "filed" ? filed : finished;

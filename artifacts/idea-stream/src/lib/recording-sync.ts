@@ -1,5 +1,5 @@
 import { appPath, uploadCredentials } from "./app-path.ts";
-import type { Idea, Subject } from "@workspace/api-client-react";
+import type { AudioLibraryItem, Idea, Subject } from "@workspace/api-client-react";
 import { RecordingStore } from "./recording-store.ts";
 import {
   retryDelay,
@@ -60,7 +60,7 @@ export async function syncRecording(
   store: RecordingStore,
   id: string,
   { fetcher = fetch, changed, basePath = "/" }: SyncOptions = {},
-): Promise<Idea | null> {
+): Promise<Idea | AudioLibraryItem | null> {
   const nativeFetch = fetcher;
   fetcher = (input, options) =>
     nativeFetch(
@@ -91,6 +91,19 @@ export async function syncRecording(
         mimeType,
       };
       await store.patch(id, { uploadedAudio: record.uploadedAudio });
+    }
+    if (record.destination === "library") {
+      // Library-only recordings skip subjects entirely.
+      const item = await json<AudioLibraryItem>(fetcher, "/api/audio-library/recordings", {
+        url: record.uploadedAudio.url,
+        clientCaptureId: record.id,
+        mimeType: record.uploadedAudio.mimeType,
+        capturedAt: record.capturedAt,
+        ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}),
+      });
+      await store.patch(id, { status: "synced", libraryItemId: item.id, error: undefined, nextRetryAt: 0, attempts: 0 });
+      changed?.();
+      return item;
     }
     const subjects = await json<Subject[]>(fetcher, "/api/subjects");
     let subjectId = record.subjectId;
@@ -158,8 +171,21 @@ export async function transcribeRecording(
   { fetcher = fetch, changed, basePath = "/" }: SyncOptions = {},
 ) {
   const record = await store.get(id);
-  if (!record?.ideaId || record.status !== "synced" || record.transcriptionStatus === "done") return null;
+  if (!record || record.status !== "synced" || record.transcriptionStatus === "done") return null;
+  if (record.destination === "library" ? !record.libraryItemId : !record.ideaId) return null;
   try {
+    if (record.destination === "library") {
+      const response = await request(fetcher, appPath(`/api/audio-library/${record.libraryItemId}/transcription`, basePath), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: record.transcriptionLanguage || "auto" }),
+      });
+      const item = await response.json() as AudioLibraryItem;
+      if (!item.transcript?.trim()) throw new Error("No speech detected");
+      await store.patch(id, { transcript: item.transcript, transcriptionStatus: "done", transcriptionError: undefined,
+        transcriptionAttempts: 0, nextTranscriptionAt: 0 });
+      changed?.();
+      return item;
+    }
     const response = await request(fetcher, appPath(`/api/ideas/${record.ideaId}/transcription`, basePath), {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ language: record.transcriptionLanguage || "auto", expectedContent: record.title }),

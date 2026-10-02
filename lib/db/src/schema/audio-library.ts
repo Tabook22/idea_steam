@@ -19,6 +19,8 @@ export const audioLibraryTable = pgTable(
     /** Where it was first saved. A plain reference: the idea may later be moved or deleted. */
     sourceIdeaId: integer("source_idea_id"),
     sourceSubjectTitle: text("source_subject_title"),
+    /** Set for recordings made straight into the library, so upload retries never duplicate them. */
+    clientCaptureId: text("client_capture_id").unique(),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

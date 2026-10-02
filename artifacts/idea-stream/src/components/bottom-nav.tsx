@@ -46,8 +46,10 @@ export function BottomNav() {
   const remembered = prefs.subjectId !== null && subjects.some((s) => s.id === prefs.subjectId && !isInbox(s)) ? prefs.subjectId : null;
   const target = notebook ?? remembered;
   const inboxIds = new Set(subjects.filter(isInbox).map((s) => s.id));
-  const toSort = records.filter((r) => r.status !== "recording" && (r.subjectId === null || inboxIds.has(r.subjectId))).length;
-  const options = { language: prefs.language, autoTranscribe: prefs.autoTranscribe };
+  const toSort = records.filter((r) => r.status !== "recording" && r.destination !== "library" && (r.subjectId === null || inboxIds.has(r.subjectId))).length;
+  // On the library page, REC saves only to the library (like a notebook page records into that notebook).
+  const libraryOnly = location.startsWith("/library");
+  const options = { language: prefs.language, autoTranscribe: prefs.autoTranscribe, libraryOnly };
   const talk = usePressToTalk({
     disabled: !ready || !!rescue || stage !== "idle",
     onTap: () => void start(target, prefs.limit, options),

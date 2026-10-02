@@ -43,8 +43,10 @@ export type StartOptions = {
   autoTranscribe: boolean;
   /** Push-to-talk: the recording stops when the press is released. */
   hold?: boolean;
+  /** Save only to the audio library, not to any subject. */
+  libraryOnly?: boolean;
 };
-type RecordingTarget = { subjectId: number | null; limit: number; autoTranscribe: boolean; hold: boolean };
+type RecordingTarget = { subjectId: number | null; limit: number; autoTranscribe: boolean; hold: boolean; libraryOnly: boolean };
 type RecorderContextValue = {
   records: LocalRecording[];
   stage: Stage;
@@ -217,6 +219,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         limit: Math.min(900, Math.max(10, limit)),
         autoTranscribe: options?.autoTranscribe ?? true,
         hold: options?.hold ?? false,
+        libraryOnly: options?.libraryOnly ?? false,
       });
       setStage("starting");
       setError(null);
@@ -251,7 +254,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           language,
           transcriptionLanguage: options?.language || "auto",
           autoTranscribe: options?.autoTranscribe ?? true,
-          subjectId,
+          subjectId: options?.libraryOnly ? null : subjectId,
+          ...(options?.libraryOnly ? { destination: "library" as const } : {}),
           attempts: 0,
           nextRetryAt: 0,
         });

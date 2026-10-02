@@ -34,6 +34,8 @@ import type {
   IdeaChatMessageInput,
   IdeaInput,
   IdeaUpdate,
+  LibraryRecordingInput,
+  LibraryTranscriptionInput,
   NoteTranslation,
   NoteTranslationInput,
   SearchResults,
@@ -2065,6 +2067,183 @@ export const useAddToAudioLibrary = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getAddToAudioLibraryMutationOptions(options));
+    }
+
+export const getCreateLibraryRecordingUrl = () => {
+
+
+
+
+  return `/api/audio-library/recordings`
+}
+
+/**
+ * @summary Save an uploaded recording straight into the library, without an idea in any subject
+ */
+export const createLibraryRecording = async (libraryRecordingInput: LibraryRecordingInput, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getCreateLibraryRecordingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(libraryRecordingInput)
+  }
+);}
+
+
+
+
+
+export const getCreateLibraryRecordingMutationKey = () => ['createLibraryRecording'] as const;
+
+export const getCreateLibraryRecordingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLibraryRecording>>, TError,CreateLibraryRecordingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLibraryRecording>>, TError,CreateLibraryRecordingMutationVariables, TContext> => {
+
+const mutationKey = getCreateLibraryRecordingMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLibraryRecording>>, CreateLibraryRecordingMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLibraryRecording(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLibraryRecordingMutationResult = NonNullable<Awaited<ReturnType<typeof createLibraryRecording>>>
+    export type CreateLibraryRecordingMutationBody = BodyType<LibraryRecordingInput>
+    export type CreateLibraryRecordingMutationError = ErrorType<void>
+    export type CreateLibraryRecordingMutationVariables = {data: BodyType<LibraryRecordingInput>}
+
+    /**
+ * @summary Save an uploaded recording straight into the library, without an idea in any subject
+ */
+export const useCreateLibraryRecording = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLibraryRecording>>, TError,CreateLibraryRecordingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createLibraryRecording>>,
+        TError,
+        CreateLibraryRecordingMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLibraryRecordingMutationOptions(options));
+    }
+
+export const getTranscribeLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/transcription`
+}
+
+/**
+ * @summary Convert a library recording to text, keeping the spoken language
+ */
+export const transcribeLibraryItem = async (itemId: number,
+    libraryTranscriptionInput: LibraryTranscriptionInput, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getTranscribeLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(libraryTranscriptionInput)
+  }
+);}
+
+
+
+
+
+export const getTranscribeLibraryItemMutationKey = () => ['transcribeLibraryItem'] as const;
+
+export const getTranscribeLibraryItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transcribeLibraryItem>>, TError,TranscribeLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transcribeLibraryItem>>, TError,TranscribeLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getTranscribeLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transcribeLibraryItem>>, TranscribeLibraryItemMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  transcribeLibraryItem(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TranscribeLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof transcribeLibraryItem>>>
+    export type TranscribeLibraryItemMutationBody = BodyType<LibraryTranscriptionInput>
+    export type TranscribeLibraryItemMutationError = ErrorType<void>
+    export type TranscribeLibraryItemMutationVariables = {itemId: number;data: BodyType<LibraryTranscriptionInput>}
+
+    /**
+ * @summary Convert a library recording to text, keeping the spoken language
+ */
+export const useTranscribeLibraryItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transcribeLibraryItem>>, TError,TranscribeLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof transcribeLibraryItem>>,
+        TError,
+        TranscribeLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getTranscribeLibraryItemMutationOptions(options));
     }
 
 export const getUpdateAudioLibraryItemUrl = (itemId: number,) => {

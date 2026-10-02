@@ -570,6 +570,66 @@ export const AddToAudioLibraryResponse = zod.object({
 
 
 /**
+ * @summary Save an uploaded recording straight into the library, without an idea in any subject
+ */
+
+export const createLibraryRecordingBodyDurationSecondsMin = 0;
+export const createLibraryRecordingBodyDurationSecondsMax = 86400;
+
+
+
+export const CreateLibraryRecordingBody = zod.object({
+  "url": zod.string().min(1).describe('Path of the uploaded audio in this app\'s storage.'),
+  "clientCaptureId": zod.string().uuid().describe('Stable recording ID so a retried upload is saved once.'),
+  "mimeType": zod.string().optional(),
+  "durationSeconds": zod.number().int().min(createLibraryRecordingBodyDurationSecondsMin).max(createLibraryRecordingBodyDurationSecondsMax).optional(),
+  "capturedAt": zod.coerce.date().optional()
+})
+
+export const CreateLibraryRecordingResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Convert a library recording to text, keeping the spoken language
+ */
+export const TranscribeLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const transcribeLibraryItemBodyLanguageDefault = `auto`;
+
+export const TranscribeLibraryItemBody = zod.object({
+  "language": zod.enum(['auto', 'en', 'ar']).default(transcribeLibraryItemBodyLanguageDefault)
+})
+
+export const TranscribeLibraryItemResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Rename an item or record its measured length
  */
 export const UpdateAudioLibraryItemParams = zod.object({

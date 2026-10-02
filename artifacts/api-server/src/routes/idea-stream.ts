@@ -66,13 +66,13 @@ import { ObjectNotFoundError, ObjectStorageService } from "../lib/storage-servic
 import sanitizeHtml from "sanitize-html";
 import { mergeRecordingTranscript } from "../lib/recording-transcript";
 import { addRecordingsToLibrary } from "./audio-library";
+import { canonicalStorageUrl, transcribeStoredAudio, transcriptionFailure } from "../lib/stored-transcription";
 import { normalizeYoutubeVideoUrl } from "../lib/youtube-url";
 
 const router: IRouter = Router();
 const execFileAsync = promisify(execFile);
 const objectStorageService = new ObjectStorageService();
-const appBasePath = (process.env.APP_BASE_PATH || "").replace(/\/$/, "");
-const canonicalStorageUrl = (url: string) => appBasePath && url.startsWith(`${appBasePath}/api/storage/`) ? url.slice(appBasePath.length) : url;
+
 
 router.use((req, res, next) => {
   const needsAI = req.method === "POST" && (/^\/(transcriptions|note-translations)$/.test(req.path) || /\/(compile|transcription|chat\/messages)$/.test(req.path));
@@ -367,7 +367,6 @@ router.post("/transcriptions", async (req, res): Promise<void> => {
 });
 
 // Use the already saved audio: no second upload, and retries reuse the stored transcript.
-const transcriptionJobs = new Map<string, Promise<string>>();
 router.post("/ideas/:ideaId/transcription", async (req, res): Promise<void> => {
   const id = Number(req.params.ideaId);
   const index = req.body?.attachmentIndex ?? 0;
@@ -387,35 +386,12 @@ router.post("/ideas/:ideaId/transcription", async (req, res): Promise<void> => {
     if (!url.startsWith("/api/storage/objects/")) {
       res.status(400).json({ error: "Only recordings saved in this app can be transcribed" }); return;
     }
-    let text = attachment.transcript;
-    if (!text) {
-      const key = `${id}:${attachment.url}`;
-      let job = transcriptionJobs.get(key);
-      if (!job) {
-        if (transcriptionJobs.size >= 2) { res.status(429).json({ error: "Transcription is busy. Please retry shortly." }); return; }
-        job = (async () => {
-          const file = await objectStorageService.getObjectEntityFile(url.slice("/api/storage".length));
-          const response = await objectStorageService.downloadObject(file, 0);
-          if (Number(response.headers.get("content-length")) > 24 * 1024 * 1024) {
-            await response.body?.cancel();
-            throw new Error("audio-too-large");
-          }
-          const audio = Buffer.from(await response.arrayBuffer());
-          if (audio.length > 24 * 1024 * 1024) throw new Error("audio-too-large");
-          const detected = detectAudioFormat(audio);
-          if (detected === "unknown") throw new Error("unsupported-audio");
-          const prepared = detected === "ogg" ? await ensureCompatibleFormat(audio) : { buffer: audio, format: detected };
-          return (await speechToText(prepared.buffer, prepared.format, language === "auto" ? undefined : language)).trim();
-        })();
-        transcriptionJobs.set(key, job);
-      }
-      try { text = await job; } finally { transcriptionJobs.delete(key); }
-    }
+    const text = attachment.transcript || await transcribeStoredAudio(url, language);
     if (!text) { res.status(422).json({ error: "No speech was detected. Your audio is still saved." }); return; }
     const result = await db.transaction(async tx => {
       const [latest] = await tx.select().from(ideasTable).where(eq(ideasTable.id, id)).for("update");
       if (!latest || !latest.attachments.some(item => item.type === "audio" && item.url === attachment.url)) return null;
-      const merged = mergeRecordingTranscript(latest.content, latest.attachments, attachment.url, text!, req.body.expectedContent);
+      const merged = mergeRecordingTranscript(latest.content, latest.attachments, attachment.url, text, req.body.expectedContent);
       const [updated] = await tx.update(ideasTable).set(merged).where(eq(ideasTable.id, id)).returning();
       await tx.update(subjectsTable).set({ updatedAt: new Date() }).where(eq(subjectsTable.id, updated.subjectId));
       return updated;
@@ -427,23 +403,8 @@ router.post("/ideas/:ideaId/transcription", async (req, res): Promise<void> => {
     const savedText = result.attachments.find(item => item.url === attachment.url)?.transcript || text;
     res.json({ text: savedText, idea: serializeIdea(result) });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    const status = (error as { status?: number })?.status;
-    const reason = error instanceof ObjectNotFoundError ? "missing-audio"
-      : ["audio-too-large", "unsupported-audio"].includes(message) ? message
-      : status === 400 ? "provider-rejected-audio" : "provider-or-storage";
-    // Never log audio, provider request bodies, or credentials.
-    console.warn("Saved recording transcription failed", { status, reason });
-    // Permanent failures get a 4xx so clients do not keep retrying them.
-    const [code, text]: [number, string] =
-      reason === "missing-audio" ? [404, "The saved audio file could not be found on the server."]
-      : reason === "audio-too-large" ? [413, "This recording exceeds the 24 MB transcription limit. Download and split it into shorter recordings."]
-      : reason === "unsupported-audio" ? [415, "This audio format can't be transcribed. Use MP3, WAV, M4A, WebM, or OGG."]
-      : reason === "provider-rejected-audio" ? [422, "The transcription service couldn't read this audio. Your recording is still saved."]
-      : status === 401 || status === 403 ? [503, "The server's OpenAI key cannot access transcription. Check its permissions."]
-      : status === 429 ? [429, "OpenAI quota or rate limit reached. Check API billing or retry later."]
-      : [502, "Transcription could not finish. Your recording is saved; please retry."];
-    res.status(code).json({ error: text });
+    const [code, message] = transcriptionFailure(error);
+    res.status(code).json({ error: message });
   }
 });
 

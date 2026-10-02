@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, or } from "drizzle-orm";
 import {
   audioLibraryTable,
   db,
@@ -9,9 +9,17 @@ import {
 } from "@workspace/db";
 import {
   AddToAudioLibraryBody,
+  CreateLibraryRecordingBody,
+  TranscribeLibraryItemBody,
   UpdateAudioLibraryItemBody,
   UpdateAudioLibraryItemParams,
 } from "@workspace/api-zod";
+import {
+  canonicalStorageUrl,
+  isStoredAudioUrl,
+  transcribeStoredAudio,
+  transcriptionFailure,
+} from "../lib/stored-transcription";
 
 const router: IRouter = Router();
 
@@ -97,6 +105,57 @@ router.post("/audio-library", async (req, res): Promise<void> => {
     .returning({ id: audioLibraryTable.id });
   const [saved] = await select().where(eq(audioLibraryTable.url, attachment.url));
   res.status(inserted ? 201 : 200).json(serialize(saved));
+});
+
+// A recording made straight into the library: no idea, no subject.
+router.post("/audio-library/recordings", async (req, res): Promise<void> => {
+  const body = CreateLibraryRecordingBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Invalid recording" }); return; }
+  if (!isStoredAudioUrl(body.data.url)) {
+    res.status(400).json({ error: "Only recordings saved in this app can be added" });
+    return;
+  }
+  const [inserted] = await db
+    .insert(audioLibraryTable)
+    .values({
+      url: body.data.url,
+      mimeType: body.data.mimeType ?? null,
+      durationSeconds: body.data.durationSeconds ?? null,
+      clientCaptureId: body.data.clientCaptureId,
+      ...(body.data.capturedAt ? { capturedAt: new Date(body.data.capturedAt) } : {}),
+    })
+    // A retried upload (same capture ID or file) returns the existing entry.
+    .onConflictDoNothing()
+    .returning({ id: audioLibraryTable.id });
+  const [saved] = await select().where(or(
+    eq(audioLibraryTable.clientCaptureId, body.data.clientCaptureId),
+    eq(audioLibraryTable.url, body.data.url),
+  ));
+  if (!saved) { res.status(409).json({ error: "The recording could not be saved" }); return; }
+  res.status(inserted ? 201 : 200).json(serialize(saved));
+});
+
+router.post("/audio-library/:itemId/transcription", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  const body = TranscribeLibraryItemBody.safeParse(req.body ?? {});
+  if (!params.success || !body.success) { res.status(400).json({ error: "Invalid recording or language" }); return; }
+  const [current] = await select().where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  if (current.item.transcript) { res.json(serialize(current)); return; }
+  if (!isStoredAudioUrl(current.item.url)) {
+    res.status(400).json({ error: "Only recordings saved in this app can be transcribed" });
+    return;
+  }
+  try {
+    const text = await transcribeStoredAudio(canonicalStorageUrl(current.item.url), body.data.language ?? "auto");
+    if (!text) { res.status(422).json({ error: "No speech was detected. Your audio is still saved." }); return; }
+    await db.update(audioLibraryTable).set({ transcript: text }).where(eq(audioLibraryTable.id, current.item.id));
+    const [saved] = await select().where(eq(audioLibraryTable.id, current.item.id));
+    res.json(serialize(saved ?? current));
+  } catch (error) {
+    const [code, message] = transcriptionFailure(error);
+    res.status(code).json({ error: message });
+  }
 });
 
 router.patch("/audio-library/:itemId", async (req, res): Promise<void> => {

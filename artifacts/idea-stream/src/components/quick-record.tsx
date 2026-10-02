@@ -76,6 +76,21 @@ function LatestNote() {
 
   let icon = <Loader2 size={18} className="animate-spin text-primary" />;
   let title: string;
+  if (record.destination === "library") {
+    const done = record.status === "synced";
+    return (
+      <div className="border-t bg-background/60 px-5 py-4 sm:px-7" role="status" aria-live="polite">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{copy("Latest voice note", "آخر ملاحظة صوتية")}</p>
+        <p className="mt-2 flex items-center gap-2 text-sm font-medium">
+          {done ? <CheckCircle2 size={18} className="text-primary" /> : <Loader2 size={18} className="animate-spin text-primary" />}
+          {done ? copy("Saved to your audio library", "حُفظت في مكتبة الصوت") : copy("Saving to your audio library…", "جارٍ الحفظ في مكتبة الصوت…")}
+        </p>
+        <Link href="/library" className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+          {copy("Open the audio library", "افتح مكتبة الصوت")}<ArrowUpRight size={14} />
+        </Link>
+      </div>
+    );
+  }
   if (record.status !== "synced") {
     icon = <CloudUpload size={18} className="text-amber-600" />;
     title = syncingId === record.id

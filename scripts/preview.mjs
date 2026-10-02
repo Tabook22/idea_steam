@@ -277,6 +277,24 @@ const api = createHttpServer(async (req, res) => {
         return send(libraryItem(entry), created ? 201 : 200);
       }
     }
+    if (path === "/api/audio-library/recordings" && req.method === "POST") {
+      const existing = audioLibrary.find((entry) => entry.clientCaptureId === body.clientCaptureId || entry.url === body.url);
+      if (existing) return send(libraryItem(existing));
+      const entry = { id: ++nextId, url: body.url, title: null, mimeType: body.mimeType || null,
+        durationSeconds: body.durationSeconds ?? null, transcript: null, sourceIdeaId: null, sourceSubjectTitle: null,
+        clientCaptureId: body.clientCaptureId, capturedAt: body.capturedAt || new Date().toISOString(), createdAt: new Date().toISOString() };
+      audioLibrary.push(entry);
+      return send(libraryItem(entry), 201);
+    }
+    const libraryTranscript = path.match(/^\/api\/audio-library\/(\d+)\/transcription$/);
+    if (libraryTranscript && req.method === "POST") {
+      const entry = audioLibrary.find((item) => item.id === Number(libraryTranscript[1]));
+      if (!entry) return send({ error: "Not in the library" }, 404);
+      entry.transcript ||= body.language === "ar"
+        ? "[نص تجريبي] تسجيل محفوظ في المكتبة فقط."
+        : "[Preview transcript] A recording saved only to the audio library.";
+      return send(libraryItem(entry));
+    }
     const libraryMatch = path.match(/^\/api\/audio-library\/(\d+)$/);
     if (libraryMatch) {
       const index = audioLibrary.findIndex((entry) => entry.id === Number(libraryMatch[1]));

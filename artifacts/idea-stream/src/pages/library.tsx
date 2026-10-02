@@ -9,6 +9,8 @@ import {
   Download,
   Headphones,
   ListMusic,
+  Loader2,
+  Mic,
   Pause,
   Pencil,
   Play,
@@ -25,6 +27,9 @@ import {
   type AudioLibraryItem,
 } from "@workspace/api-client-react";
 import { appPath } from "@/lib/app-path";
+import { useRecorder } from "@/components/recorder-provider";
+import { usePressToTalk } from "@/components/press-to-talk";
+import { useRecorderPrefs } from "@/lib/recorder-prefs";
 import { useLanguage } from "@/lib/i18n";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -83,6 +88,16 @@ export default function LibraryPage() {
   const audio = useRef<HTMLAudioElement>(null);
   const pendingDeletes = useRef(new Map<number, number>());
   const fallbackTitle = copy("Voice note", "ملاحظة صوتية");
+  // Recording here saves only to the library, never to a subject.
+  const { start, stage, ready, rescue, records, online } = useRecorder();
+  const [prefs] = useRecorderPrefs();
+  const libraryOptions = { language: prefs.language, autoTranscribe: prefs.autoTranscribe, libraryOnly: true };
+  const talk = usePressToTalk({
+    disabled: !ready || !!rescue || stage !== "idle",
+    onTap: () => void start(null, prefs.limit, libraryOptions),
+    onHoldStart: () => void start(null, prefs.limit, { ...libraryOptions, hold: true }),
+  });
+  const pendingHere = records.filter((record) => record.destination === "library" && record.status === "saved").length;
 
   useEffect(() => { try { localStorage.setItem(SORT_KEY, sort); } catch { /* optional */ } }, [sort]);
 
@@ -248,10 +263,31 @@ export default function LibraryPage() {
             <span className="hidden sm:inline"> · {copy("separate from your notebooks", "مستقلة عن دفاترك")}</span>
           </p>
         </div>
-        <Button size="sm" className="h-9 shrink-0 rounded-full px-3.5" disabled={!visible.length} onClick={() => { setPlayAll(true); play(visible[0]); }}>
-          <ListMusic size={16} className="me-1.5" />{copy("Play all", "تشغيل الكل")}
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            {...talk}
+            disabled={!ready || !!rescue || stage !== "idle"}
+            aria-label={copy("Record into the library: tap, or hold to talk", "سجّل في المكتبة: انقر أو اضغط مطولًا وتحدث")}
+            title={copy("Tap to record, or hold to talk", "انقر للتسجيل أو اضغط مطولًا وتحدث")}
+            className="inline-flex h-9 touch-none select-none items-center gap-1.5 rounded-full bg-gradient-to-br from-rose-500 to-red-600 ps-2.5 pe-3.5 text-sm font-semibold text-white shadow-md shadow-red-500/25 transition active:scale-95 disabled:opacity-50 [-webkit-touch-callout:none]"
+          >
+            <Mic size={16} />{copy("Record", "سجّل")}
+          </button>
+          <Button size="sm" variant="outline" className="h-9 rounded-full px-3" disabled={!visible.length} onClick={() => { setPlayAll(true); play(visible[0]); }} aria-label={copy("Play all", "تشغيل الكل")}>
+            <ListMusic size={16} /><span className="ms-1.5 hidden min-[420px]:inline">{copy("Play all", "تشغيل الكل")}</span>
+          </Button>
+        </div>
       </div>
+      {pendingHere > 0 && (
+        <p className="mt-2 flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-xs font-medium text-primary" role="status">
+          <Loader2 size={14} className="animate-spin" />
+          {copy(
+            `${pendingHere} new recording${pendingHere > 1 ? "s" : ""} saving to the library… ${online ? "" : "It uploads when you're online."}`,
+            `${pendingHere} تسجيل جديد يُحفظ في المكتبة… ${online ? "" : "سيُرفع عند الاتصال."}`,
+          )}
+        </p>
+      )}
 
       <div className="sticky top-0 z-20 -mx-4 mt-3 flex items-center gap-2 bg-background/90 px-4 py-2 backdrop-blur sm:-mx-8 sm:px-8">
         <label className="relative flex h-10 min-w-0 flex-1 items-center rounded-full border bg-card ps-9 pe-3 focus-within:border-primary">

@@ -44,8 +44,9 @@ export function DrivingMode() {
   const { stage, seconds, stop, readLevel, audioLevel, target } = useRecorder();
   const { data: subjects = [] } = useListSubjects();
   const limit = target?.limit ?? 900;
-  const destination = subjects.find((subject) => subject.id === target?.subjectId)?.title
-    ?? copy("Idea inbox", "صندوق الأفكار");
+  const destination = target?.libraryOnly
+    ? copy("Audio library", "مكتبة الصوت")
+    : subjects.find((subject) => subject.id === target?.subjectId)?.title ?? copy("Idea inbox", "صندوق الأفكار");
   const stopButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     stopButton.current?.focus();
@@ -97,7 +98,9 @@ export function DrivingMode() {
         </p>
         {target?.autoTranscribe !== false && (
           <p className="mt-6 max-w-sm rounded-2xl bg-white/5 px-4 py-2.5 text-sm text-white/70">
-            {copy(`Your words will be saved as text in “${destination}”.`, `ستُحفظ كلماتك نصًا في «${destination}».`)}
+            {target?.libraryOnly
+              ? copy("Saving to your audio library only. No subject.", "يُحفظ في مكتبة الصوت فقط، دون أي موضوع.")
+              : copy(`Your words will be saved as text in “${destination}”.`, `ستُحفظ كلماتك نصًا في «${destination}».`)}
           </p>
         )}
       </div>

@@ -437,6 +437,56 @@ paths:
                 $ref: "#/components/schemas/AudioLibraryItem"
         "404":
           description: Idea or audio attachment not found
+  /audio-library/recordings:
+    post:
+      operationId: createLibraryRecording
+      tags: [audio-library]
+      summary: Save an uploaded recording straight into the library, without an idea in any subject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryRecordingInput"
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+        "200":
+          description: Already saved (a retried upload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+        "400":
+          description: Not a recording stored in this app
+  /audio-library/{itemId}/transcription:
+    post:
+      operationId: transcribeLibraryItem
+      tags: [audio-library]
+      summary: Convert a library recording to text, keeping the spoken language
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryTranscriptionInput"
+      responses:
+        "200":
+          description: Transcribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+        "404":
+          description: Not in the library
+        "422":
+          description: No speech detected, or the audio could not be read
   /audio-library/{itemId}:
     patch:
       operationId: updateAudioLibraryItem
@@ -724,6 +774,34 @@ components:
         createdAt:
           type: string
           format: date-time
+    LibraryRecordingInput:
+      type: object
+      required: [url, clientCaptureId]
+      properties:
+        url:
+          type: string
+          minLength: 1
+          description: Path of the uploaded audio in this app's storage.
+        clientCaptureId:
+          type: string
+          format: uuid
+          description: Stable recording ID so a retried upload is saved once.
+        mimeType:
+          type: string
+        durationSeconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+        capturedAt:
+          type: string
+          format: date-time
+    LibraryTranscriptionInput:
+      type: object
+      properties:
+        language:
+          type: string
+          enum: [auto, en, ar]
+          default: auto
     AudioLibraryAdd:
       type: object
       required: [ideaId]

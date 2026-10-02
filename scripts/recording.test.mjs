@@ -271,3 +271,41 @@ test("permanent transcription failures stop automatic retries; temporary ones ke
     assert.equal(await (await store.audio(id)).text(), "audio");
   }
 });
+
+test("library-only recordings upload once, never touch subjects, and transcribe into the library item", async () => {
+  const { store, id } = await recording();
+  await store.append(id, new Blob(["library audio"]), 1);
+  await store.patch(id, { status: "saved", destination: "library", durationSeconds: 12, transcriptionLanguage: "ar" });
+  const calls = [];
+  let created = 0;
+  const fetcher = async (url, options = {}) => {
+    calls.push(`${options.method || "GET"} ${url}`);
+    if (url === "/api/storage/uploads/request-url") return response({ uploadURL: "/signed-upload", objectPath: "/objects/lib-1" });
+    if (url === "/signed-upload") return response({});
+    if (url === "/api/audio-library/recordings") {
+      const body = JSON.parse(options.body);
+      assert.equal(body.clientCaptureId, id);
+      assert.equal(body.durationSeconds, 12);
+      created++;
+      if (created === 1) throw new Error("connection lost after the server saved it");
+      return response({ id: 77, url: body.url, transcript: null });
+    }
+    if (url === "/api/audio-library/77/transcription") {
+      assert.equal(JSON.parse(options.body).language, "ar");
+      return response({ id: 77, transcript: "تسجيل في المكتبة" });
+    }
+    throw new Error(`unexpected ${url}`);
+  };
+  assert.equal(await syncRecording(store, id, { fetcher }), null);
+  assert.equal((await store.get(id)).status, "saved");
+  assert.equal((await syncRecording(store, id, { fetcher })).id, 77);
+  const saved = await store.get(id);
+  assert.equal(saved.status, "synced");
+  assert.equal(saved.libraryItemId, 77);
+  assert.equal(saved.subjectId, null);
+  assert.ok(!calls.some((call) => call.includes("/api/subjects")), "no subject requests");
+  assert.equal(calls.filter((call) => call.endsWith("/signed-upload")).length, 1, "audio uploaded once");
+  await transcribeRecording(store, id, { fetcher });
+  assert.equal((await store.get(id)).transcript, "تسجيل في المكتبة");
+  assert.equal(await (await store.audio(id)).text(), "library audio");
+});

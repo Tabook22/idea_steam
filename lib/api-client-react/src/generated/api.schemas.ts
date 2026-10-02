@@ -164,6 +164,36 @@ export interface AudioLibraryItem {
   createdAt: string;
 }
 
+export interface LibraryRecordingInput {
+  /**
+     * Path of the uploaded audio in this app's storage.
+     * @minLength 1
+     */
+  url: string;
+  /** Stable recording ID so a retried upload is saved once. */
+  clientCaptureId: string;
+  mimeType?: string;
+  /**
+     * @minimum 0
+     * @maximum 86400
+     */
+  durationSeconds?: number;
+  capturedAt?: string;
+}
+
+export type LibraryTranscriptionInputLanguage = typeof LibraryTranscriptionInputLanguage[keyof typeof LibraryTranscriptionInputLanguage];
+
+
+export const LibraryTranscriptionInputLanguage = {
+  auto: 'auto',
+  en: 'en',
+  ar: 'ar',
+} as const;
+
+export interface LibraryTranscriptionInput {
+  language?: LibraryTranscriptionInputLanguage;
+}
+
 export interface AudioLibraryAdd {
   ideaId: number;
   /** @minimum 0 */

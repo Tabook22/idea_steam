@@ -21,6 +21,9 @@ export interface LocalRecording {
   transcriptionStatus?: "done" | "unavailable" | "too-large";
   uploadedAudio?: { url: string; name: string; mimeType: string };
   ideaId?: number;
+  /** "library": saved only to the audio library, with no idea in any subject. */
+  destination?: "library";
+  libraryItemId?: number;
   error?: string;
   attempts: number;
   nextRetryAt: number;

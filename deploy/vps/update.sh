@@ -24,6 +24,7 @@ previous=$(readlink "$APP_ROOT/current" || true)
 /usr/lib/postgresql/16/bin/pg_dump "$DATABASE_URL" --format=custom --file="$APP_ROOT/backups/database-$(date -u +%Y%m%dT%H%M%SZ).dump"
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20260921_recording_capture.sql
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261002_audio_library.sql
+/usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261003_library_recordings.sql
 ln -s "$release" "$APP_ROOT/current.next"
 mv -Tf "$APP_ROOT/current.next" "$APP_ROOT/current"
 systemctl --user enable idea-stream.service
