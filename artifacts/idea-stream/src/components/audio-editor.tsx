@@ -1,21 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   Crop,
-  Sparkles,
-  Type,
-  Wand2,
+  FastForward,
+  Hand,
   Loader2,
-  Minus,
+  Maximize2,
+  MousePointer2,
   Pause,
   Play,
-  Plus,
+  Redo2,
+  Repeat,
+  Rewind,
   RotateCcw,
+  ScanSearch,
   Scissors,
+  SkipBack,
+  Sparkles,
+  Type,
   Undo2,
+  Wand2,
   X,
   ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import {
   editAudioLibraryItem,
@@ -29,49 +37,91 @@ import { useToast } from "@/hooks/use-toast";
 import { appPath } from "@/lib/app-path";
 import { EditedTimeline, formatTime, mergeRanges, type Range } from "@/lib/audio-ranges";
 import { fillerIndexes, isWordRemoved, longPauses, rangesForWords, silentEdges, subtractRange, type TimedWord } from "@/lib/audio-cleanup";
+import { buildPeaks, peakBetween, type PeakCache } from "@/lib/audio-peaks";
+import { clampView, panBy, rulerTicks, viewAround, zoomAt, type View } from "@/lib/audio-view";
 import { useLanguage } from "@/lib/i18n";
 
 type Segment = { at: number; start: number; end: number };
+type Tool = "select" | "cut" | "zoom" | "hand" | "loop";
+type Drag =
+  | { kind: "select" | "cut" | "zoom" | "loop"; anchor: number; moved: boolean }
+  | { kind: "edge"; which: "selection-start" | "selection-end" | "loop-start" | "loop-end"; anchor: number }
+  | { kind: "pan"; startX: number; view: View }
+  | { kind: "overview" };
+
+const WAVE_HEIGHT = 200;
+const clock = (seconds: number) => {
+  const value = Math.max(0, seconds);
+  const minutes = Math.floor(value / 60);
+  return `${String(minutes).padStart(2, "0")}:${(value - minutes * 60).toFixed(1).padStart(4, "0")}`;
+};
+
+const ToolButton = ({ active, onClick, label, shortcut, children, disabled }: { active?: boolean; onClick: () => void; label: string; shortcut?: string; children: ReactNode; disabled?: boolean }) => (
+  <button type="button" onClick={onClick} disabled={disabled} aria-pressed={active} title={shortcut ? `${label} (${shortcut})` : label} aria-label={label}
+    className={`relative grid h-9 min-w-9 place-items-center rounded-lg px-2 transition-colors disabled:opacity-35 ${active ? "bg-emerald-500 text-[#06150e] shadow-inner" : "text-white/80 hover:bg-white/10 hover:text-white"}`}>
+    {children}
+    {shortcut && <span className="pointer-events-none absolute bottom-0.5 end-0.5 hidden text-[8px] font-bold opacity-50 sm:block">{shortcut}</span>}
+  </button>
+);
+const Divider = () => <span className="mx-1 h-6 w-px shrink-0 bg-white/15" aria-hidden="true" />;
 
 /**
- * Cut parts out of a library recording. A removed part disappears at once and the rest is
- * joined, so the waveform, timer, and playback always show the result. Cuts are tracked
- * against the original, which the server keeps for "Restore original".
+ * Audio editor with professional tools: Select, Cut, Zoom, Pan, and an A–B loop. Cuts take
+ * effect at once (the rest joins up). Everything is tracked against the original recording,
+ * which the server keeps for "Restore original".
  */
 export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; title: string; onClose: () => void }) {
   const { isArabic } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null);
+  const [peaks, setPeaks] = useState<PeakCache | null>(null);
   const [loadError, setLoadError] = useState("");
-  /** Removed parts, in the ORIGINAL recording's time. */
+  /** Removed parts, in ORIGINAL time. Undo/redo stacks hold earlier/later versions. */
   const [removed, setRemoved] = useState<Range[]>([]);
-  const [history, setHistory] = useState<Range[][]>([]);
-  /** Selection and playhead, in EDITED time (the joined result). */
+  const [undoStack, setUndoStack] = useState<Range[][]>([]);
+  const [redoStack, setRedoStack] = useState<Range[][]>([]);
+  /** Selection, playhead, and view are in EDITED time (the joined result). */
   const [selection, setSelection] = useState<Range | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState<View>({ start: 0, end: 0 });
+  /** The A–B loop section, in ORIGINAL time so cuts elsewhere don't move it. */
+  const [loopRange, setLoopRange] = useState<Range | null>(null);
+  const [loopOn, setLoopOn] = useState(false);
+  const [tool, setTool] = useState<Tool>("select");
+  const [preview, setPreview] = useState<Range | null>(null); // live box while dragging cut/zoom/loop
+  const [width, setWidth] = useState(600);
+  const [tab, setTab] = useState<"cuts" | "cleanup" | "text">("cuts");
   const [saving, setSaving] = useState(false);
-  const [width, setWidth] = useState(320);
-  const [flash, setFlash] = useState<number | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [note, setNote] = useState("");
   const [words, setWords] = useState<TimedWord[] | null>(null);
   const [wordsState, setWordsState] = useState<"idle" | "loading" | "error">("idle");
   const [wordsError, setWordsError] = useState("");
-  const [note, setNote] = useState("");
+
   const context = useRef<AudioContext | null>(null);
   const sources = useRef<AudioBufferSourceNode[]>([]);
   const schedule = useRef<Segment[]>([]);
   const frame = useRef(0);
-  const scroller = useRef<HTMLDivElement>(null);
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const drag = useRef<{ mode: "new" | "start" | "end"; anchor: number; moved: boolean } | null>(null);
+  const wave = useRef<HTMLDivElement>(null);
+  const waveCanvas = useRef<HTMLCanvasElement>(null);
+  const overviewCanvas = useRef<HTMLCanvasElement>(null);
+  const drag = useRef<Drag | null>(null);
+  const pointers = useRef(new Map<number, number>());
+  const pinch = useRef<{ distance: number; view: View; anchor: number } | null>(null);
+  const loopRef = useRef<() => void>(() => {});
+
   const duration = buffer?.duration ?? 0;
   const timeline = useMemo(() => new EditedTimeline(removed, duration), [removed, duration]);
   const length = timeline.length;
+  const span = Math.max(0.001, view.end - view.start);
+  const cuts = mergeRanges(removed, duration);
+  const loop = loopRange ? { start: timeline.toEdited(loopRange.start), end: timeline.toEdited(loopRange.end) } : null;
+  const loopValid = !!loop && loop.end - loop.start >= 0.1;
 
+  // ----- Loading -----------------------------------------------------------------------
   const stop = useCallback(() => {
     cancelAnimationFrame(frame.current);
     for (const source of sources.current) { try { source.stop(); } catch { /* already stopped */ } }
@@ -80,79 +130,106 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     setPlaying(false);
   }, []);
 
-  // Load and decode the recording once.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const response = await fetch(appPath(item.url, import.meta.env.BASE_URL), { credentials: "include" });
         if (!response.ok) throw new Error("download");
-        const data = await response.arrayBuffer();
         const ctx = new AudioContext();
         context.current = ctx;
-        const decoded = await ctx.decodeAudioData(data);
-        if (!cancelled) setBuffer(decoded);
+        const decoded = await ctx.decodeAudioData(await response.arrayBuffer());
+        if (cancelled) return;
+        setBuffer(decoded);
+        setPeaks(buildPeaks(decoded.getChannelData(0), decoded.sampleRate));
+        setView({ start: 0, end: decoded.duration });
       } catch {
         if (!cancelled) setLoadError(copy("This recording couldn't be opened for editing on this device.", "تعذر فتح هذا التسجيل للتحرير على هذا الجهاز."));
       }
     })();
-    return () => {
-      cancelled = true;
-      stop();
-      void context.current?.close().catch(() => {});
-    };
+    return () => { cancelled = true; stop(); void context.current?.close().catch(() => {}); };
   }, [item.url, stop]);
 
   useEffect(() => {
-    const element = scroller.current;
+    const element = wave.current;
     if (!element) return;
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(200, Math.floor(entry.contentRect.width))));
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(240, Math.floor(entry.contentRect.width))));
     observer.observe(element);
     return () => observer.disconnect();
   }, [buffer]);
 
-  const contentWidth = Math.round(width * zoom);
+  // After cuts the recording is shorter: keep the view inside it (and full if it was full).
+  useEffect(() => {
+    setView((current) => (current.end - current.start >= length - 0.01 || current.end > length ? clampView({ start: 0, end: length }, length) : clampView(current, length)));
+  }, [length]);
 
-  // Waveform of the edited result: only kept audio, joined end to end.
-  const peaks = useMemo(() => {
-    if (!buffer || length <= 0) return [];
-    const data = buffer.getChannelData(0);
-    const rate = buffer.sampleRate;
-    const bars = Math.max(60, Math.floor(contentWidth / 3));
-    const result: number[] = [];
-    for (let bar = 0; bar < bars; bar++) {
-      let peak = 0;
-      for (const piece of timeline.originalPieces((bar / bars) * length, ((bar + 1) / bars) * length)) {
-        const from = Math.floor(piece.start * rate);
-        const to = Math.min(data.length, Math.ceil(piece.end * rate));
-        for (let i = from; i < to; i += 4) peak = Math.max(peak, Math.abs(data[i]));
-      }
-      result.push(peak);
+  // ----- Drawing -----------------------------------------------------------------------
+  /** Min/max of the EDITED audio between two edited-time moments (can span joins). */
+  const editedPeak = useCallback((from: number, to: number): [number, number] => {
+    if (!peaks) return [0, 0];
+    let lo = 0;
+    let hi = 0;
+    for (const piece of timeline.originalPieces(from, to)) {
+      const [a, b] = peakBetween(peaks, piece.start, piece.end);
+      if (a < lo) lo = a;
+      if (b > hi) hi = b;
     }
-    const loudest = Math.max(0.01, ...result);
-    return result.map((value) => value / loudest);
-  }, [buffer, timeline, length, contentWidth]);
+    return [lo, hi];
+  }, [peaks, timeline]);
+
+  const loudest = useMemo(() => {
+    if (!peaks) return 1;
+    let top = 0.01;
+    for (let i = 0; i < peaks.max.length; i++) top = Math.max(top, peaks.max[i], -peaks.min[i]);
+    return top;
+  }, [peaks]);
 
   useEffect(() => {
-    const element = canvas.current;
-    if (!element) return;
-    if (!peaks.length) { element.getContext("2d")?.clearRect(0, 0, element.width, element.height); return; }
+    const canvas = waveCanvas.current;
+    if (!canvas || !peaks || length <= 0) return;
     const ratio = window.devicePixelRatio || 1;
-    const height = 120;
-    element.width = contentWidth * ratio;
-    element.height = height * ratio;
-    const draw = element.getContext("2d")!;
-    draw.scale(ratio, ratio);
-    draw.fillStyle = getComputedStyle(element).getPropertyValue("--wave-keep").trim() || "#29563f";
-    const barWidth = contentWidth / peaks.length;
-    peaks.forEach((peak, index) => {
-      const barHeight = Math.max(2, peak * (height - 10));
-      draw.fillRect(index * barWidth + 0.5, (height - barHeight) / 2, Math.max(1, barWidth - 1), barHeight);
-    });
-  }, [peaks, contentWidth]);
+    canvas.width = width * ratio;
+    canvas.height = WAVE_HEIGHT * ratio;
+    const draw = canvas.getContext("2d")!;
+    draw.setTransform(ratio, 0, 0, ratio, 0, 0);
+    draw.clearRect(0, 0, width, WAVE_HEIGHT);
+    const middle = WAVE_HEIGHT / 2;
+    draw.fillStyle = "rgba(255,255,255,0.07)";
+    draw.fillRect(0, middle - 0.5, width, 1);
+    draw.fillStyle = "#5fd39a";
+    const columnSeconds = span / width;
+    for (let x = 0; x < width; x++) {
+      const from = view.start + x * columnSeconds;
+      const [lo, hi] = editedPeak(from, from + columnSeconds);
+      const top = middle - (hi / loudest) * (middle - 6);
+      const bottom = middle - (lo / loudest) * (middle - 6);
+      draw.fillRect(x, top, 1, Math.max(1, bottom - top));
+    }
+  }, [peaks, view, width, editedPeak, loudest, span, length]);
 
+  useEffect(() => {
+    const canvas = overviewCanvas.current;
+    if (!canvas || !peaks || length <= 0) return;
+    const ratio = window.devicePixelRatio || 1;
+    const height = 36;
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const draw = canvas.getContext("2d")!;
+    draw.setTransform(ratio, 0, 0, ratio, 0, 0);
+    draw.clearRect(0, 0, width, height);
+    draw.fillStyle = "rgba(95,211,154,0.6)";
+    const step = length / width;
+    for (let x = 0; x < width; x++) {
+      const [lo, hi] = editedPeak(x * step, (x + 1) * step);
+      const top = height / 2 - (hi / loudest) * (height / 2 - 2);
+      const bottom = height / 2 - (lo / loudest) * (height / 2 - 2);
+      draw.fillRect(x, top, 1, Math.max(1, bottom - top));
+    }
+  }, [peaks, width, editedPeak, loudest, length]);
+
+  // ----- Playback ----------------------------------------------------------------------
   /** Plays original-time segments back to back; the playhead follows in edited time. */
-  const playSegments = useCallback((segments: Range[]) => {
+  const playSegments = useCallback((segments: Range[], repeat = false) => {
     const ctx = context.current;
     if (!ctx || !buffer || !segments.length) return;
     stop();
@@ -171,107 +248,252 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     const tick = () => {
       const now = ctx.currentTime;
       const current = schedule.current.find((segment) => now < segment.at + (segment.end - segment.start));
-      if (!current) { setPlayhead(timeline.toEdited(schedule.current.at(-1)?.end ?? 0)); stop(); return; }
-      setPlayhead(timeline.toEdited(now < current.at ? current.start : current.start + (now - current.at)));
+      if (!current) {
+        if (repeat) { loopRef.current(); return; }
+        setPlayhead(timeline.toEdited(schedule.current.at(-1)?.end ?? 0));
+        stop();
+        return;
+      }
+      const position = timeline.toEdited(now < current.at ? current.start : current.start + (now - current.at));
+      setPlayhead(position);
+      // Keep the playhead on screen while zoomed in.
+      setView((v) => (position > v.end || position < v.start ? clampView({ start: position - (v.end - v.start) * 0.1, end: position + (v.end - v.start) * 0.9 }, timeline.length) : v));
       frame.current = requestAnimationFrame(tick);
     };
     frame.current = requestAnimationFrame(tick);
   }, [buffer, stop, timeline]);
 
-  const playEdited = (from: number, to = length) => playSegments(timeline.originalPieces(from, to));
-  const playFromHead = () => playEdited(playhead >= length - 0.05 ? 0 : playhead);
+  const playEdited = useCallback((from: number, to: number, repeat = false) => {
+    const pieces = timeline.originalPieces(from, to);
+    loopRef.current = () => playSegments(pieces, true);
+    playSegments(pieces, repeat);
+  }, [timeline, playSegments]);
 
-  const timeAt = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const box = event.currentTarget.getBoundingClientRect();
-    let ratio = (event.clientX - box.left) / box.width;
-    if (isArabic) ratio = 1 - ratio;
-    return Math.min(length, Math.max(0, ratio * length));
+  const togglePlay = () => {
+    if (playing) { stop(); return; }
+    if (loopOn && loopValid && loop) { playEdited(loop.start, loop.end, true); return; }
+    playEdited(playhead >= length - 0.05 ? 0 : playhead, length);
   };
-  const handleHit = (event: ReactPointerEvent<HTMLDivElement>, time: number) => {
-    if (!selection) return null;
-    const box = event.currentTarget.getBoundingClientRect();
-    const tolerance = (16 / box.width) * length;
-    if (Math.abs(time - selection.start) < tolerance) return "start" as const;
-    if (Math.abs(time - selection.end) < tolerance) return "end" as const;
+  const seekTo = (time: number) => {
+    const target = Math.min(length, Math.max(0, time));
+    setPlayhead(target);
+    if (playing) playEdited(target, length);
+  };
+
+  // ----- Editing -----------------------------------------------------------------------
+  const commit = (next: Range[], playheadAfter?: number) => {
+    stop();
+    setUndoStack((list) => [...list.slice(-50), removed]);
+    setRedoStack([]);
+    setRemoved(mergeRanges(next, duration));
+    setSelection(null);
+    if (playheadAfter !== undefined) setPlayhead(playheadAfter);
+  };
+  const cutRange = (range: Range) => {
+    if (range.end - range.start < 0.02) return;
+    commit([...removed, ...timeline.originalPieces(range.start, range.end)], range.start);
+  };
+  const cropTo = (range: Range) => {
+    const keep = timeline.originalPieces(range.start, range.end);
+    const outside: Range[] = [];
+    let cursor = 0;
+    for (const piece of keep) { outside.push({ start: cursor, end: piece.start }); cursor = piece.end; }
+    outside.push({ start: cursor, end: duration });
+    commit(outside, 0);
+  };
+  const undo = () => {
+    if (!undoStack.length) return;
+    stop();
+    setRedoStack((list) => [...list, removed]);
+    setRemoved(undoStack[undoStack.length - 1]);
+    setUndoStack((list) => list.slice(0, -1));
+    setSelection(null);
+  };
+  const redo = () => {
+    if (!redoStack.length) return;
+    stop();
+    setUndoStack((list) => [...list, removed]);
+    setRemoved(redoStack[redoStack.length - 1]);
+    setRedoStack((list) => list.slice(0, -1));
+    setSelection(null);
+  };
+
+  // ----- Zoom ---------------------------------------------------------------------------
+  const zoomBy = (factor: number, anchor = (view.start + view.end) / 2) => setView((v) => zoomAt(v, factor, anchor, length));
+  const fitAll = () => setView({ start: 0, end: length });
+  const zoomTo = (range: Range) => setView(viewAround(range, length, 0.08));
+
+  // ----- Pointer: tools on the waveform -------------------------------------------------
+  const timeAtX = (clientX: number) => {
+    const box = wave.current!.getBoundingClientRect();
+    return Math.min(length, Math.max(0, view.start + ((clientX - box.left) / box.width) * span));
+  };
+  const edgeNear = (clientX: number): Extract<Drag, { kind: "edge" }>["which"] | null => {
+    const box = wave.current!.getBoundingClientRect();
+    const px = (time: number) => box.left + ((time - view.start) / span) * box.width;
+    const near = (time: number) => Math.abs(clientX - px(time)) < 10;
+    if (selection && tool === "select") {
+      if (near(selection.start)) return "selection-start";
+      if (near(selection.end)) return "selection-end";
+    }
+    if (loop && loopValid) {
+      if (near(loop.start)) return "loop-start";
+      if (near(loop.end)) return "loop-end";
+    }
     return null;
   };
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (!buffer || length <= 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    const time = timeAt(event);
-    const handle = handleHit(event, time);
-    drag.current = handle
-      ? { mode: handle, anchor: handle === "start" ? selection!.end : selection!.start, moved: true }
-      : { mode: "new", anchor: time, moved: false };
-    if (!handle) setSelection({ start: time, end: time });
-    setDragging(true);
+    pointers.current.set(event.pointerId, event.clientX);
+    if (pointers.current.size === 2) {
+      // Two fingers: pinch to zoom, whatever the tool.
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { distance: Math.max(20, Math.abs(a - b)), view, anchor: timeAtX((a + b) / 2) };
+      drag.current = null;
+      setPreview(null);
+      return;
+    }
+    const time = timeAtX(event.clientX);
+    const edge = edgeNear(event.clientX);
+    if (edge) {
+      const anchor = edge === "selection-start" ? selection!.end : edge === "selection-end" ? selection!.start : edge === "loop-start" ? loop!.end : loop!.start;
+      drag.current = { kind: "edge", which: edge, anchor };
+      return;
+    }
+    if (tool === "hand" || event.button === 1) { drag.current = { kind: "pan", startX: event.clientX, view }; return; }
+    drag.current = { kind: tool === "select" ? "select" : tool, anchor: time, moved: false };
   }
+
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (pointers.current.has(event.pointerId)) pointers.current.set(event.pointerId, event.clientX);
+    if (pinch.current && pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()];
+      setView(zoomAt(pinch.current.view, Math.max(20, Math.abs(a - b)) / pinch.current.distance, pinch.current.anchor, length));
+      return;
+    }
     const current = drag.current;
-    if (!current) return;
-    const time = timeAt(event);
-    current.moved = current.moved || Math.abs(time - current.anchor) > length / 400;
-    setSelection({ start: Math.min(current.anchor, time), end: Math.max(current.anchor, time) });
+    if (!current || current.kind === "overview") return;
+    if (current.kind === "pan") {
+      const box = wave.current!.getBoundingClientRect();
+      setView(panBy(current.view, -((event.clientX - current.startX) / box.width) * (current.view.end - current.view.start), length));
+      return;
+    }
+    const time = timeAtX(event.clientX);
+    const range = { start: Math.min(current.anchor, time), end: Math.max(current.anchor, time) };
+    if (current.kind === "edge") {
+      if (current.which.startsWith("selection")) setSelection(range);
+      else setLoopRange({ start: timeline.toOriginal(range.start), end: timeline.toOriginal(range.end) });
+      return;
+    }
+    if (Math.abs(time - current.anchor) > span / 300) current.moved = true;
+    if (!current.moved) return;
+    if (current.kind === "select") setSelection(range);
+    else setPreview(range);
   }
+
   function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    pointers.current.delete(event.pointerId);
+    if (pinch.current) { if (pointers.current.size < 2) pinch.current = null; drag.current = null; return; }
     const current = drag.current;
     drag.current = null;
-    setDragging(false);
-    if (!current) return;
-    if (!current.moved || (selection && selection.end - selection.start < 0.12)) {
-      // A tap moves the playhead instead of selecting.
-      setSelection(null);
-      const time = timeAt(event);
-      setPlayhead(time);
-      if (playing) playEdited(time);
+    setPreview(null);
+    if (!current || current.kind === "pan" || current.kind === "edge" || current.kind === "overview") return;
+    const time = timeAtX(event.clientX);
+    const range = { start: Math.min(current.anchor, time), end: Math.max(current.anchor, time) };
+    const dragged = current.moved && range.end - range.start >= 0.03;
+    switch (current.kind) {
+      case "select":
+        if (!dragged) { setSelection(null); seekTo(time); }
+        break;
+      case "cut":
+        if (dragged) cutRange(range); else seekTo(time);
+        break;
+      case "zoom":
+        if (dragged) zoomTo(range);
+        else zoomBy(event.altKey || event.shiftKey ? 0.5 : 2, time);
+        break;
+      case "loop":
+        if (dragged) { setLoopRange({ start: timeline.toOriginal(range.start), end: timeline.toOriginal(range.end) }); setLoopOn(true); }
+        else seekTo(time);
+        break;
     }
   }
 
-  /** Applies new cuts (original time); the waveform closes the gap immediately. */
-  const change = (next: Range[], playheadAfter?: number) => {
-    stop();
-    setHistory((list) => [...list.slice(-30), removed]);
-    setRemoved(mergeRanges(next, duration));
-    setSelection(null);
-    if (playheadAfter !== undefined) setPlayhead(playheadAfter);
-  };
-  const removeSelection = () => {
-    if (!selection) return;
-    change([...removed, ...timeline.originalPieces(selection.start, selection.end)], selection.start);
-    // Briefly mark the join so it's clear where the two sides now meet.
-    setFlash(selection.start);
-    window.setTimeout(() => setFlash(null), 1400);
-  };
-  const keepOnlySelection = () => {
-    if (!selection) return;
-    const keep = timeline.originalPieces(selection.start, selection.end);
-    const everythingElse: Range[] = [];
-    let cursor = 0;
-    for (const piece of keep) {
-      everythingElse.push({ start: cursor, end: piece.start });
-      cursor = piece.end;
-    }
-    everythingElse.push({ start: cursor, end: duration });
-    change(everythingElse, 0);
-  };
-  /** Applies a clean-up and says what it did ("Shortened 3 pauses · 4.2 s shorter"). */
+  // Mouse wheel: zoom at the cursor; Shift (or a sideways trackpad swipe) scrolls.
+  useEffect(() => {
+    const element = wave.current;
+    if (!element) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const box = element.getBoundingClientRect();
+      const anchor = view.start + ((event.clientX - box.left) / box.width) * span;
+      if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        const delta = (event.shiftKey ? event.deltaY : event.deltaX) / box.width;
+        setView((v) => panBy(v, delta * (v.end - v.start), length));
+      } else {
+        setView((v) => zoomAt(v, Math.exp(-event.deltaY * 0.0025), anchor, length));
+      }
+    };
+    element.addEventListener("wheel", wheel, { passive: false });
+    return () => element.removeEventListener("wheel", wheel);
+  }, [view, span, length, buffer]);
+
+  // Overview strip: tap or drag to move the view there.
+  function onOverview(event: ReactPointerEvent<HTMLDivElement>, start = false) {
+    if (start) { event.currentTarget.setPointerCapture(event.pointerId); drag.current = { kind: "overview" }; }
+    else if (drag.current?.kind !== "overview") return;
+    const box = event.currentTarget.getBoundingClientRect();
+    const center = ((event.clientX - box.left) / box.width) * length;
+    setView((v) => clampView({ start: center - (v.end - v.start) / 2, end: center + (v.end - v.start) / 2 }, length));
+  }
+
+  // ----- Keyboard ----------------------------------------------------------------------
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || !buffer) return;
+      const ctrl = event.ctrlKey || event.metaKey;
+      const handled = () => event.preventDefault();
+      if (ctrl && event.key.toLowerCase() === "z") { handled(); if (event.shiftKey) redo(); else undo(); return; }
+      if (ctrl && event.key.toLowerCase() === "y") { handled(); redo(); return; }
+      if (ctrl) return;
+      switch (event.key) {
+        case " ": handled(); togglePlay(); break;
+        case "Delete": case "Backspace": if (selection) { handled(); cutRange(selection); } break;
+        case "v": case "V": setTool("select"); break;
+        case "c": case "C": setTool("cut"); break;
+        case "z": case "Z": setTool("zoom"); break;
+        case "h": case "H": setTool("hand"); break;
+        case "r": case "R": setTool("loop"); break;
+        case "l": case "L": setLoopOn((on) => !on); break;
+        case "+": case "=": handled(); zoomBy(2, playhead); break;
+        case "-": case "_": handled(); zoomBy(0.5, playhead); break;
+        case "0": fitAll(); break;
+        case "Home": handled(); seekTo(0); break;
+        case "ArrowLeft": handled(); seekTo(playhead - (event.shiftKey ? 5 : 1)); break;
+        case "ArrowRight": handled(); seekTo(playhead + (event.shiftKey ? 5 : 1)); break;
+        case "[": setLoopRange((r) => ({ start: timeline.toOriginal(playhead), end: r ? Math.max(r.end, timeline.toOriginal(playhead) + 0.5) : timeline.toOriginal(Math.min(length, playhead + 5)) })); break;
+        case "]": setLoopRange((r) => ({ start: r ? Math.min(r.start, timeline.toOriginal(playhead) - 0.5) : timeline.toOriginal(Math.max(0, playhead - 5)), end: timeline.toOriginal(playhead) })); break;
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  });
+
+  // ----- Clean up and text -----------------------------------------------------------
   const applyCleanup = (ranges: Range[], done: (count: number) => string, nothing: string) => {
     if (!ranges.length) { setNote(nothing); return; }
     const after = new EditedTimeline(mergeRanges([...removed, ...ranges], duration), duration).length;
-    change([...removed, ...ranges], 0);
+    commit([...removed, ...ranges], 0);
     setNote(`${done(ranges.length)} · ${copy(`${(length - after).toFixed(1)} s shorter`, `أقصر بـ ${(length - after).toFixed(1)} ث`)}`);
   };
-  const samples = () => (buffer ? { data: buffer.getChannelData(0), rate: buffer.sampleRate } : null);
   const trimEdges = () => {
-    const audio = samples();
-    if (audio) applyCleanup(silentEdges(audio.data, audio.rate), () => copy("Trimmed the silent start and end", "قُصّ الصمت في البداية والنهاية"), copy("No silent start or end found.", "لا يوجد صمت في البداية أو النهاية."));
+    if (buffer) applyCleanup(silentEdges(buffer.getChannelData(0), buffer.sampleRate), () => copy("Trimmed the silent start and end", "قُصّ الصمت في البداية والنهاية"), copy("No silent start or end found.", "لا يوجد صمت في البداية أو النهاية."));
   };
   const shortenPauses = () => {
-    const audio = samples();
-    if (audio) applyCleanup(longPauses(audio.data, audio.rate), (n) => copy(`Shortened ${n} long pause${n > 1 ? "s" : ""}`, `قُصّرت ${n} وقفة طويلة`), copy("No long pauses found.", "لا توجد وقفات طويلة."));
+    if (buffer) applyCleanup(longPauses(buffer.getChannelData(0), buffer.sampleRate), (n) => copy(`Shortened ${n} long pause${n > 1 ? "s" : ""}`, `قُصّرت ${n} وقفة طويلة`), copy("No long pauses found.", "لا توجد وقفات طويلة."));
   };
-
   async function loadWords() {
     if (words || wordsState === "loading") return words;
     setWordsState("loading");
@@ -288,14 +510,6 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
       return null;
     }
   }
-  const removeFillers = async () => {
-    const list = words ?? await loadWords();
-    if (!list) return;
-    const fillers = fillerIndexes(list).filter((index) => !isWordRemoved(list[index], removed));
-    const n = fillers.length;
-    applyCleanup(n ? rangesForWords(list, withCutNeighbours(list, fillers)) : [], () => copy(`Removed ${n} filler word${n > 1 ? "s" : ""}`, `حُذفت ${n} كلمة حشو`), copy("No filler words found.", "لم تُعثر على كلمات حشو."));
-  };
-  /** Adds already-cut neighbours so the gap between them is cut too (no leftover slivers). */
   const withCutNeighbours = (list: TimedWord[], indexes: number[]) => {
     const set = new Set(indexes);
     for (const index of indexes)
@@ -303,206 +517,254 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
         if (list[neighbour] && isWordRemoved(list[neighbour], removed)) set.add(neighbour);
     return [...set];
   };
-  /** Tap a word to cut it; tap a cut word to bring it back. The waveform updates at once. */
+  const removeFillers = async () => {
+    const list = words ?? await loadWords();
+    if (!list) return;
+    const fillers = fillerIndexes(list).filter((index) => !isWordRemoved(list[index], removed));
+    const n = fillers.length;
+    applyCleanup(n ? rangesForWords(list, withCutNeighbours(list, fillers)) : [], () => copy(`Removed ${n} filler word${n > 1 ? "s" : ""}`, `حُذفت ${n} كلمة حشو`), copy("No filler words found.", "لم تُعثر على كلمات حشو."));
+  };
   const toggleWord = (index: number) => {
     if (!words) return;
     const word = words[index];
-    const previous = words[index - 1];
-    const next = words[index + 1];
     setNote("");
     if (isWordRemoved(word, removed)) {
-      change(subtractRange(mergeRanges(removed, duration), { start: previous?.end ?? 0, end: next?.start ?? duration }));
+      commit(subtractRange(cuts, { start: words[index - 1]?.end ?? 0, end: words[index + 1]?.start ?? duration }));
       return;
     }
-    change([...removed, ...rangesForWords(words, withCutNeighbours(words, [index]))]);
+    commit([...removed, ...rangesForWords(words, withCutNeighbours(words, [index]))]);
   };
   const fillerSet = useMemo(() => new Set(words ? fillerIndexes(words) : []), [words]);
 
-  const nudge = (edge: "start" | "end", delta: number) => setSelection((current) => {
-    if (!current) return current;
-    const next = { ...current, [edge]: Math.min(length, Math.max(0, current[edge] + delta)) };
-    return next.end - next.start >= 0.05 ? next : current;
-  });
-  const undo = () => {
-    stop();
-    setRemoved(history.at(-1) ?? []);
-    setHistory((list) => list.slice(0, -1));
-    setSelection(null);
-    setPlayhead(0);
-  };
-
-  useEffect(() => {
-    const key = (event: KeyboardEvent) => {
-      if ((event.key === "Delete" || event.key === "Backspace") && selection && selection.end - selection.start >= 0.05 &&
-          !(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)) {
-        event.preventDefault();
-        removeSelection();
-      }
-    };
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  });
-
   async function save() {
-    if (!removed.length || saving) return;
+    if (!cuts.length || saving) return;
     setSaving(true);
     stop();
     try {
       await editAudioLibraryItem(item.id, { keep: timeline.kept });
       await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
-      toast({
-        title: copy("Recording edited", "تم تحرير التسجيل"),
-        description: copy("The original is kept. Its text is being updated.", "الأصل محفوظ. يجري تحديث النص."),
-      });
+      toast({ title: copy("Recording edited", "تم تحرير التسجيل"), description: copy("The original is kept. Its text is being updated.", "الأصل محفوظ. يجري تحديث النص.") });
       onClose();
     } catch (error) {
-      const message = (error as { data?: { error?: string } })?.data?.error;
-      toast({ variant: "destructive", title: copy("The edit couldn't be saved", "تعذر حفظ التعديل"), description: message });
+      toast({ variant: "destructive", title: copy("The edit couldn't be saved", "تعذر حفظ التعديل"), description: (error as { data?: { error?: string } })?.data?.error });
       setSaving(false);
     }
   }
 
-  const at = (time: number) => `${(time / Math.max(length, 0.001)) * 100}%`;
-  const side = isArabic ? "right" : "left";
-  const cuts = mergeRanges(removed, duration);
+  // ----- Layout helpers ---------------------------------------------------------------
+  const x = (time: number) => `${((time - view.start) / span) * 100}%`;
+  const w = (range: Range) => `${((range.end - range.start) / span) * 100}%`;
+  const inView = (time: number) => time >= view.start - span * 0.01 && time <= view.end + span * 0.01;
+  const ticks = rulerTicks(view, width);
+  const zoomLevel = length > 0 ? length / span : 1;
+  const cursor = { select: "cursor-text", cut: "cursor-crosshair", zoom: "cursor-zoom-in", hand: drag.current?.kind === "pan" ? "cursor-grabbing" : "cursor-grab", loop: "cursor-col-resize" }[tool];
+  const tools: Array<[Tool, ReactNode, string, string, string]> = [
+    ["select", <MousePointer2 size={17} />, copy("Select", "تحديد"), "V", copy("Drag to select a part. Tap to move the playhead.", "اسحب لتحديد جزء. انقر لتحريك مؤشر التشغيل.")],
+    ["cut", <Scissors size={17} />, copy("Cut", "قص"), "C", copy("Drag over a part: it is cut out when you let go, and the rest joins up.", "اسحب على جزء: يُقص عند الإفلات ويتصل الباقي.")],
+    ["zoom", <ZoomIn size={17} />, copy("Zoom", "تكبير"), "Z", copy("Click to zoom in. Drag a box to zoom into exactly that part. Alt/Shift-click to zoom out.", "انقر للتكبير. اسحب مربعًا للتكبير على ذلك الجزء تمامًا. Alt/Shift مع النقر للتصغير.")],
+    ["hand", <Hand size={17} />, copy("Pan", "تحريك"), "H", copy("Drag to move along the recording when zoomed in.", "اسحب للتنقل في التسجيل عند التكبير.")],
+    ["loop", <Repeat size={17} />, copy("A–B loop", "تكرار A–B"), "R", copy("Drag over the section you want to listen to on repeat.", "اسحب على المقطع الذي تريد سماعه مكررًا.")],
+  ];
+  const activeTool = tools.find(([id]) => id === tool)!;
+
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
-      <DialogContent className="flex h-[100dvh] max-w-3xl flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[92vh] sm:rounded-2xl [&>button:last-child]:hidden">
-        <div className="flex items-center gap-3 border-b px-4 py-3" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
-          <Scissors size={18} className="shrink-0 text-primary" />
+      <DialogContent className="flex h-[100dvh] w-full max-w-6xl flex-col gap-0 overflow-hidden rounded-none border-0 bg-[#0b1712] p-0 text-white sm:h-[94vh] sm:rounded-2xl [&>button:last-child]:hidden" dir="ltr">
+        {/* Title bar */}
+        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-2.5" style={{ paddingTop: "max(0.6rem, env(safe-area-inset-top))" }}>
+          <Scissors size={17} className="shrink-0 text-emerald-400" />
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-base font-semibold">{copy("Edit recording", "تحرير التسجيل")}</DialogTitle>
-            <DialogDescription className="truncate text-xs" dir="auto">{title}</DialogDescription>
+            <DialogTitle className="text-sm font-semibold text-white">{copy("Audio editor", "محرر الصوت")}</DialogTitle>
+            <DialogDescription className="truncate text-xs text-white/50" dir="auto">{title}</DialogDescription>
           </div>
-          <button type="button" onClick={onClose} disabled={saving} aria-label={copy("Close", "إغلاق")} className="grid h-9 w-9 place-items-center rounded-full hover:bg-secondary">
-            <X size={18} />
-          </button>
+          <button type="button" onClick={onClose} disabled={saving} aria-label={copy("Close", "إغلاق")} className="grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><X size={18} /></button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {loadError ? (
-            <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" role="alert">{loadError}</p>
-          ) : !buffer ? (
-            <div className="grid h-40 place-items-center text-sm text-muted-foreground"><Loader2 className="animate-spin" /></div>
-          ) : (
-            <>
-              <p className="mb-2 text-xs text-muted-foreground">
-                {selection && selection.end - selection.start >= 0.05 && !dragging
-                  ? copy("Tap ✂ Cut to remove the selected part. The rest joins up.", "اضغط ✂ قص لحذف الجزء المحدد، ويتصل الباقي.")
-                  : cuts.length
-                  ? copy("This is the edited recording. Red lines show where parts were cut and the rest joined.", "هذا هو التسجيل بعد التحرير. الخطوط الحمراء تبيّن مواضع القص والوصل.")
-                  : copy("Drag across the part you want to remove. Tap to move the playhead.", "اسحب على الجزء الذي تريد حذفه. انقر لتحريك مؤشر التشغيل.")}
-              </p>
-              <div ref={scroller} className="overflow-x-auto rounded-xl border bg-card" dir="ltr">
-                <div
-                  className="relative h-[120px] cursor-crosshair touch-none select-none"
-                  style={{ width: contentWidth, direction: isArabic ? "rtl" : "ltr" }}
-                  onPointerDown={onPointerDown}
-                  onPointerMove={onPointerMove}
-                  onPointerUp={onPointerUp}
-                  role="application"
-                  aria-label={copy("Waveform. Drag to select a part.", "شكل الموجة. اسحب لتحديد جزء.")}
-                >
-                  <canvas
-                    ref={canvas}
-                    className="absolute inset-0 h-full w-full [--wave-keep:#29563f] dark:[--wave-keep:#6fbf98]"
-                    style={{ transform: isArabic ? "scaleX(-1)" : undefined }}
-                  />
-                  {(item.marks ?? []).filter((mark) => !cuts.some((cut) => mark >= cut.start && mark < cut.end)).map((mark) => (
-                    <div key={`mark-${mark}`} className="pointer-events-none absolute inset-y-0 w-0 border-s-2 border-amber-400" style={{ [side]: at(timeline.toEdited(mark)) }}
-                      title={copy("Bookmark", "علامة")}>
-                      <Bookmark size={13} className="absolute -start-[7px] bottom-1 fill-amber-400 text-amber-500" />
-                    </div>
-                  ))}
-                  {timeline.joins().map((point) => (
-                    <div key={point} className={`pointer-events-none absolute inset-y-0 w-0 border-s-2 border-dashed transition-colors ${flash !== null && Math.abs(flash - point) < 0.01 ? "border-red-600" : "border-red-500/60"}`}
-                      style={{ [side]: at(point) }}>
-                      <Scissors size={12} className="absolute -start-[7px] top-1 rounded-full bg-card text-red-600" />
-                    </div>
-                  ))}
-                  {selection && selection.end > selection.start && (
-                    <div className="pointer-events-none absolute inset-y-0 border-x-2 border-primary bg-primary/15"
-                      style={{ [side]: at(selection.start), width: at(selection.end - selection.start) }}>
-                      <span className="absolute -start-[7px] top-1/2 h-8 w-3 -translate-y-1/2 rounded-full bg-primary shadow" />
-                      <span className="absolute -end-[7px] top-1/2 h-8 w-3 -translate-y-1/2 rounded-full bg-primary shadow" />
-                    </div>
-                  )}
-                  <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-600" style={{ [side]: at(playhead) }} />
-                  {selection && selection.end - selection.start >= 0.05 && !dragging && (
-                    <div
-                      className="absolute top-1.5 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-card p-1 shadow-lg ring-1 ring-black/10 rtl:translate-x-1/2"
-                      // Centred on the selection, but never pushed past the waveform's edges.
-                      style={{ [side]: `${Math.min(contentWidth - 60, Math.max(60, ((selection.start + selection.end) / 2 / Math.max(length, 0.001)) * contentWidth))}px` }}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onPointerUp={(event) => event.stopPropagation()}
-                    >
-                      <button type="button" onClick={removeSelection}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-3.5 text-sm font-semibold text-white shadow-sm active:scale-95">
-                        <Scissors size={15} />{copy("Cut", "قص")}
-                      </button>
-                      <button type="button" onClick={keepOnlySelection} aria-label={copy("Keep only selection", "احتفظ بالمحدد فقط")} title={copy("Keep only this", "احتفظ بهذا فقط")}
-                        className="grid h-9 w-9 place-items-center rounded-full text-foreground hover:bg-secondary active:scale-95">
-                        <Crop size={15} />
-                      </button>
-                    </div>
-                  )}
-                </div>
+        {loadError ? (
+          <p className="m-4 rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-amber-200" role="alert">{loadError}</p>
+        ) : !buffer ? (
+          <div className="grid flex-1 place-items-center"><Loader2 className="animate-spin text-emerald-400" /></div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {/* Toolbar */}
+            <div className="sticky top-0 z-20 flex items-center gap-1 overflow-x-auto border-b border-white/10 bg-[#102219] px-2 py-1.5 [scrollbar-width:none]" role="toolbar" aria-label={copy("Editing tools", "أدوات التحرير")}>
+              {tools.map(([id, icon, label, shortcut]) => (
+                <ToolButton key={id} active={tool === id} onClick={() => setTool(id)} label={label} shortcut={shortcut}>{icon}</ToolButton>
+              ))}
+              <Divider />
+              <ToolButton onClick={() => seekTo(0)} label={copy("To start", "إلى البداية")} shortcut="Home"><SkipBack size={16} /></ToolButton>
+              <ToolButton onClick={() => seekTo(playhead - 5)} label={copy("Back 5 s", "رجوع 5 ث")}><Rewind size={16} /></ToolButton>
+              <button type="button" onClick={togglePlay} title={copy("Play / pause (Space)", "تشغيل / إيقاف (مسافة)")} aria-label={playing ? copy("Pause", "إيقاف مؤقت") : copy("Play", "تشغيل")}
+                className="mx-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-500 text-[#06150e] shadow transition active:scale-95">
+                {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ms-0.5" />}
+              </button>
+              <ToolButton onClick={() => seekTo(playhead + 5)} label={copy("Forward 5 s", "تقدم 5 ث")}><FastForward size={16} /></ToolButton>
+              <ToolButton active={loopOn} onClick={() => setLoopOn((on) => !on)} label={copy("Loop the A–B section", "كرّر المقطع A–B")} shortcut="L" disabled={!loopValid}><Repeat size={16} /></ToolButton>
+              <ToolButton onClick={() => selection && playEdited(selection.start, selection.end)} label={copy("Play selection", "شغّل المحدد")} disabled={!selection}><span className="text-[10px] font-bold">▶ SEL</span></ToolButton>
+              <Divider />
+              <ToolButton onClick={() => zoomBy(0.5, playhead)} label={copy("Zoom out", "تصغير")} shortcut="−"><ZoomOut size={16} /></ToolButton>
+              <ToolButton onClick={() => zoomBy(2, playhead)} label={copy("Zoom in", "تكبير")} shortcut="+"><ZoomIn size={16} /></ToolButton>
+              <ToolButton onClick={() => { const target = selection ?? (loopValid ? loop : null); if (target) zoomTo(target); }} label={copy("Zoom to selection", "كبّر على المحدد")} disabled={!selection && !loopValid}><ScanSearch size={16} /></ToolButton>
+              <ToolButton onClick={fitAll} label={copy("Show all", "عرض الكل")} shortcut="0"><Maximize2 size={16} /></ToolButton>
+              <Divider />
+              <ToolButton onClick={undo} label={copy("Undo", "تراجع")} shortcut="⌃Z" disabled={!undoStack.length}><Undo2 size={16} /></ToolButton>
+              <ToolButton onClick={redo} label={copy("Redo", "إعادة")} shortcut="⌃Y" disabled={!redoStack.length}><Redo2 size={16} /></ToolButton>
+              <ToolButton onClick={() => selection && cutRange(selection)} label={copy("Cut selection", "قص المحدد")} shortcut="Del" disabled={!selection}><Scissors size={16} /></ToolButton>
+              <ToolButton onClick={() => selection && cropTo(selection)} label={copy("Keep only selection", "احتفظ بالمحدد فقط")} disabled={!selection}><Crop size={16} /></ToolButton>
+            </div>
+
+            {/* Time display */}
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-1 px-4 pt-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">{copy("Position", "الموضع")}</p>
+                <p className="font-mono text-3xl tabular-nums text-emerald-300">{clock(playhead)}</p>
               </div>
-              <div className="mt-1 flex justify-between text-[11px] tabular-nums text-muted-foreground">
-                <span>0:00</span>
-                <span className="font-medium text-foreground">{formatTime(playhead, true)}</span>
-                <span>
-                  {formatTime(length)}
-                  {cuts.length > 0 && <span className="ms-1 line-through opacity-60">{formatTime(duration)}</span>}
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">{copy("Length", "الطول")}</p>
+                <p className="font-mono text-lg tabular-nums text-white/80">{clock(length)}{cuts.length > 0 && <span className="ms-2 text-sm text-white/35 line-through">{clock(duration)}</span>}</p>
+              </div>
+              {selection && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">{copy("Selection", "التحديد")}</p>
+                  <p className="font-mono text-sm tabular-nums text-sky-300">{clock(selection.start)} → {clock(selection.end)} <span className="text-white/50">({(selection.end - selection.start).toFixed(1)} s)</span></p>
+                </div>
+              )}
+              {loopValid && loop && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">{copy("A–B section", "المقطع A–B")}</p>
+                  <p className="flex items-center gap-2 font-mono text-sm tabular-nums text-amber-300">
+                    {clock(loop.start)} → {clock(loop.end)}
+                    <button type="button" onClick={() => playEdited(loop.start, loop.end, loopOn)} className="rounded bg-amber-400/15 px-1.5 py-0.5 font-sans text-[11px] font-semibold hover:bg-amber-400/25">▶ {copy("Play", "تشغيل")}</button>
+                    <button type="button" onClick={() => zoomTo(loop)} className="rounded bg-amber-400/15 px-1.5 py-0.5 font-sans text-[11px] font-semibold hover:bg-amber-400/25">{copy("Zoom", "تكبير")}</button>
+                    <button type="button" onClick={() => { setLoopRange(null); setLoopOn(false); }} aria-label={copy("Clear A–B", "امسح A–B")} className="rounded px-1 text-white/50 hover:text-white"><X size={13} /></button>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 pt-3">
+              {/* Overview: the whole recording, with the visible window */}
+              <div className="relative h-9 cursor-pointer touch-none overflow-hidden rounded-md bg-black/30"
+                onPointerDown={(event) => onOverview(event, true)} onPointerMove={(event) => onOverview(event)} onPointerUp={() => { drag.current = null; }}
+                aria-label={copy("Overview: tap to move the view", "نظرة عامة: انقر لنقل العرض")} role="scrollbar" aria-valuemin={0} aria-valuemax={Math.round(length)} aria-valuenow={Math.round(view.start)}>
+                <canvas ref={overviewCanvas} className="absolute inset-0 h-full w-full" />
+                <div className="pointer-events-none absolute inset-y-0 rounded-sm border border-white/70 bg-white/10" style={{ left: `${(view.start / Math.max(length, 0.001)) * 100}%`, width: `${Math.max(0.6, (span / Math.max(length, 0.001)) * 100)}%` }} />
+                <div className="pointer-events-none absolute inset-y-0 w-px bg-red-400" style={{ left: `${(playhead / Math.max(length, 0.001)) * 100}%` }} />
+              </div>
+
+              {/* Ruler, with the A–B section */}
+              <div className="relative mt-2 h-6 select-none border-b border-white/15 text-[10px] text-white/45">
+                {ticks.map((tick) => (
+                  <span key={tick} className="absolute bottom-0 h-2 border-s border-white/30" style={{ left: x(tick) }}>
+                    <span className="absolute -top-3.5 start-1 whitespace-nowrap font-mono tabular-nums">{formatTime(tick, span < 20)}</span>
+                  </span>
+                ))}
+                {loopValid && loop && (
+                  <div className="absolute bottom-0 h-2 rounded-sm bg-amber-400/70" style={{ left: x(loop.start), width: w(loop) }}>
+                    <span className="absolute -top-0.5 -start-1 text-[9px] font-bold text-amber-300">A</span>
+                    <span className="absolute -top-0.5 -end-1 text-[9px] font-bold text-amber-300">B</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Waveform */}
+              <div
+                ref={wave}
+                className={`relative touch-none select-none overflow-hidden rounded-b-md bg-[#07110d] ${cursor}`}
+                style={{ height: WAVE_HEIGHT }}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+                onContextMenu={(event) => { if (tool === "zoom") { event.preventDefault(); zoomBy(0.5, timeAtX(event.clientX)); } }}
+                role="application"
+                aria-label={copy("Waveform", "شكل الموجة")}
+              >
+                <canvas ref={waveCanvas} className="absolute inset-0 h-full w-full" />
+                {loopValid && loop && (
+                  <div className="pointer-events-none absolute inset-y-0 border-x border-amber-400/80 bg-amber-400/10" style={{ left: x(loop.start), width: w(loop) }} />
+                )}
+                {timeline.joins().filter(inView).map((point) => (
+                  <div key={`join-${point}`} className="pointer-events-none absolute inset-y-0 w-0 border-s border-dashed border-red-400/80" style={{ left: x(point) }}>
+                    <Scissors size={11} className="absolute -start-[6px] top-1 rounded-full bg-[#07110d] text-red-400" />
+                  </div>
+                ))}
+                {(item.marks ?? []).filter((mark) => !cuts.some((cut) => mark >= cut.start && mark < cut.end)).map((mark) => timeline.toEdited(mark)).filter(inView).map((mark) => (
+                  <div key={`mark-${mark}`} className="pointer-events-none absolute inset-y-0 w-0 border-s border-amber-300/80" style={{ left: x(mark) }}>
+                    <Bookmark size={12} className="absolute -start-[6px] bottom-1 fill-amber-300 text-amber-400" />
+                  </div>
+                ))}
+                {selection && (
+                  <div className="pointer-events-none absolute inset-y-0 border-x-2 border-sky-300 bg-sky-400/20" style={{ left: x(selection.start), width: w(selection) }} />
+                )}
+                {preview && (
+                  <div className={`pointer-events-none absolute inset-y-0 border-x-2 ${tool === "cut" ? "border-red-400 bg-red-500/30" : tool === "zoom" ? "border-white/70 bg-white/10" : "border-amber-300 bg-amber-400/20"}`}
+                    style={{ left: x(preview.start), width: w(preview) }}>
+                    <span className="absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px]">
+                      {tool === "cut" ? "✂ " : tool === "zoom" ? "🔍 " : "A–B "}{(preview.end - preview.start).toFixed(2)} s
+                    </span>
+                  </div>
+                )}
+                {inView(playhead) && <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" style={{ left: x(playhead) }} />}
+              </div>
+
+              {/* Status bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 py-2 text-[11px] text-white/50">
+                <span><span className="font-semibold text-emerald-300">{activeTool[2]}</span> · {activeTool[4]}</span>
+                <span className="font-mono tabular-nums">
+                  {copy("Zoom", "التكبير")} {zoomLevel < 10 ? zoomLevel.toFixed(1) : Math.round(zoomLevel)}× · {formatTime(view.start, true)}–{formatTime(view.end, true)}
+                  <span className="ms-2 hidden sm:inline">{copy("Wheel: zoom · Shift+wheel: scroll · Pinch on touch", "العجلة: تكبير · Shift+العجلة: تمرير · القرص باللمس")}</span>
                 </span>
               </div>
+            </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Button className="h-11 rounded-full px-5" onClick={() => (playing ? stop() : playFromHead())}>
-                  {playing ? <Pause size={17} className="me-2" fill="currentColor" /> : <Play size={17} className="me-2 rtl:-scale-x-100" fill="currentColor" />}
-                  {playing ? copy("Pause", "إيقاف مؤقت") : copy("Play", "تشغيل")}
-                </Button>
-                <label className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
-                  <ZoomIn size={15} />
-                  <span className="sr-only">{copy("Zoom", "تكبير")}</span>
-                  <input type="range" min={1} max={Math.max(1, Math.min(40, Math.ceil(length / 10)))} step={1} value={zoom}
-                    onChange={(event) => setZoom(Number(event.target.value))} className="w-28 accent-[hsl(var(--primary))]" disabled={length < 20} />
-                </label>
+            {/* Panels */}
+            <div className="mx-4 mb-4 rounded-xl border border-white/10 bg-white/[0.03]" dir={isArabic ? "rtl" : "ltr"}>
+              <div className="flex border-b border-white/10 text-sm" role="tablist">
+                {([["cuts", copy(`Cuts (${cuts.length})`, `المقطوع (${cuts.length})`)], ["cleanup", copy("Clean up", "تنظيف")], ["text", copy("Edit by text", "التحرير بالنص")]] as const).map(([id, label]) => (
+                  <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+                    className={`px-4 py-2.5 font-medium transition-colors ${tab === id ? "border-b-2 border-emerald-400 text-white" : "text-white/50 hover:text-white/80"}`}>{label}</button>
+                ))}
               </div>
-
-              <div className="mt-4">
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                  <Wand2 size={13} />{copy("Clean up", "تنظيف")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" className="h-9 rounded-full" onClick={trimEdges}>{copy("Trim silent start & end", "قص الصمت في الطرفين")}</Button>
-                  <Button variant="outline" size="sm" className="h-9 rounded-full" onClick={shortenPauses}>{copy("Shorten long pauses", "قصّر الوقفات الطويلة")}</Button>
-                  <Button variant="outline" size="sm" className="h-9 rounded-full" disabled={wordsState === "loading"} onClick={() => void removeFillers()}>
-                    {wordsState === "loading" ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Sparkles size={14} className="me-1.5" />}
-                    {copy("Remove filler words", "احذف كلمات الحشو")}{words ? ` (${[...fillerSet].filter((i) => !isWordRemoved(words[i], removed)).length})` : ""}
-                  </Button>
-                </div>
-                {note && <p className="mt-2 text-xs font-medium text-primary" role="status">{note}</p>}
-              </div>
-
-              <div className="mt-5 rounded-2xl border bg-card p-3">
-                <p className="flex items-center gap-1.5 text-sm font-semibold"><Type size={15} className="text-primary" />{copy("Edit by text", "التحرير بالنص")}</p>
-                {words ? (
+              <div className="p-3">
+                {tab === "cuts" && (cuts.length ? (
                   <>
-                    <p className="mt-1 text-xs text-muted-foreground">{copy("Tap words to cut them from the audio. Tap again to bring them back.", "انقر على الكلمات لقصّها من الصوت. انقر مجددًا لإعادتها.")}</p>
-                    <p dir="auto" className="mt-3 max-h-64 overflow-y-auto text-[15px] leading-9">
+                    <div className="flex flex-wrap gap-2">
+                      {cuts.map((range) => (
+                        <span key={`${range.start}-${range.end}`} className="inline-flex items-center gap-1 rounded-full bg-red-500/15 py-1 ps-3 pe-1 font-mono text-xs tabular-nums text-red-200" title={copy("Times in the original recording", "الأوقات في التسجيل الأصلي")}>
+                          <Scissors size={11} />{formatTime(range.start, true)}–{formatTime(range.end, true)}
+                          <button type="button" aria-label={copy("Put this part back", "أعد هذا الجزء")} onClick={() => commit(cuts.filter((r) => r.start !== range.start || r.end !== range.end), 0)} className="grid h-6 w-6 place-items-center rounded-full hover:bg-red-500/25"><X size={12} /></button>
+                        </span>
+                      ))}
+                    </div>
+                    <Button size="sm" variant="ghost" className="mt-2 h-8 text-white/70 hover:bg-white/10 hover:text-white" onClick={() => commit([], 0)}><RotateCcw size={14} className="me-1" />{copy("Put everything back", "أعد كل شيء")}</Button>
+                  </>
+                ) : (
+                  <p className="text-xs text-white/50">{copy("Nothing cut yet. Use the ✂ Cut tool and drag over a part, or select a part and press Delete.", "لم يُقص شيء بعد. استخدم أداة ✂ القص واسحب على جزء، أو حدّد جزءًا واضغط Delete.")}</p>
+                ))}
+                {tab === "cleanup" && (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" className="h-9 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10" onClick={trimEdges}><Wand2 size={14} className="me-1.5" />{copy("Trim silent start & end", "قص الصمت في الطرفين")}</Button>
+                      <Button size="sm" variant="outline" className="h-9 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10" onClick={shortenPauses}>{copy("Shorten long pauses", "قصّر الوقفات الطويلة")}</Button>
+                      <Button size="sm" variant="outline" className="h-9 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10" disabled={wordsState === "loading"} onClick={() => void removeFillers()}>
+                        {wordsState === "loading" ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Sparkles size={14} className="me-1.5" />}
+                        {copy("Remove filler words", "احذف كلمات الحشو")}{words ? ` (${[...fillerSet].filter((i) => !isWordRemoved(words[i], removed)).length})` : ""}
+                      </Button>
+                    </div>
+                    {note && <p className="mt-2 text-xs font-medium text-emerald-300" role="status">{note}</p>}
+                  </>
+                )}
+                {tab === "text" && (words ? (
+                  <>
+                    <p className="text-xs text-white/50">{copy("Tap words to cut them. Tap again to bring them back.", "انقر على الكلمات لقصّها. انقر مجددًا لإعادتها.")}</p>
+                    <p dir="auto" className="mt-2 max-h-56 overflow-y-auto text-[15px] leading-9">
                       {words.map((entry, index) => {
                         const cut = isWordRemoved(entry, removed);
                         return (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => toggleWord(index)}
-                            aria-pressed={cut}
-                            title={`${formatTime(entry.start, true)}`}
-                            className={`me-1 rounded px-0.5 transition-colors ${cut ? "bg-red-50 text-red-700/70 line-through decoration-2 dark:bg-red-950/40 dark:text-red-300/70" : "hover:bg-primary/10"} ${fillerSet.has(index) && !cut ? "underline decoration-amber-500 decoration-wavy underline-offset-4" : ""}`}
-                          >
+                          <button key={index} type="button" onClick={() => toggleWord(index)} aria-pressed={cut} title={formatTime(entry.start, true)}
+                            className={`me-1 rounded px-0.5 transition-colors ${cut ? "bg-red-500/15 text-red-300/70 line-through decoration-2" : "hover:bg-white/10"} ${fillerSet.has(index) && !cut ? "underline decoration-amber-400 decoration-wavy underline-offset-4" : ""}`}>
                             {entry.word.trim()}
                           </button>
                         );
@@ -511,87 +773,26 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                   </>
                 ) : (
                   <>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      {copy("See every word and remove parts by tapping words. Reading the words takes a few seconds the first time.", "اعرض كل كلمة واحذف الأجزاء بالنقر على الكلمات. تستغرق قراءة الكلمات بضع ثوانٍ في المرة الأولى.")}
-                    </p>
-                    {wordsState === "error" && <p className="mt-2 text-xs text-amber-800 dark:text-amber-300" role="alert">{wordsError}</p>}
-                    <Button size="sm" className="mt-3 h-9 rounded-full" disabled={wordsState === "loading"} onClick={() => void loadWords()}>
+                    <p className="text-xs text-white/50">{copy("See every word and cut parts by tapping words. Reading the words takes a few seconds the first time.", "اعرض كل كلمة واقطع الأجزاء بالنقر على الكلمات. تستغرق قراءة الكلمات بضع ثوانٍ في المرة الأولى.")}</p>
+                    {wordsState === "error" && <p className="mt-2 text-xs text-amber-300" role="alert">{wordsError}</p>}
+                    <Button size="sm" className="mt-2 h-9 rounded-full bg-emerald-500 text-[#06150e] hover:bg-emerald-400" disabled={wordsState === "loading"} onClick={() => void loadWords()}>
                       {wordsState === "loading" ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Type size={14} className="me-1.5" />}
                       {wordsState === "loading" ? copy("Reading the words…", "جارٍ قراءة الكلمات…") : copy("Show the words", "اعرض الكلمات")}
                     </Button>
                   </>
-                )}
+                ))}
               </div>
+            </div>
+          </div>
+        )}
 
-              {selection && selection.end - selection.start >= 0.05 && (
-                <div className="mt-4 rounded-2xl border bg-muted/30 p-3">
-                  <p className="text-sm font-medium tabular-nums">
-                    {copy("Selected", "المحدد")}: {formatTime(selection.start, true)} – {formatTime(selection.end, true)}
-                    <span className="text-muted-foreground"> ({(selection.end - selection.start).toFixed(1)} {copy("s", "ث")})</span>
-                  </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-                    {(["start", "end"] as const).map((edge) => (
-                      <span key={edge} className="inline-flex items-center gap-1.5">
-                        <span className="text-muted-foreground">{edge === "start" ? copy("Start", "البداية") : copy("End", "النهاية")}</span>
-                        <button type="button" aria-label={copy(`${edge} 0.1 s earlier`, "أبكر 0.1 ث")} onClick={() => nudge(edge, -0.1)} className="grid h-7 w-7 place-items-center rounded-full border bg-background"><Minus size={13} /></button>
-                        <button type="button" aria-label={copy(`${edge} 0.1 s later`, "أبعد 0.1 ث")} onClick={() => nudge(edge, 0.1)} className="grid h-7 w-7 place-items-center rounded-full border bg-background"><Plus size={13} /></button>
-                      </span>
-                    ))}
-                    <button type="button" onClick={() => playEdited(selection.start, selection.end)} className="inline-flex items-center gap-1 font-medium text-primary">
-                      <Play size={13} fill="currentColor" className="rtl:-scale-x-100" />{copy("Play selection", "تشغيل المحدد")}
-                    </button>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button variant="destructive" className="h-11 rounded-full" onClick={removeSelection}>
-                      <Scissors size={16} className="me-2" />{copy("Cut out & join", "اقطع وصِل")}
-                    </Button>
-                    <Button variant="outline" className="h-11 rounded-full" onClick={keepOnlySelection}>
-                      <Crop size={16} className="me-2" />{copy("Keep only selection", "احتفظ بالمحدد فقط")}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {cuts.length > 0 && (
-                <div className="mt-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">{copy("Cut out", "المقطوع")}</p>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" className="h-8" disabled={!history.length} onClick={undo}>
-                        <Undo2 size={14} className="me-1" />{copy("Undo", "تراجع")}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-8" onClick={() => change([], 0)}>
-                        <RotateCcw size={14} className="me-1" />{copy("Reset", "إعادة")}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {cuts.map((range) => (
-                      <span key={`${range.start}-${range.end}`} className="inline-flex items-center gap-1 rounded-full bg-red-50 py-1 ps-3 pe-1 text-xs tabular-nums text-red-800 dark:bg-red-950/40 dark:text-red-200"
-                        title={copy("Times in the original recording", "الأوقات في التسجيل الأصلي")}>
-                        <Scissors size={11} className="me-0.5" />
-                        {formatTime(range.start, true)}–{formatTime(range.end, true)}
-                        <span className="opacity-70">({(range.end - range.start).toFixed(1)} {copy("s", "ث")})</span>
-                        <button type="button" aria-label={copy("Put this part back", "أعد هذا الجزء")} onClick={() => change(cuts.filter((r) => r.start !== range.start || r.end !== range.end), 0)} className="grid h-6 w-6 place-items-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/40">
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3 border-t px-4 py-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-          <p className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
-            {buffer && cuts.length > 0
-              ? <><span className="font-medium text-foreground">{copy("New length", "الطول الجديد")} {formatTime(length)}</span> · {copy("was", "كان")} {formatTime(duration)}<br /></>
-              : null}
+        {/* Footer */}
+        <div className="flex items-center gap-3 border-t border-white/10 bg-[#102219] px-4 py-2.5" style={{ paddingBottom: "max(0.6rem, env(safe-area-inset-bottom))" }}>
+          <p className="min-w-0 flex-1 text-xs leading-5 text-white/55">
+            {buffer && cuts.length > 0 && <><span className="font-medium text-white">{copy("New length", "الطول الجديد")} {formatTime(length)}</span> · {copy("was", "كان")} {formatTime(duration)} · </>}
             {copy("Your original is kept and can be restored.", "يُحفظ الأصل ويمكن استعادته.")}
           </p>
-          <Button className="h-11 shrink-0 rounded-full px-5" disabled={!cuts.length || saving || length < 0.3} onClick={() => void save()}>
+          <Button className="h-10 shrink-0 rounded-full bg-emerald-500 px-5 text-[#06150e] hover:bg-emerald-400" disabled={!cuts.length || saving || length < 0.3} onClick={() => void save()}>
             {saving ? <Loader2 size={16} className="me-2 animate-spin" /> : <Scissors size={16} className="me-2" />}
             {saving ? copy("Saving…", "جارٍ الحفظ…") : copy("Save edit", "احفظ التعديل")}
           </Button>
