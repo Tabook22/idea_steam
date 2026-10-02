@@ -79,7 +79,8 @@ const drafts = [];
 const audioLibrary = [];
 const libraryItem = (entry) => {
   const idea = ideas.find((i) => i.id === entry.sourceIdeaId);
-  return { ...entry, sourceIdeaId: idea ? idea.id : null, sourceSubjectId: idea ? idea.subjectId : null };
+  const { originalUrl, ...rest } = entry;
+  return { ...rest, edited: !!originalUrl, sourceIdeaId: idea ? idea.id : null, sourceSubjectId: idea ? idea.subjectId : null };
 };
 const addToLibrary = (idea, attachment) => {
   const existing = audioLibrary.find((entry) => entry.url === attachment.url);
@@ -285,6 +286,31 @@ const api = createHttpServer(async (req, res) => {
         clientCaptureId: body.clientCaptureId, capturedAt: body.capturedAt || new Date().toISOString(), createdAt: new Date().toISOString() };
       audioLibrary.push(entry);
       return send(libraryItem(entry), 201);
+    }
+    // Preview only: edits and joins change lengths and labels; the audio itself is not re-cut here.
+    if (path === "/api/audio-library/join" && req.method === "POST") {
+      const parts = (body.itemIds || []).map((id) => audioLibrary.find((entry) => entry.id === id));
+      if (parts.length < 2 || parts.some((part) => !part)) return send({ error: "Choose 2 to 20 recordings to join." }, 400);
+      const entry = { id: ++nextId, url: parts[0].url, title: body.title || null, mimeType: "audio/webm",
+        durationSeconds: parts.reduce((sum, part) => sum + (part.durationSeconds || 0), 0) || null,
+        transcript: parts.map((part) => part.transcript).filter(Boolean).join(String.fromCharCode(10, 10)) || null,
+        sourceIdeaId: null, sourceSubjectTitle: null, capturedAt: new Date().toISOString(), createdAt: new Date().toISOString() };
+      audioLibrary.push(entry);
+      return send(libraryItem(entry), 201);
+    }
+    const libraryEdit = path.match(/^\/api\/audio-library\/(\d+)\/(edit|restore)$/);
+    if (libraryEdit && req.method === "POST") {
+      const entry = audioLibrary.find((item) => item.id === Number(libraryEdit[1]));
+      if (!entry) return send({ error: "Not in the library" }, 404);
+      if (libraryEdit[2] === "edit") {
+        entry.originalDuration ??= entry.durationSeconds;
+        entry.originalUrl ??= entry.url;
+        entry.durationSeconds = Math.max(1, Math.round((body.keep || []).reduce((sum, r) => sum + (r.end - r.start), 0)));
+      } else {
+        if (!entry.originalUrl) return send({ error: "This recording hasn't been edited." }, 409);
+        entry.url = entry.originalUrl; entry.originalUrl = null; entry.durationSeconds = entry.originalDuration ?? entry.durationSeconds;
+      }
+      return send(libraryItem(entry));
     }
     const libraryTranscript = path.match(/^\/api\/audio-library\/(\d+)\/transcription$/);
     if (libraryTranscript && req.method === "POST") {

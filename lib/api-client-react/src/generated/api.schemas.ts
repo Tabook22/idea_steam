@@ -160,6 +160,8 @@ export interface AudioLibraryItem {
      * @nullable
      */
   sourceSubjectTitle: string | null;
+  /** True after cutting; the original can be restored. */
+  edited: boolean;
   capturedAt: string;
   createdAt: string;
 }
@@ -192,6 +194,32 @@ export const LibraryTranscriptionInputLanguage = {
 
 export interface LibraryTranscriptionInput {
   language?: LibraryTranscriptionInputLanguage;
+}
+
+export interface AudioRange {
+  /** @minimum 0 */
+  start: number;
+  /** @minimum 0 */
+  end: number;
+}
+
+export interface AudioEditInput {
+  /**
+     * Parts to keep, in seconds, in order and not overlapping.
+     * @minItems 1
+     * @maxItems 200
+     */
+  keep: AudioRange[];
+}
+
+export interface AudioJoinInput {
+  /**
+     * @minItems 2
+     * @maxItems 20
+     */
+  itemIds: number[];
+  /** @maxLength 200 */
+  title?: string;
 }
 
 export interface AudioLibraryAdd {

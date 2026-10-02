@@ -535,6 +535,7 @@ export const ListAudioLibraryResponseItem = zod.object({
   "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
   "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -564,6 +565,7 @@ export const AddToAudioLibraryResponse = zod.object({
   "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
   "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -596,6 +598,7 @@ export const CreateLibraryRecordingResponse = zod.object({
   "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
   "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -624,6 +627,99 @@ export const TranscribeLibraryItemResponse = zod.object({
   "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
   "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Join recordings, in the given order, into one new library recording
+ */
+export const joinAudioLibraryItemsBodyItemIdsMin = 2;
+export const joinAudioLibraryItemsBodyItemIdsMax = 20;
+
+export const joinAudioLibraryItemsBodyTitleMax = 200;
+
+
+
+export const JoinAudioLibraryItemsBody = zod.object({
+  "itemIds": zod.array(zod.number().int()).min(joinAudioLibraryItemsBodyItemIdsMin).max(joinAudioLibraryItemsBodyItemIdsMax),
+  "title": zod.string().max(joinAudioLibraryItemsBodyTitleMax).optional()
+})
+
+export const JoinAudioLibraryItemsResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Keep only the given parts of a recording; the original is kept for restoring
+ */
+export const EditAudioLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const editAudioLibraryItemBodyKeepItemStartMin = 0;
+
+export const editAudioLibraryItemBodyKeepItemEndMin = 0;
+
+export const editAudioLibraryItemBodyKeepMax = 200;
+
+
+
+export const EditAudioLibraryItemBody = zod.object({
+  "keep": zod.array(zod.object({
+  "start": zod.number().min(editAudioLibraryItemBodyKeepItemStartMin),
+  "end": zod.number().min(editAudioLibraryItemBodyKeepItemEndMin)
+})).min(1).max(editAudioLibraryItemBodyKeepMax).describe('Parts to keep, in seconds, in order and not overlapping.')
+})
+
+export const EditAudioLibraryItemResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Undo all edits and go back to the original recording
+ */
+export const RestoreAudioLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const RestoreAudioLibraryItemResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })
@@ -658,6 +754,7 @@ export const UpdateAudioLibraryItemResponse = zod.object({
   "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
   "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
   "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
 })

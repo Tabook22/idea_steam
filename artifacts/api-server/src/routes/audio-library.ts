@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import {
   audioLibraryTable,
   db,
@@ -10,6 +10,8 @@ import {
 import {
   AddToAudioLibraryBody,
   CreateLibraryRecordingBody,
+  EditAudioLibraryItemBody,
+  JoinAudioLibraryItemsBody,
   TranscribeLibraryItemBody,
   UpdateAudioLibraryItemBody,
   UpdateAudioLibraryItemParams,
@@ -20,6 +22,7 @@ import {
   transcribeStoredAudio,
   transcriptionFailure,
 } from "../lib/stored-transcription";
+import { AudioEditError, joinRecordings, keepRanges, storedDuration } from "../lib/audio-edit";
 
 const router: IRouter = Router();
 
@@ -67,6 +70,7 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
     sourceIdeaId: ideaId,
     sourceSubjectId: subjectId,
     sourceSubjectTitle: item.sourceSubjectTitle,
+    edited: item.originalUrl !== null,
     capturedAt: item.capturedAt.toISOString(),
     createdAt: item.createdAt.toISOString(),
   };
@@ -155,6 +159,97 @@ router.post("/audio-library/:itemId/transcription", async (req, res): Promise<vo
   } catch (error) {
     const [code, message] = transcriptionFailure(error);
     res.status(code).json({ error: message });
+  }
+});
+
+/** After an edit or join the old text no longer matches; redo it in the background. */
+function retranscribe(id: number, url: string) {
+  void (async () => {
+    const text = await transcribeStoredAudio(canonicalStorageUrl(url), "auto");
+    if (!text) return;
+    await db.update(audioLibraryTable).set({ transcript: text })
+      // Only if the item still plays this audio (a newer edit wins).
+      .where(and(eq(audioLibraryTable.id, id), eq(audioLibraryTable.url, url)));
+  })().catch(() => { /* The audio is saved; the text can be added later. */ });
+}
+
+function editFailure(res: import("express").Response, error: unknown) {
+  if (error instanceof AudioEditError) { res.status(error.status).json({ error: error.message }); return; }
+  console.warn("Audio edit failed", { reason: error instanceof Error ? error.name : "unknown" });
+  res.status(500).json({ error: "The edit couldn't be saved. Your recording is unchanged." });
+}
+
+router.post("/audio-library/join", async (req, res): Promise<void> => {
+  const body = JoinAudioLibraryItemsBody.safeParse(req.body);
+  if (!body.success || new Set(body.data.itemIds).size !== body.data.itemIds.length) {
+    res.status(400).json({ error: "Choose 2 to 20 different recordings to join." });
+    return;
+  }
+  const rows = await db.select().from(audioLibraryTable).where(inArray(audioLibraryTable.id, body.data.itemIds));
+  if (rows.length !== body.data.itemIds.length) { res.status(404).json({ error: "Some recordings are no longer in the library." }); return; }
+  const ordered = body.data.itemIds.map((id) => rows.find((row) => row.id === id)!);
+  try {
+    const joined = await joinRecordings(ordered.map((row) => row.url));
+    const [created] = await db.insert(audioLibraryTable).values({
+      url: joined.url,
+      mimeType: joined.mimeType,
+      durationSeconds: joined.durationSeconds,
+      title: body.data.title?.trim() || null,
+      // Until the new text arrives, show the pieces' text in order.
+      transcript: ordered.every((row) => row.transcript) ? ordered.map((row) => row.transcript).join("\n\n") : null,
+    }).returning({ id: audioLibraryTable.id });
+    retranscribe(created.id, joined.url);
+    const [saved] = await select().where(eq(audioLibraryTable.id, created.id));
+    res.status(201).json(serialize(saved));
+  } catch (error) {
+    editFailure(res, error);
+  }
+});
+
+router.post("/audio-library/:itemId/edit", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  const body = EditAudioLibraryItemBody.safeParse(req.body);
+  if (!params.success || !body.success) { res.status(400).json({ error: "The selection is not valid." }); return; }
+  const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  try {
+    const edited = await keepRanges(current.url, body.data.keep);
+    const [updated] = await db.update(audioLibraryTable).set({
+      url: edited.url,
+      mimeType: edited.mimeType,
+      durationSeconds: edited.durationSeconds,
+      transcript: null,
+      originalUrl: current.originalUrl ?? current.url,
+    }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
+      .returning({ id: audioLibraryTable.id });
+    if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please reopen it." }); return; }
+    retranscribe(current.id, edited.url);
+    const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
+    res.json(serialize(saved));
+  } catch (error) {
+    editFailure(res, error);
+  }
+});
+
+router.post("/audio-library/:itemId/restore", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
+  const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  if (!current.originalUrl) { res.status(409).json({ error: "This recording hasn't been edited." }); return; }
+  try {
+    const durationSeconds = await storedDuration(current.originalUrl).catch(() => null);
+    await db.update(audioLibraryTable)
+      .set({ url: current.originalUrl, originalUrl: null, durationSeconds, transcript: null })
+      .where(eq(audioLibraryTable.id, current.id));
+    retranscribe(current.id, current.originalUrl);
+    const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
+    res.json(serialize(saved));
+  } catch (error) {
+    // The original is also in the library as its own item (added back from its idea).
+    if ((error as { code?: string })?.code === "23505" || /unique/i.test(String((error as Error)?.message)))
+      res.status(409).json({ error: "The original recording is already in your library as a separate item." });
+    else editFailure(res, error);
   }
 });
 

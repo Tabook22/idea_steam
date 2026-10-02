@@ -8,7 +8,13 @@ import {
   ChevronDown,
   Download,
   Headphones,
+  ArrowDown,
+  ArrowUp,
+  ListChecks,
   ListMusic,
+  Merge,
+  RotateCcw,
+  Scissors,
   Loader2,
   Mic,
   Pause,
@@ -21,6 +27,8 @@ import {
 } from "lucide-react";
 import {
   deleteAudioLibraryItem,
+  joinAudioLibraryItems,
+  restoreAudioLibraryItem,
   getListAudioLibraryQueryKey,
   updateAudioLibraryItem,
   useListAudioLibrary,
@@ -28,6 +36,8 @@ import {
 } from "@workspace/api-client-react";
 import { appPath } from "@/lib/app-path";
 import { useRecorder } from "@/components/recorder-provider";
+import { AudioEditor } from "@/components/audio-editor";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { usePressToTalk } from "@/components/press-to-talk";
 import { useRecorderPrefs } from "@/lib/recorder-prefs";
 import { useLanguage } from "@/lib/i18n";
@@ -85,6 +95,13 @@ export default function LibraryPage() {
   const [draftTitle, setDraftTitle] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<AudioLibraryItem | null>(null);
+  const [editing, setEditing] = useState<AudioLibraryItem | null>(null);
+  const [restoring, setRestoring] = useState<AudioLibraryItem | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<number[]>([]);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinTitle, setJoinTitle] = useState("");
+  const [joining, setJoining] = useState(false);
   const audio = useRef<HTMLAudioElement>(null);
   const pendingDeletes = useRef(new Map<number, number>());
   const fallbackTitle = copy("Voice note", "ملاحظة صوتية");
@@ -231,6 +248,42 @@ export default function LibraryPage() {
     }
   }, []);
 
+  const togglePick = (id: number) => setPicked((list) => (list.includes(id) ? list.filter((value) => value !== id) : [...list, id]));
+  const movePick = (index: number, delta: number) => setPicked((list) => {
+    const next = [...list];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return list;
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+  const endSelecting = () => { setSelecting(false); setPicked([]); setJoinOpen(false); setJoinTitle(""); };
+
+  async function join() {
+    setJoining(true);
+    try {
+      await joinAudioLibraryItems({ itemIds: picked, ...(joinTitle.trim() ? { title: joinTitle.trim() } : {}) });
+      await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+      toast({ title: copy("Recordings joined", "تم دمج التسجيلات"), description: copy("The new recording is at the top. The originals are unchanged.", "التسجيل الجديد في الأعلى. الأصول لم تتغير.") });
+      setSort("newest");
+      endSelecting();
+    } catch (error) {
+      toast({ variant: "destructive", title: copy("Couldn't join them", "تعذر الدمج"), description: (error as { data?: { error?: string } })?.data?.error });
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  async function restore(item: AudioLibraryItem) {
+    try {
+      if (activeId === item.id) { audio.current?.pause(); setActiveId(null); }
+      await restoreAudioLibraryItem(item.id);
+      await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+      toast({ title: copy("Original restored", "تمت استعادة الأصل") });
+    } catch (error) {
+      toast({ variant: "destructive", title: copy("Couldn't restore it", "تعذرت الاستعادة"), description: (error as { data?: { error?: string } })?.data?.error });
+    }
+  }
+
   let lastDay = "";
   const grouped = sort === "newest" || sort === "oldest";
 
@@ -315,7 +368,20 @@ export default function LibraryPage() {
           </select>
           <ChevronDown size={14} className="pointer-events-none absolute end-2.5 text-muted-foreground" />
         </label>
+        <button
+          type="button"
+          onClick={() => (selecting ? endSelecting() : setSelecting(true))}
+          aria-pressed={selecting}
+          aria-label={selecting ? copy("Cancel selecting", "إلغاء التحديد") : copy("Select recordings to join", "حدد تسجيلات للدمج")}
+          title={copy("Select to join", "حدد للدمج")}
+          className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition-colors ${selecting ? "border-primary bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"}`}
+        >
+          {selecting ? <X size={16} /> : <ListChecks size={17} />}
+        </button>
       </div>
+      {selecting && (
+        <p className="mb-1 text-xs text-muted-foreground">{copy("Tap recordings in the order you want them joined.", "انقر على التسجيلات بالترتيب الذي تريد دمجها به.")}</p>
+      )}
 
       {isLoading ? (
         <div className="mt-2 divide-y overflow-hidden rounded-2xl border bg-card" aria-hidden="true">
@@ -357,6 +423,17 @@ export default function LibraryPage() {
                   <p className="bg-muted/50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{header}</p>
                 )}
                 <div className={`relative flex items-center gap-2.5 py-2 ps-2.5 pe-1.5 transition-colors ${current ? "bg-primary/[0.06]" : "hover:bg-muted/40"}`}>
+                  {selecting ? (
+                    <button
+                      type="button"
+                      onClick={() => togglePick(item.id)}
+                      aria-pressed={picked.includes(item.id)}
+                      aria-label={copy(`Select ${title}`, `تحديد ${title}`)}
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 text-sm font-bold transition ${picked.includes(item.id) ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/30 text-transparent"}`}
+                    >
+                      {picked.includes(item.id) ? picked.indexOf(item.id) + 1 : "·"}
+                    </button>
+                  ) : (
                   <button
                     type="button"
                     onClick={() => { setPlayAll(false); play(item); }}
@@ -365,6 +442,7 @@ export default function LibraryPage() {
                   >
                     {current && playing ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" className="ms-0.5 rtl:-scale-x-100" />}
                   </button>
+                  )}
                   {renaming === item.id ? (
                     <form className="flex min-w-0 flex-1 gap-1.5" onSubmit={(event) => { event.preventDefault(); void saveTitle(item); }}>
                       <input
@@ -383,7 +461,7 @@ export default function LibraryPage() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setExpanded(open ? null : item.id)}
+                      onClick={() => (selecting ? togglePick(item.id) : setExpanded(open ? null : item.id))}
                       aria-expanded={open}
                       className="min-w-0 flex-1 py-0.5 text-start"
                     >
@@ -393,6 +471,7 @@ export default function LibraryPage() {
                         {" · "}
                         <span className="tabular-nums">{current ? `${clock(position)} / ${clock(total)}` : clock(total)}</span>
                         {item.sourceSubjectTitle && ` · ${item.sourceSubjectTitle}`}
+                        {item.edited && <> · <span className="font-medium text-primary">{copy("edited", "معدّل")}</span></>}
                       </span>
                     </button>
                   )}
@@ -445,6 +524,14 @@ export default function LibraryPage() {
                       <button type="button" className="inline-flex items-center gap-1 font-medium text-primary hover:underline" onClick={() => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }}>
                         <Pencil size={12} />{copy("Rename", "إعادة تسمية")}
                       </button>
+                      <button type="button" className="inline-flex items-center gap-1 font-medium text-primary hover:underline" onClick={() => { if (activeId === item.id) audio.current?.pause(); setEditing(item); }}>
+                        <Scissors size={12} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}
+                      </button>
+                      {item.edited && (
+                        <button type="button" className="inline-flex items-center gap-1 font-medium text-primary hover:underline" onClick={() => setRestoring(item)}>
+                          <RotateCcw size={12} />{copy("Restore original", "استعادة الأصل")}
+                        </button>
+                      )}
                       {item.sourceSubjectId && item.sourceIdeaId ? (
                         <Link href={`/subjects/${item.sourceSubjectId}#idea-${item.sourceIdeaId}`} className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
                           {copy("Open in", "افتح في")} {item.sourceSubjectTitle}<ArrowUpRight size={12} />
@@ -497,6 +584,68 @@ export default function LibraryPage() {
           </button>
         </div>
       )}
+
+      {selecting && (
+        <div className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-[hsl(158_38%_14%)] p-2.5 ps-4 text-white shadow-2xl md:bottom-6">
+          <p className="min-w-0 flex-1 text-sm">
+            {picked.length < 2 ? copy("Select 2 or more recordings", "حدد تسجيلين أو أكثر") : copy(`${picked.length} selected`, `${picked.length} محددة`)}
+          </p>
+          <Button variant="ghost" className="h-10 rounded-full text-white hover:bg-white/10 hover:text-white" onClick={endSelecting}>{copy("Cancel", "إلغاء")}</Button>
+          <Button className="h-10 rounded-full bg-white px-4 text-[hsl(158_38%_14%)] hover:bg-white/90" disabled={picked.length < 2} onClick={() => setJoinOpen(true)}>
+            <Merge size={16} className="me-1.5" />{copy("Join", "دمج")}
+          </Button>
+        </div>
+      )}
+
+      {editing && <AudioEditor item={editing} title={displayTitle(editing, fallbackTitle)} onClose={() => setEditing(null)} />}
+
+      <AlertDialog open={!!restoring} onOpenChange={(open) => { if (!open) setRestoring(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy("Restore the original recording?", "استعادة التسجيل الأصلي؟")}</AlertDialogTitle>
+            <AlertDialogDescription>{copy("Your cuts will be undone and the full recording comes back.", "ستُلغى التعديلات ويعود التسجيل كاملًا.")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{copy("Keep the edit", "احتفظ بالتعديل")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (restoring) void restore(restoring); setRestoring(null); }}>{copy("Restore original", "استعادة الأصل")}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={joinOpen} onOpenChange={(open) => { if (!joining) setJoinOpen(open); }}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>{copy("Join recordings", "دمج التسجيلات")}</DialogTitle>
+          <DialogDescription>{copy("They play one after another in this order. The originals stay as they are.", "تُشغَّل بالتتابع بهذا الترتيب. تبقى الأصول كما هي.")}</DialogDescription>
+          <ol className="max-h-72 divide-y overflow-y-auto rounded-xl border">
+            {picked.map((id, index) => {
+              const entry = items.find((item) => item.id === id);
+              if (!entry) return null;
+              return (
+                <li key={id} className="flex items-center gap-2 px-3 py-2">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{index + 1}</span>
+                  <span dir="auto" className="min-w-0 flex-1 truncate text-sm">{displayTitle(entry, fallbackTitle)}</span>
+                  <span className="text-xs tabular-nums text-muted-foreground">{clock(entry.durationSeconds)}</span>
+                  <button type="button" disabled={index === 0} onClick={() => movePick(index, -1)} aria-label={copy("Move up", "تحريك للأعلى")} className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary disabled:opacity-30"><ArrowUp size={14} /></button>
+                  <button type="button" disabled={index === picked.length - 1} onClick={() => movePick(index, 1)} aria-label={copy("Move down", "تحريك للأسفل")} className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary disabled:opacity-30"><ArrowDown size={14} /></button>
+                </li>
+              );
+            })}
+          </ol>
+          <label className="block text-sm font-medium">
+            {copy("Name", "الاسم")} <span className="font-normal text-muted-foreground">{copy("(optional)", "(اختياري)")}</span>
+            <input value={joinTitle} onChange={(event) => setJoinTitle(event.target.value)} maxLength={200} dir="auto"
+              placeholder={copy("Joined recording", "تسجيل مدمج")}
+              className="mt-1.5 h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary" />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" disabled={joining} onClick={() => setJoinOpen(false)}>{copy("Back", "رجوع")}</Button>
+            <Button disabled={joining || picked.length < 2} onClick={() => void join()}>
+              {joining ? <Loader2 size={16} className="me-2 animate-spin" /> : <Merge size={16} className="me-2" />}
+              {joining ? copy("Joining…", "جارٍ الدمج…") : copy(`Join ${picked.length}`, `دمج ${picked.length}`)}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!confirm} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
         <AlertDialogContent>

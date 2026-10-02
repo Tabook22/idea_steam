@@ -21,6 +21,8 @@ export const audioLibraryTable = pgTable(
     sourceSubjectTitle: text("source_subject_title"),
     /** Set for recordings made straight into the library, so upload retries never duplicate them. */
     clientCaptureId: text("client_capture_id").unique(),
+    /** After cutting, the audio before the first edit, so it can be restored. */
+    originalUrl: text("original_url"),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

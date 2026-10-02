@@ -487,6 +487,60 @@ paths:
           description: Not in the library
         "422":
           description: No speech detected, or the audio could not be read
+  /audio-library/join:
+    post:
+      operationId: joinAudioLibraryItems
+      tags: [audio-library]
+      summary: Join recordings, in the given order, into one new library recording
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AudioJoinInput"
+      responses:
+        "201":
+          description: The new joined recording
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/edit:
+    post:
+      operationId: editAudioLibraryItem
+      tags: [audio-library]
+      summary: Keep only the given parts of a recording; the original is kept for restoring
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AudioEditInput"
+      responses:
+        "200":
+          description: Edited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/restore:
+    post:
+      operationId: restoreAudioLibraryItem
+      tags: [audio-library]
+      summary: Undo all edits and go back to the original recording
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      responses:
+        "200":
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+        "409":
+          description: Not edited
   /audio-library/{itemId}:
     patch:
       operationId: updateAudioLibraryItem
@@ -744,7 +798,7 @@ components:
             $ref: "#/components/schemas/SearchDraftHit"
     AudioLibraryItem:
       type: object
-      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, capturedAt, createdAt]
+      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, capturedAt, createdAt]
       properties:
         id:
           type: integer
@@ -768,6 +822,9 @@ components:
         sourceSubjectTitle:
           type: [string, "null"]
           description: The subject it was first saved in.
+        edited:
+          type: boolean
+          description: True after cutting; the original can be restored.
         capturedAt:
           type: string
           format: date-time
@@ -802,6 +859,40 @@ components:
           type: string
           enum: [auto, en, ar]
           default: auto
+    AudioRange:
+      type: object
+      required: [start, end]
+      properties:
+        start:
+          type: number
+          minimum: 0
+        end:
+          type: number
+          minimum: 0
+    AudioEditInput:
+      type: object
+      required: [keep]
+      properties:
+        keep:
+          type: array
+          minItems: 1
+          maxItems: 200
+          description: Parts to keep, in seconds, in order and not overlapping.
+          items:
+            $ref: "#/components/schemas/AudioRange"
+    AudioJoinInput:
+      type: object
+      required: [itemIds]
+      properties:
+        itemIds:
+          type: array
+          minItems: 2
+          maxItems: 20
+          items:
+            type: integer
+        title:
+          type: string
+          maxLength: 200
     AudioLibraryAdd:
       type: object
       required: [ideaId]

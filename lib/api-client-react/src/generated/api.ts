@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AudioEditInput,
+  AudioJoinInput,
   AudioLibraryAdd,
   AudioLibraryItem,
   AudioLibraryUpdate,
@@ -2244,6 +2246,257 @@ export const useTranscribeLibraryItem = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getTranscribeLibraryItemMutationOptions(options));
+    }
+
+export const getJoinAudioLibraryItemsUrl = () => {
+
+
+
+
+  return `/api/audio-library/join`
+}
+
+/**
+ * @summary Join recordings, in the given order, into one new library recording
+ */
+export const joinAudioLibraryItems = async (audioJoinInput: AudioJoinInput, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getJoinAudioLibraryItemsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(audioJoinInput)
+  }
+);}
+
+
+
+
+
+export const getJoinAudioLibraryItemsMutationKey = () => ['joinAudioLibraryItems'] as const;
+
+export const getJoinAudioLibraryItemsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinAudioLibraryItems>>, TError,JoinAudioLibraryItemsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinAudioLibraryItems>>, TError,JoinAudioLibraryItemsMutationVariables, TContext> => {
+
+const mutationKey = getJoinAudioLibraryItemsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinAudioLibraryItems>>, JoinAudioLibraryItemsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  joinAudioLibraryItems(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinAudioLibraryItemsMutationResult = NonNullable<Awaited<ReturnType<typeof joinAudioLibraryItems>>>
+    export type JoinAudioLibraryItemsMutationBody = BodyType<AudioJoinInput>
+    export type JoinAudioLibraryItemsMutationError = ErrorType<unknown>
+    export type JoinAudioLibraryItemsMutationVariables = {data: BodyType<AudioJoinInput>}
+
+    /**
+ * @summary Join recordings, in the given order, into one new library recording
+ */
+export const useJoinAudioLibraryItems = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinAudioLibraryItems>>, TError,JoinAudioLibraryItemsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof joinAudioLibraryItems>>,
+        TError,
+        JoinAudioLibraryItemsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getJoinAudioLibraryItemsMutationOptions(options));
+    }
+
+export const getEditAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/edit`
+}
+
+/**
+ * @summary Keep only the given parts of a recording; the original is kept for restoring
+ */
+export const editAudioLibraryItem = async (itemId: number,
+    audioEditInput: AudioEditInput, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getEditAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(audioEditInput)
+  }
+);}
+
+
+
+
+
+export const getEditAudioLibraryItemMutationKey = () => ['editAudioLibraryItem'] as const;
+
+export const getEditAudioLibraryItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof editAudioLibraryItem>>, TError,EditAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof editAudioLibraryItem>>, TError,EditAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getEditAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof editAudioLibraryItem>>, EditAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  editAudioLibraryItem(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EditAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof editAudioLibraryItem>>>
+    export type EditAudioLibraryItemMutationBody = BodyType<AudioEditInput>
+    export type EditAudioLibraryItemMutationError = ErrorType<unknown>
+    export type EditAudioLibraryItemMutationVariables = {itemId: number;data: BodyType<AudioEditInput>}
+
+    /**
+ * @summary Keep only the given parts of a recording; the original is kept for restoring
+ */
+export const useEditAudioLibraryItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof editAudioLibraryItem>>, TError,EditAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof editAudioLibraryItem>>,
+        TError,
+        EditAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getEditAudioLibraryItemMutationOptions(options));
+    }
+
+export const getRestoreAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/restore`
+}
+
+/**
+ * @summary Undo all edits and go back to the original recording
+ */
+export const restoreAudioLibraryItem = async (itemId: number, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+  return customFetch<AudioLibraryItem>(getRestoreAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRestoreAudioLibraryItemMutationKey = () => ['restoreAudioLibraryItem'] as const;
+
+export const getRestoreAudioLibraryItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreAudioLibraryItem>>, TError,RestoreAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restoreAudioLibraryItem>>, TError,RestoreAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getRestoreAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restoreAudioLibraryItem>>, RestoreAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  restoreAudioLibraryItem(itemId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof restoreAudioLibraryItem>>>
+
+    export type RestoreAudioLibraryItemMutationError = ErrorType<void>
+    export type RestoreAudioLibraryItemMutationVariables = {itemId: number}
+
+    /**
+ * @summary Undo all edits and go back to the original recording
+ */
+export const useRestoreAudioLibraryItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreAudioLibraryItem>>, TError,RestoreAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof restoreAudioLibraryItem>>,
+        TError,
+        RestoreAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRestoreAudioLibraryItemMutationOptions(options));
     }
 
 export const getUpdateAudioLibraryItemUrl = (itemId: number,) => {

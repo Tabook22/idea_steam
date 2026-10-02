@@ -35,6 +35,8 @@ export interface AudioLibraryItem {
      * @nullable
      */
   sourceSubjectTitle: string | null;
+  /** True after cutting; the original can be restored. */
+  edited: boolean;
   capturedAt: Date;
   createdAt: Date;
 }

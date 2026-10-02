@@ -6,9 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './audioEditInput';
+export * from './audioJoinInput';
 export * from './audioLibraryAdd';
 export * from './audioLibraryItem';
 export * from './audioLibraryUpdate';
+export * from './audioRange';
 export * from './compilation';
 export * from './compilationDownloadInput';
 export * from './compilationDownloadInputFormat';
