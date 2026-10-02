@@ -25,6 +25,8 @@ import { highlight } from "@/lib/search-highlight";
 import { useLanguage } from "@/lib/i18n";
 
 const RECENT_KEY = "idea-stream-recent-searches";
+const OPEN_SEARCH_EVENT = "idea-stream:search";
+export const openSearch = () => window.dispatchEvent(new Event(OPEN_SEARCH_EVENT));
 
 function readRecent(): string[] {
   try {
@@ -89,8 +91,13 @@ export function WorkspaceSearch() {
         setOpen(true);
       }
     };
+    const show = () => setOpen(true);
     window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
+    window.addEventListener(OPEN_SEARCH_EVENT, show);
+    return () => {
+      window.removeEventListener("keydown", key);
+      window.removeEventListener(OPEN_SEARCH_EVENT, show);
+    };
   }, []);
 
   useEffect(() => {
@@ -245,7 +252,7 @@ export function WorkspaceSearch() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={onKeyDown}
-              data-search-field
+              data-bare-field
               dir="auto"
               type="search"
               enterKeyHint="search"

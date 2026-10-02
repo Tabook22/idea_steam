@@ -341,8 +341,8 @@ a {
   outline: 2px solid hsl(var(--primary));
   outline-offset: 4px;
 }
-/* The search dialog's field: the open dialog and caret already show focus. */
-input[data-search-field]:focus-visible {
+/* Borderless writing fields (search, quick capture): the open panel and caret already show focus. */
+[data-bare-field]:focus-visible {
   outline: none;
 }
 .workspace-shell {

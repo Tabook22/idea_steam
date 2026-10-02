@@ -38,7 +38,13 @@ type Session = {
   limit: number;
   meter?: { context: AudioContext; analyser: AnalyserNode };
 };
-type RecordingTarget = { subjectId: number | null; limit: number; autoTranscribe: boolean };
+export type StartOptions = {
+  language: "auto" | "en" | "ar";
+  autoTranscribe: boolean;
+  /** Push-to-talk: the recording stops when the press is released. */
+  hold?: boolean;
+};
+type RecordingTarget = { subjectId: number | null; limit: number; autoTranscribe: boolean; hold: boolean };
 type RecorderContextValue = {
   records: LocalRecording[];
   stage: Stage;
@@ -56,7 +62,7 @@ type RecorderContextValue = {
   transcribingId: string | null;
   requestTranscript: (id: string, language: "auto" | "en" | "ar") => Promise<void>;
   rescue: { id: string; url: string; blob: Blob } | null;
-  start: (subjectId?: number | null, limit?: number, options?: { language: "auto" | "en" | "ar"; autoTranscribe: boolean }) => Promise<void>;
+  start: (subjectId?: number | null, limit?: number, options?: StartOptions) => Promise<void>;
   stop: () => void;
   refresh: () => Promise<void>;
   sync: (force?: boolean) => Promise<void>;
@@ -203,13 +209,14 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const start = useCallback(
-    async (subjectId: number | null = null, limit = 900, options?: { language: "auto" | "en" | "ar"; autoTranscribe: boolean }) => {
+    async (subjectId: number | null = null, limit = 900, options?: StartOptions) => {
       if (session.current || preparing.current || rescue) return;
       preparing.current = true;
       setTarget({
         subjectId,
         limit: Math.min(900, Math.max(10, limit)),
         autoTranscribe: options?.autoTranscribe ?? true,
+        hold: options?.hold ?? false,
       });
       setStage("starting");
       setError(null);

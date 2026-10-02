@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -208,48 +207,5 @@ export function QuickRecord() {
       </div>
       <LatestNote />
     </section>
-  );
-}
-
-/** Phone-only floating REC button. Inside a notebook it records straight into that notebook. */
-export function RecordFab() {
-  const { isArabic } = useLanguage();
-  const { stage, ready, rescue } = useRecorder();
-  const record = useStartRecording();
-  const [location] = useLocation();
-  const [cardVisible, setCardVisible] = useState(false);
-  const notebook = location.match(/^\/subjects\/(\d+)/);
-
-  // On the front page the big REC card is enough while it's on screen.
-  useEffect(() => {
-    const check = () => {
-      const card = document.getElementById("quick-record");
-      const box = card?.getBoundingClientRect();
-      // Visible while at least the REC button area (top 60%) of the card is on screen.
-      setCardVisible(!!box && box.top + box.height * 0.6 > 0 && box.top < window.innerHeight);
-    };
-    check();
-    const frame = requestAnimationFrame(check);
-    window.addEventListener("scroll", check, { passive: true });
-    window.addEventListener("resize", check);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", check);
-      window.removeEventListener("resize", check);
-    };
-  }, [location]);
-
-  if (location.startsWith("/record") || location.startsWith("/share") || stage !== "idle" || cardVisible) return null;
-  return (
-    <div className="fixed bottom-5 end-5 z-40 md:hidden" style={{ marginBottom: "env(safe-area-inset-bottom)" }}>
-      <RecButton
-        size="fab"
-        label={notebook
-          ? (isArabic ? "سجّل في هذا الدفتر" : "Record into this notebook")
-          : (isArabic ? "بدء التسجيل" : "Start recording")}
-        disabled={!ready || !!rescue}
-        onClick={() => void record(notebook ? Number(notebook[1]) : undefined)}
-      />
-    </div>
   );
 }

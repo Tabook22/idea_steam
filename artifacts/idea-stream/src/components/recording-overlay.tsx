@@ -55,6 +55,7 @@ export function DrivingMode() {
   }, []);
   const saving = stage === "saving";
   const starting = stage === "starting";
+  const hold = !!target?.hold;
   const remaining = Math.max(0, limit - seconds);
   return (
     <div
@@ -109,8 +110,10 @@ export function DrivingMode() {
           className="flex h-[30vh] min-h-36 max-h-72 w-full flex-col items-center justify-center gap-3 rounded-[2rem] bg-red-600 text-white shadow-2xl shadow-red-950/50 transition active:scale-[0.98] disabled:opacity-70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/60"
         >
           {saving || starting ? <Loader2 size={48} className="animate-spin" /> : <Square size={46} fill="currentColor" />}
-          <span className="text-2xl font-semibold">{copy("Tap to stop & save", "اضغط للإيقاف والحفظ")}</span>
-          <span className="text-sm text-white/75">Alt + R</span>
+          <span className="text-2xl font-semibold">
+            {hold ? copy("Release to save", "اترك للحفظ") : copy("Tap to stop & save", "اضغط للإيقاف والحفظ")}
+          </span>
+          <span className="text-sm text-white/75">{hold ? copy("Keep holding while you talk", "استمر بالضغط أثناء الكلام") : "Alt + R"}</span>
         </button>
       </div>
     </div>

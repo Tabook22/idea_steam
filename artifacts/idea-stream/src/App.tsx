@@ -19,7 +19,8 @@ import SharePage from "@/pages/share";
 import { RecorderProvider } from "@/components/recorder-provider";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
-import { RecordFab } from "@/components/quick-record";
+import { BottomNav } from "@/components/bottom-nav";
+import { CaptureSheet } from "@/components/capture-sheet";
 import { WorkspaceSearch } from "@/components/workspace-search";
 import {
   Route,
@@ -134,7 +135,8 @@ function AppContent() {
             )}
             <TopNav />
             <Router />
-            <RecordFab />
+            <BottomNav />
+            <CaptureSheet />
             <Toaster />
           </RecorderProvider>
         </TooltipProvider>
