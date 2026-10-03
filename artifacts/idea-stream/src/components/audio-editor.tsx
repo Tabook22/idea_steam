@@ -4,6 +4,7 @@ import {
   Bookmark,
   Crop,
   FastForward,
+  Fingerprint,
   Hand,
   Loader2,
   Maximize2,
@@ -40,6 +41,7 @@ import { fillerIndexes, findPauses, isWordRemoved, rangesForWords, silentEdges, 
 import { buildPeaks, peakBetween, type PeakCache } from "@/lib/audio-peaks";
 import { clampView, panBy, rulerTicks, viewAround, zoomAt, type View } from "@/lib/audio-view";
 import { useLanguage } from "@/lib/i18n";
+import { findSimilar, soundPrint, type Match, type Sensitivity, type SoundPrint } from "@/lib/similar-sounds";
 
 type Segment = { at: number; start: number; end: number };
 type Tool = "select" | "cut" | "zoom" | "hand" | "loop";
@@ -101,6 +103,10 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const [tab, setTab] = useState<"cuts" | "cleanup" | "text">("cuts");
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
+  /** "Find similar sounds": the example (original time), how strict, what was found, and which to cut. */
+  const [similar, setSimilar] = useState<{ example: Range; sensitivity: Sensitivity; matches: Match[]; off: Set<number> } | null>(null);
+  const [searching, setSearching] = useState(false);
+  const printRef = useRef<SoundPrint | null>(null);
   const [pauseSettings, setPauseSettings] = useState<PauseSettings>(() => {
     try { return { ...PAUSE_DEFAULT, ...JSON.parse(localStorage.getItem(PAUSE_KEY) ?? "{}") }; } catch { return PAUSE_DEFAULT; }
   });
@@ -548,6 +554,33 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   });
 
   // ----- Clean up and text -----------------------------------------------------------
+  async function runSimilar(example: Range, sensitivity: Sensitivity) {
+    if (!buffer) return;
+    setSearching(true);
+    setTab("cleanup");
+    // Let the spinner show; the first search also builds the recording's fingerprint.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    printRef.current ??= soundPrint(buffer.getChannelData(0), buffer.sampleRate);
+    const matches = findSimilar(printRef.current, example, sensitivity, removed);
+    setSimilar({ example, sensitivity, matches, off: new Set() });
+    setSearching(false);
+  }
+  const findLikeSelection = () => {
+    if (!selection) return;
+    // The selection is on the edited clock; search with its longest original piece.
+    const pieces = timeline.originalPieces(selection.start, selection.end);
+    const example = pieces.sort((a, b) => (b.end - b.start) - (a.end - a.start))[0];
+    if (!example || example.end - example.start < 0.06) { setNote(copy("Select a slightly longer example first.", "حدد مثالًا أطول قليلًا أولًا.")); setTab("cleanup"); return; }
+    void runSimilar(example, similar?.sensitivity ?? "normal");
+  };
+  const similarToCut = similar ? similar.matches.filter((_, index) => !similar.off.has(index)) : [];
+  const cutSimilar = () => {
+    if (!similar) return;
+    applyCleanup(similarToCut, (n) => copy(`Cut ${n} similar sound${n > 1 ? "s" : ""}`, `قُص ${n} صوتًا مشابهًا`), copy("Nothing selected to cut.", "لا شيء محدد للقص."));
+    setSimilar(null);
+  };
+  const playMatch = (match: Range) => playEdited(timeline.toEdited(match.start), timeline.toEdited(match.end));
+
   const applyCleanup = (ranges: Range[], done: (count: number) => string, nothing: string) => {
     if (!ranges.length) { setNote(nothing); return; }
     const after = new EditedTimeline(mergeRanges([...removed, ...ranges], duration), duration).length;
@@ -677,6 +710,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
               <ToolButton onClick={redo} label={copy("Redo", "إعادة")} shortcut="⌃Y" disabled={!redoStack.length}><Redo2 size={16} /></ToolButton>
               <ToolButton onClick={() => selection && requestCut(selection)} label={copy("Cut selection", "قص المحدد")} shortcut="Del" disabled={!selection || !!pendingCut}><Scissors size={16} /></ToolButton>
               <ToolButton onClick={() => selection && requestCut(selection, "crop")} label={copy("Keep only selection", "احتفظ بالمحدد فقط")} disabled={!selection || !!pendingCut}><Crop size={16} /></ToolButton>
+              <ToolButton onClick={findLikeSelection} label={copy("Find similar sounds (select one example, e.g. an 'um')", "ابحث عن أصوات مشابهة (حدد مثالًا واحدًا مثل «امم»)")} disabled={!selection || searching}><Fingerprint size={16} /></ToolButton>
             </div>
 
             {/* Time display */}
@@ -771,6 +805,18 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                     </span>
                   </div>
                 )}
+                {similar?.matches.map((match, index) => {
+                  const range = { start: timeline.toEdited(match.start), end: timeline.toEdited(match.end) };
+                  if (range.end <= view.start || range.start >= view.end) return null;
+                  const on = !similar.off.has(index);
+                  const isExample = match.start < similar.example.end && match.end > similar.example.start;
+                  return (
+                    <div key={match.start} className={`pointer-events-none absolute inset-y-0 border-x-2 ${on ? "border-fuchsia-300 bg-fuchsia-500/30 [background-image:repeating-linear-gradient(135deg,transparent_0_6px,rgba(232,121,249,0.3)_6px_9px)]" : "border-dashed border-fuchsia-300/50"}`}
+                      style={{ left: x(range.start), width: w(range) }}>
+                      <span className="absolute left-1/2 top-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/70 px-1 font-mono text-[10px] text-fuchsia-100">{isExample ? copy("example", "المثال") : `${Math.round(match.similarity * 100)}%`}</span>
+                    </div>
+                  );
+                })}
                 {pauses.map((pause) => {
                   const range = { start: timeline.toEdited(pause.start), end: timeline.toEdited(pause.end) };
                   return range.end > view.start && range.start < view.end ? (
@@ -867,6 +913,69 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                 )}
                 {tab === "cleanup" && (
                   <>
+                    <div className="mb-3 rounded-xl border border-fuchsia-300/25 bg-fuchsia-400/[0.06] p-3">
+                      <p className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-white">
+                        <span className="inline-flex items-center gap-1.5"><Fingerprint size={15} className="text-fuchsia-300" />{copy("Find similar sounds", "ابحث عن أصوات مشابهة")}</span>
+                        {similar && <span className="text-xs font-normal text-fuchsia-200" role="status">
+                          {similar.matches.length
+                            ? copy(`${similar.matches.length} found (pink on the waveform)`, `وُجد ${similar.matches.length} (بالوردي على الموجة)`)
+                            : copy("No similar sounds found", "لا توجد أصوات مشابهة")}
+                        </span>}
+                      </p>
+                      {!similar ? (
+                        <>
+                          <p className="mt-1 text-xs leading-5 text-white/60">{copy("Select one example on the waveform (an “um”, “uh”, a lip smack, a beep), then find every other place that sounds like it, and cut them all at once.",
+                            "حدد مثالًا واحدًا على الموجة («امم» أو «اه» أو طقطقة أو صفارة)، ثم ابحث عن كل مكان يشبهه واقطعها كلها مرة واحدة.")}</p>
+                          <Button size="sm" className="mt-2 h-9 rounded-full bg-fuchsia-400 px-4 text-black hover:bg-fuchsia-300" disabled={!selection || searching} onClick={findLikeSelection}>
+                            {searching ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Fingerprint size={14} className="me-1.5" />}
+                            {selection ? copy("Find sounds like the selection", "ابحث عما يشبه المحدد") : copy("Select an example first", "حدد مثالًا أولًا")}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] text-white/55">{copy("How similar", "درجة التشابه")}</span>
+                            <div role="radiogroup" aria-label={copy("How similar", "درجة التشابه")} className="flex rounded-lg bg-black/30 p-0.5">
+                              {([["strict", copy("Strict", "صارم")], ["normal", copy("Normal", "عادي")], ["loose", copy("Loose", "مرن")]] as const).map(([value, label]) => (
+                                <button key={value} type="button" role="radio" aria-checked={similar.sensitivity === value} disabled={searching}
+                                  onClick={() => void runSimilar(similar.example, value)}
+                                  className={`h-7 rounded-md px-3 text-[11px] font-medium transition-colors ${similar.sensitivity === value ? "bg-fuchsia-400 text-black" : "text-white/70 hover:text-white"}`}>{label}</button>
+                              ))}
+                            </div>
+                            {searching && <Loader2 size={14} className="animate-spin text-fuchsia-300" />}
+                          </div>
+                          {similar.matches.length > 0 && (
+                            <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto pe-1">
+                              {similar.matches.map((match, index) => {
+                                const on = !similar.off.has(index);
+                                const isExample = match.start < similar.example.end && match.end > similar.example.start;
+                                return (
+                                  <li key={match.start} className="flex items-center gap-2 rounded-lg bg-black/30 px-2 py-1 text-xs">
+                                    <input type="checkbox" checked={on} aria-label={copy(`Cut the sound at ${clock(timeline.toEdited(match.start))}`, `اقطع الصوت عند ${clock(timeline.toEdited(match.start))}`)}
+                                      onChange={() => setSimilar((current) => { if (!current) return current; const off = new Set(current.off); if (off.has(index)) off.delete(index); else off.add(index); return { ...current, off }; })}
+                                      className="h-4 w-4 accent-fuchsia-400" />
+                                    <button type="button" onClick={() => playMatch(match)} aria-label={copy("Listen", "استمع")} className="grid h-7 w-7 place-items-center rounded-full bg-white/10 hover:bg-white/20"><Play size={11} fill="currentColor" /></button>
+                                    <span className="font-mono tabular-nums text-white/80" dir="ltr">{clock(timeline.toEdited(match.start))}</span>
+                                    <span className="text-white/45">{(match.end - match.start).toFixed(2)} s</span>
+                                    <span className="ms-auto flex items-center gap-1.5">
+                                      {isExample ? <span className="rounded bg-fuchsia-400/20 px-1.5 text-[10px] text-fuchsia-100">{copy("your example", "مثالك")}</span>
+                                        : <><span className="h-1.5 w-14 overflow-hidden rounded-full bg-white/10"><span className="block h-full bg-fuchsia-400" style={{ width: `${Math.round(match.similarity * 100)}%` }} /></span><span className="w-8 text-end tabular-nums text-white/60">{Math.round(match.similarity * 100)}%</span></>}
+                                    </span>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                          <p className="mt-2 text-[11px] text-white/45">{copy("Listen to any you're unsure about and untick the ones to keep. Too few? Try Loose. Wrong ones? Try Strict.", "استمع لما تشك فيه وأزل علامة ما تريد إبقاءه. قليلة جدًا؟ جرّب «مرن». خاطئة؟ جرّب «صارم».")}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Button size="sm" className="h-9 rounded-full bg-fuchsia-400 px-4 text-black hover:bg-fuchsia-300" disabled={!similarToCut.length} onClick={cutSimilar}>
+                              <Scissors size={14} className="me-1.5" />{copy(`Cut ${similarToCut.length} similar sound${similarToCut.length === 1 ? "" : "s"}`, `اقطع ${similarToCut.length} صوتًا مشابهًا`)}
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-9 rounded-full text-white/70 hover:bg-white/10 hover:text-white" onClick={() => setSimilar(null)}>{copy("Clear", "مسح")}</Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" className="h-9 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10" onClick={trimEdges}><Wand2 size={14} className="me-1.5" />{copy("Trim silent start & end", "قص الصمت في الطرفين")}</Button>
                       <Button size="sm" variant="outline" className="h-9 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10" disabled={wordsState === "loading"} onClick={() => void removeFillers()}>

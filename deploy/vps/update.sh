@@ -8,7 +8,7 @@ test -z "$(git status --porcelain)" || { echo 'Checkout has local edits; update 
 git pull --ff-only origin main
 pnpm install --frozen-lockfile
 pnpm typecheck
-node --experimental-strip-types --test scripts/recording.test.mjs scripts/offline-recorder.test.mjs scripts/search.test.mjs scripts/share.test.mjs scripts/audio-ranges.test.mjs scripts/audio-cleanup.test.mjs scripts/audio-marks.test.mjs scripts/audio-view.test.mjs scripts/sound-analysis.test.mjs scripts/sound-lab.test.mjs scripts/mix.test.mjs
+node --experimental-strip-types --test scripts/recording.test.mjs scripts/offline-recorder.test.mjs scripts/search.test.mjs scripts/share.test.mjs scripts/audio-ranges.test.mjs scripts/audio-cleanup.test.mjs scripts/audio-marks.test.mjs scripts/audio-view.test.mjs scripts/sound-analysis.test.mjs scripts/sound-lab.test.mjs scripts/mix.test.mjs scripts/similar-sounds.test.mjs
 (cd scripts && node --import tsx --test vps.test.mjs)
 BASE_PATH=/ideas/ PORT=5185 pnpm --filter @workspace/idea-stream build
 pnpm --filter @workspace/api-server build
