@@ -131,6 +131,17 @@ export interface SearchResults {
   drafts: SearchDraftHit[];
 }
 
+/**
+ * music = a song uploaded to use as background music.
+ */
+export type AudioLibraryItemKind = typeof AudioLibraryItemKind[keyof typeof AudioLibraryItemKind];
+
+
+export const AudioLibraryItemKind = {
+  recording: 'recording',
+  music: 'music',
+} as const;
+
 export interface AudioChapter {
   start: number;
   title: string;
@@ -139,6 +150,8 @@ export interface AudioChapter {
 export interface AudioLibraryItem {
   id: number;
   url: string;
+  /** music = a song uploaded to use as background music. */
+  kind: AudioLibraryItemKind;
   /**
      * Set when renamed; otherwise null.
      * @nullable
@@ -179,6 +192,14 @@ export interface AudioLibraryItem {
   createdAt: string;
 }
 
+export type LibraryRecordingInputKind = typeof LibraryRecordingInputKind[keyof typeof LibraryRecordingInputKind];
+
+
+export const LibraryRecordingInputKind = {
+  recording: 'recording',
+  music: 'music',
+} as const;
+
 export interface LibraryRecordingInput {
   /**
      * Path of the uploaded audio in this app's storage.
@@ -199,6 +220,9 @@ export interface LibraryRecordingInput {
      * @items.minimum 0
      */
   marks?: number[];
+  /** @maxLength 200 */
+  title?: string;
+  kind?: LibraryRecordingInputKind;
 }
 
 export type LibraryTranscriptionInputLanguage = typeof LibraryTranscriptionInputLanguage[keyof typeof LibraryTranscriptionInputLanguage];
@@ -335,6 +359,87 @@ export interface SoundLabSettings {
 
 export interface SoundLabPreviewInput {
   settings: SoundLabSettings;
+  /** @minimum 0 */
+  start: number;
+  /**
+     * @minimum 3
+     * @maximum 30
+     */
+  seconds?: number;
+}
+
+/**
+ * How the song fills the time between start and end.
+ */
+export type MixSettingsFit = typeof MixSettingsFit[keyof typeof MixSettingsFit];
+
+
+export const MixSettingsFit = {
+  loop: 'loop',
+  stretch: 'stretch',
+  once: 'once',
+} as const;
+
+export interface MixSettings {
+  /**
+     * Where in the song to begin (seconds).
+     * @minimum 0
+     */
+  musicStart: number;
+  /**
+     * Where the music starts, on the recording's clock (negative = an intro before the voice).
+     * @minimum -60
+     * @maximum 86400
+     */
+  regionStart: number;
+  /**
+     * Where the music ends, on the recording's clock (past the end = an outro).
+     * @minimum -59
+     * @maximum 86460
+     */
+  regionEnd: number;
+  /** How the song fills the time between start and end. */
+  fit: MixSettingsFit;
+  /**
+     * @minimum -40
+     * @maximum 6
+     */
+  musicVolume: number;
+  /**
+     * @minimum -12
+     * @maximum 12
+     */
+  voiceVolume: number;
+  /**
+     * @minimum 0
+     * @maximum 15
+     */
+  fadeIn: number;
+  /**
+     * @minimum 0
+     * @maximum 15
+     */
+  fadeOut: number;
+  /**
+     * Lower the music while the voice speaks, 0 (off) to 3 (strong).
+     * @minimum 0
+     * @maximum 3
+     */
+  duck: number;
+  /** Dip the music's middle frequencies so words stay clear. */
+  makeRoom: boolean;
+}
+
+export interface MixInput {
+  musicItemId: number;
+  settings: MixSettings;
+  /** @maxLength 200 */
+  title?: string;
+}
+
+export interface MixPreviewInput {
+  musicItemId: number;
+  settings: MixSettings;
   /** @minimum 0 */
   start: number;
   /**

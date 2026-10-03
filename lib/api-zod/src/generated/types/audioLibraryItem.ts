@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AudioChapter } from './audioChapter';
+import type { AudioLibraryItemKind } from './audioLibraryItemKind';
 
 export interface AudioLibraryItem {
   id: number;
   url: string;
+  /** music = a song uploaded to use as background music. */
+  kind: AudioLibraryItemKind;
   /**
      * Set when renamed; otherwise null.
      * @nullable

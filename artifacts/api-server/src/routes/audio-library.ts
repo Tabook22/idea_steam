@@ -12,6 +12,8 @@ import {
   CreateLibraryRecordingBody,
   EditAudioLibraryItemBody,
   ExportAudioLibraryItemQueryParams,
+  MixAudioLibraryItemBody,
+  PreviewMixAudioLibraryItemBody,
   PreviewSoundLabAudioLibraryItemBody,
   SoundLabAudioLibraryItemBody,
   EnhanceAudioLibraryItemBody,
@@ -27,7 +29,7 @@ import {
   transcriptionFailure,
   wordsForStoredAudio,
 } from "../lib/stored-transcription";
-import { AudioEditError, convertRecording, enhanceRecording, joinRecordings, keepRanges, soundLabPreview, soundLabRecording, storedDuration } from "../lib/audio-edit";
+import { AudioEditError, convertRecording, enhanceRecording, joinRecordings, keepRanges, mixPreview, mixRecording, soundLabPreview, soundLabRecording, storedDuration } from "../lib/audio-edit";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
 
@@ -83,6 +85,7 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
     marks: item.marks ?? [],
     chapters: item.chapters,
     summary: item.summary,
+    kind: item.kind,
     capturedAt: item.capturedAt.toISOString(),
     createdAt: item.createdAt.toISOString(),
   };
@@ -140,6 +143,8 @@ router.post("/audio-library/recordings", async (req, res): Promise<void> => {
       durationSeconds: body.data.durationSeconds ?? null,
       clientCaptureId: body.data.clientCaptureId,
       marks: cleanMarks(body.data.marks, body.data.durationSeconds ?? Infinity),
+      title: body.data.title?.trim() || null,
+      kind: body.data.kind ?? "recording",
       ...(body.data.capturedAt ? { capturedAt: new Date(body.data.capturedAt) } : {}),
     })
     // A retried upload (same capture ID or file) returns the existing entry.
@@ -336,6 +341,55 @@ router.post("/audio-library/:itemId/sound-lab/preview", async (req, res): Promis
   try {
     const { settings, start, seconds } = body.data;
     await soundLabPreview(current.url, { ...settings, hum: settings.hum ?? null }, start, seconds ?? 15, (path) => new Promise<void>((resolve, reject) => {
+      res.setHeader("Cache-Control", "private, no-store");
+      res.sendFile(path, { headers: { "Content-Type": "audio/mpeg" } }, (error) => (error ? reject(error) : resolve()));
+    }));
+  } catch (error) {
+    if (!res.headersSent) editFailure(res, error);
+  }
+});
+
+/** The recording and the music chosen for a mix (the music can be any library item). */
+async function mixSources(itemId: number, musicItemId: number) {
+  const [voice] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, itemId));
+  const [music] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, musicItemId));
+  return { voice, music };
+}
+
+router.post("/audio-library/:itemId/mix", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  const body = MixAudioLibraryItemBody.safeParse(req.body ?? {});
+  if (!params.success || !body.success) { res.status(400).json({ error: "Invalid music settings" }); return; }
+  const { voice, music } = await mixSources(params.data.itemId, body.data.musicItemId);
+  if (!voice || !music) { res.status(404).json({ error: "The recording or the music is no longer in the library" }); return; }
+  try {
+    const mixed = await mixRecording(voice.url, music.url, body.data.settings);
+    // Bookmarks move with the voice when music plays before it.
+    const marks = cleanMarks((voice.marks ?? []).map((mark) => mark + mixed.plan.pre), mixed.plan.total);
+    const [inserted] = await db.insert(audioLibraryTable).values({
+      url: mixed.url,
+      title: body.data.title?.trim() || null,
+      mimeType: mixed.mimeType,
+      durationSeconds: Math.round(mixed.plan.total),
+      transcript: voice.transcript,
+      marks,
+      kind: "recording",
+    }).returning({ id: audioLibraryTable.id });
+    const [saved] = await select().where(eq(audioLibraryTable.id, inserted.id));
+    res.status(201).json(serialize(saved));
+  } catch (error) {
+    editFailure(res, error);
+  }
+});
+
+router.post("/audio-library/:itemId/mix/preview", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  const body = PreviewMixAudioLibraryItemBody.safeParse(req.body ?? {});
+  if (!params.success || !body.success) { res.status(400).json({ error: "Invalid music settings" }); return; }
+  const { voice, music } = await mixSources(params.data.itemId, body.data.musicItemId);
+  if (!voice || !music) { res.status(404).json({ error: "The recording or the music is no longer in the library" }); return; }
+  try {
+    await mixPreview(voice.url, music.url, body.data.settings, body.data.start, body.data.seconds ?? 15, (path) => new Promise<void>((resolve, reject) => {
       res.setHeader("Cache-Control", "private, no-store");
       res.sendFile(path, { headers: { "Content-Type": "audio/mpeg" } }, (error) => (error ? reject(error) : resolve()));
     }));

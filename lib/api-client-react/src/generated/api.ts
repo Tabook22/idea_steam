@@ -41,6 +41,8 @@ import type {
   IdeaUpdate,
   LibraryRecordingInput,
   LibraryTranscriptionInput,
+  MixInput,
+  MixPreviewInput,
   NoteTranslation,
   NoteTranslationInput,
   SearchResults,
@@ -2784,6 +2786,184 @@ export const usePreviewSoundLabAudioLibraryItem = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getPreviewSoundLabAudioLibraryItemMutationOptions(options));
+    }
+
+export const getMixAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/mix`
+}
+
+/**
+ * @summary Add background music to a recording; saves the mix as a new library item (the recording is unchanged)
+ */
+export const mixAudioLibraryItem = async (itemId: number,
+    mixInput: MixInput, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getMixAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mixInput)
+  }
+);}
+
+
+
+
+
+export const getMixAudioLibraryItemMutationKey = () => ['mixAudioLibraryItem'] as const;
+
+export const getMixAudioLibraryItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mixAudioLibraryItem>>, TError,MixAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mixAudioLibraryItem>>, TError,MixAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getMixAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mixAudioLibraryItem>>, MixAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  mixAudioLibraryItem(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MixAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof mixAudioLibraryItem>>>
+    export type MixAudioLibraryItemMutationBody = BodyType<MixInput>
+    export type MixAudioLibraryItemMutationError = ErrorType<unknown>
+    export type MixAudioLibraryItemMutationVariables = {itemId: number;data: BodyType<MixInput>}
+
+    /**
+ * @summary Add background music to a recording; saves the mix as a new library item (the recording is unchanged)
+ */
+export const useMixAudioLibraryItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mixAudioLibraryItem>>, TError,MixAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mixAudioLibraryItem>>,
+        TError,
+        MixAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMixAudioLibraryItemMutationOptions(options));
+    }
+
+export const getPreviewMixAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/mix/preview`
+}
+
+/**
+ * @summary Render a short stretch of the mix to listen to before saving (nothing is saved)
+ */
+export const previewMixAudioLibraryItem = async (itemId: number,
+    mixPreviewInput: MixPreviewInput, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Blob>(getPreviewMixAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mixPreviewInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewMixAudioLibraryItemMutationKey = () => ['previewMixAudioLibraryItem'] as const;
+
+export const getPreviewMixAudioLibraryItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewMixAudioLibraryItem>>, TError,PreviewMixAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewMixAudioLibraryItem>>, TError,PreviewMixAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getPreviewMixAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewMixAudioLibraryItem>>, PreviewMixAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  previewMixAudioLibraryItem(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewMixAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof previewMixAudioLibraryItem>>>
+    export type PreviewMixAudioLibraryItemMutationBody = BodyType<MixPreviewInput>
+    export type PreviewMixAudioLibraryItemMutationError = ErrorType<unknown>
+    export type PreviewMixAudioLibraryItemMutationVariables = {itemId: number;data: BodyType<MixPreviewInput>}
+
+    /**
+ * @summary Render a short stretch of the mix to listen to before saving (nothing is saved)
+ */
+export const usePreviewMixAudioLibraryItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewMixAudioLibraryItem>>, TError,PreviewMixAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewMixAudioLibraryItem>>,
+        TError,
+        PreviewMixAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPreviewMixAudioLibraryItemMutationOptions(options));
     }
 
 export const getMakeAudioLibraryChaptersUrl = (itemId: number,) => {

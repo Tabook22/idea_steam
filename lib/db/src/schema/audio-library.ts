@@ -31,6 +31,8 @@ export const audioLibraryTable = pgTable(
     /** AI chapters and summary of the current audio (cleared when its timing changes). */
     chapters: jsonb("chapters").$type<Array<{ start: number; title: string }>>(),
     summary: text("summary"),
+    /** "music" for songs uploaded to use as background music; everything else is a recording. */
+    kind: text("kind", { enum: ["recording", "music"] }).notNull().default("recording"),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

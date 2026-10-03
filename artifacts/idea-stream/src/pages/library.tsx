@@ -13,6 +13,7 @@ import {
   BookOpen,
   MoreVertical,
   ListMusic,
+  Music2,
   Merge,
   RotateCcw,
   Bookmark,
@@ -44,6 +45,7 @@ import { useRecorder } from "@/components/recorder-provider";
 import { AudioEditor } from "@/components/audio-editor";
 import { ExportDialog } from "@/components/export-dialog";
 import { SoundLab } from "@/components/sound-lab";
+import { MusicMixer } from "@/components/music-mixer";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { usePressToTalk } from "@/components/press-to-talk";
 import { useRecorderPrefs } from "@/lib/recorder-prefs";
@@ -64,7 +66,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type Sort = "newest" | "oldest" | "longest" | "shortest" | "title";
-type Quick = "all" | "marked" | "edited" | "notebooks" | "library";
+type Quick = "all" | "marked" | "edited" | "notebooks" | "library" | "music";
 const SORT_KEY = "idea-stream-library-sort";
 const SPEEDS = [1, 1.25, 1.5, 2];
 
@@ -90,6 +92,7 @@ const quickMatch = (item: AudioLibraryItem, quick: Quick) =>
   : quick === "edited" ? item.edited
   : quick === "notebooks" ? !!item.sourceSubjectTitle
   : quick === "library" ? !item.sourceSubjectTitle
+  : quick === "music" ? item.kind === "music"
   : true;
 
 export function displayTitle(item: Pick<AudioLibraryItem, "title" | "transcript">, fallback: string) {
@@ -123,6 +126,7 @@ export default function LibraryPage() {
   const [editing, setEditing] = useState<AudioLibraryItem | null>(null);
   const [restoring, setRestoring] = useState<AudioLibraryItem | null>(null);
   const [exporting, setExporting] = useState<AudioLibraryItem | null>(null);
+  const [mixing, setMixing] = useState<AudioLibraryItem | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<number[]>([]);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -169,6 +173,7 @@ export default function LibraryPage() {
     ["edited", copy("Edited", "معدّلة")],
     ["notebooks", copy("From notebooks", "من الدفاتر")],
     ["library", copy("Library only", "المكتبة فقط")],
+    ["music", copy("Music", "موسيقى")],
   ] as const).map(([id, label]) => [id, label, kept.filter((item) => quickMatch(item, id)).length] as [Quick, string, number])
     .filter(([id, , count]) => id === "all" || id === quick || count > 0);
   const timeFormat = useMemo(() => new Intl.DateTimeFormat(language, { hour: "numeric", minute: "2-digit" }), [language]);
@@ -612,6 +617,9 @@ export default function LibraryPage() {
                                   <BookOpen size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.sourceSubjectTitle}</span>
                                 </span>
                               )}
+                              {item.kind === "music" && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900 dark:bg-violet-900/40 dark:text-violet-100"><Music2 size={11} />{copy("Music", "موسيقى")}</span>
+                              )}
                               {item.edited && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary"><Scissors size={11} />{copy("Edited", "معدّل")}</span>
                               )}
@@ -636,6 +644,7 @@ export default function LibraryPage() {
                             <DropdownMenuContent align="end" className="w-56">
                               <DropdownMenuItem onSelect={() => setExporting(item)}><Download size={15} />{copy("Download as MP3, WAV…", "تنزيل MP3، WAV…")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => { if (activeId === item.id) audio.current?.pause(); setEditing(item); }}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }}><Music2 size={15} />{copy("Add background music", "أضف موسيقى خلفية")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => setImproving(item)}><Wand2 size={15} />{copy("Sound lab: improve sound", "مختبر الصوت: تحسين")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }}><Pencil size={15} />{copy("Rename", "إعادة تسمية")}</DropdownMenuItem>
                               {item.edited && <DropdownMenuItem onSelect={() => setRestoring(item)}><RotateCcw size={15} />{copy("Restore original", "استعادة الأصل")}</DropdownMenuItem>}
@@ -687,6 +696,7 @@ export default function LibraryPage() {
                             {([
                               [Scissors, copy("Edit audio", "تحرير الصوت"), () => { if (activeId === item.id) audio.current?.pause(); setEditing(item); }],
                               [Wand2, copy("Sound lab", "مختبر الصوت"), () => setImproving(item)],
+                              [Music2, copy("Add music", "أضف موسيقى"), () => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }],
                               [Download, copy("Download as…", "تنزيل بصيغة…"), () => setExporting(item)],
                               [Pencil, copy("Rename", "إعادة تسمية"), () => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }],
                             ] as const).map(([Icon, label, action]) => (
@@ -830,6 +840,7 @@ export default function LibraryPage() {
 
       <ExportDialog item={exporting} title={exporting ? displayTitle(exporting, fallbackTitle) : ""} onClose={() => setExporting(null)} />
 
+      {mixing && <MusicMixer item={mixing} title={displayTitle(mixing, fallbackTitle)} items={items} onClose={() => setMixing(null)} />}
       {improving && <SoundLab item={improving} title={displayTitle(improving, fallbackTitle)} onClose={() => setImproving(null)} />}
 
       <Dialog open={joinOpen} onOpenChange={(open) => { if (!joining) setJoinOpen(open); }}>

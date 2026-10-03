@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalStorageUrl } from "./stored-transcription";
 import { soundLabFilters, type SoundLabSettings } from "./sound-lab";
+import { mixGraph, mixPlan, type MixSettings } from "./mix";
 
 /**
  * Cutting and joining recordings with ffmpeg. Edits always write a NEW stored file;
@@ -238,6 +239,33 @@ export async function soundLabPreview(url: string, settings: SoundLabSettings, s
     // Process from the beginning (timed edits use the recording's own clock), then keep the stretch.
     await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-to", String(start + seconds), "-i", source.path,
       "-af", `${chain},atrim=start=${start},asetpts=PTS-STARTPTS`, "-c:a", "libmp3lame", "-b:a", "160k", "-ac", "1", output], 120_000);
+    await deliver(output);
+  });
+}
+
+/** Voice plus background music, saved as a new file. Returns the file and the timing used. */
+export async function mixRecording(voiceUrl: string, musicUrl: string, settings: MixSettings) {
+  const voice = await storedFile(voiceUrl);
+  const music = await storedFile(musicUrl);
+  return withWorkspace(async (dir) => {
+    const plan = mixPlan(await audioDuration(voice.path), await audioDuration(music.path), settings);
+    const output = join(dir, "mix.webm");
+    await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", voice.path, "-i", music.path, "-filter_complex", mixGraph(plan, settings), "-map", "[out]",
+      "-c:a", "libopus", "-b:a", "96k", "-ac", "1", "-f", "webm", output], 600_000);
+    return { ...(await publish(output, voice.prefix)), plan };
+  });
+}
+
+/** A short stretch of the mix, to listen to before saving. */
+export async function mixPreview(voiceUrl: string, musicUrl: string, settings: MixSettings, start: number, seconds: number, deliver: (path: string) => Promise<void>) {
+  const voice = await storedFile(voiceUrl);
+  const music = await storedFile(musicUrl);
+  return withWorkspace(async (dir) => {
+    const plan = mixPlan(await audioDuration(voice.path), await audioDuration(music.path), settings);
+    const from = Math.max(0, Math.min(start, Math.max(0, plan.total - 1)));
+    const output = join(dir, "mix-preview.mp3");
+    await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", voice.path, "-i", music.path,
+      "-filter_complex", mixGraph(plan, settings, { start: from, seconds }), "-map", "[out]", "-c:a", "libmp3lame", "-b:a", "160k", "-ac", "1", output], 180_000);
     await deliver(output);
   });
 }
