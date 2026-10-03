@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AudioLines,
+  BookOpen,
   Check,
+  CircleHelp,
   Headphones,
   Loader2,
   Maximize2,
@@ -19,6 +21,7 @@ import {
 import { getListAudioLibraryQueryKey, soundLabAudioLibraryItem, type AudioLibraryItem } from "@workspace/api-client-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { SoundLabHelp, type HelpTopic } from "@/components/sound-lab-help";
 import { useToast } from "@/hooks/use-toast";
 import { appPath } from "@/lib/app-path";
 import { useLanguage } from "@/lib/i18n";
@@ -58,9 +61,18 @@ const signed = (value: number) => `${value > 0 ? "+" : ""}${round(value, 1)} dB`
 type Box = { start: number; end: number; low: number; high: number };
 type Live = { ctx: AudioContext; source: AudioBufferSourceNode; startedAt: number; offset: number; bands: Partial<Record<BandId, BiquadFilterNode>>; master: GainNode; key: string };
 
-const Panel = ({ title, icon, children, note }: { title: string; icon: ReactNode; children: ReactNode; note?: ReactNode }) => (
+const GUIDE_KEY = "idea-stream-lab-guide-seen";
+
+const HelpDot = ({ onClick, label }: { onClick: () => void; label: string }) => (
+  <button type="button" onClick={onClick} aria-label={label} title={label}
+    className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-emerald-300">
+    <CircleHelp size={15} />
+  </button>
+);
+
+const Panel = ({ title, icon, children, note, help }: { title: string; icon: ReactNode; children: ReactNode; note?: ReactNode; help?: { onClick: () => void; label: string } }) => (
   <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-    <h3 className="flex items-center gap-2 text-sm font-semibold text-white">{icon}{title}</h3>
+    <h3 className="flex items-center gap-2 text-sm font-semibold text-white">{icon}<span className="flex-1">{title}</span>{help && <HelpDot {...help} />}</h3>
     {note && <p className="mt-1 text-xs leading-5 text-white/50">{note}</p>}
     <div className="mt-3">{children}</div>
   </section>
@@ -104,6 +116,11 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
   const [rendering, setRendering] = useState(false);
   const [saving, setSaving] = useState(false);
   const [size, setSize] = useState({ width: 800, height: 240 });
+  const [help, setHelp] = useState<HelpTopic | null>(null);
+  const [guideSeen, setGuideSeen] = useState(() => { try { return localStorage.getItem(GUIDE_KEY) === "yes"; } catch { return true; } });
+  const markGuideSeen = () => { setGuideSeen(true); try { localStorage.setItem(GUIDE_KEY, "yes"); } catch { /* optional */ } };
+  const openHelp = (topic: HelpTopic) => { setHelp(topic); markGuideSeen(); };
+  const helpFor = (topic: HelpTopic, en: string, ar: string) => ({ onClick: () => openHelp(topic), label: copy(en, ar) });
 
   const context = useRef<AudioContext | null>(null);
   const live = useRef<Live | null>(null);
@@ -443,7 +460,7 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
-      if (event.key === " ") { event.preventDefault(); togglePlay(); }
+      if (event.key === " " && !help) { event.preventDefault(); togglePlay(); }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
@@ -471,7 +488,7 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
       <DialogContent
-        onEscapeKeyDown={(event) => { if (box) { event.preventDefault(); setBox(null); } }}
+        onEscapeKeyDown={(event) => { if (help) { event.preventDefault(); setHelp(null); } else if (box) { event.preventDefault(); setBox(null); } }}
         className="flex h-[100dvh] w-full max-w-6xl flex-col gap-0 overflow-hidden rounded-none border-0 bg-[#0a0d12] p-0 text-white sm:h-[94dvh] sm:rounded-2xl [&>button]:hidden"
         dir={isArabic ? "rtl" : "ltr"}
       >
@@ -481,6 +498,10 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
             <DialogTitle className="text-base font-semibold text-white">{copy("Sound lab", "مختبر الصوت")}</DialogTitle>
             <DialogDescription className="truncate text-xs text-white/50" dir="auto">{title}</DialogDescription>
           </div>
+          <Button size="sm" variant="ghost" onClick={() => openHelp("start")} aria-pressed={!!help}
+            className={`h-9 rounded-full px-3 text-white/85 hover:bg-white/10 hover:text-white ${!guideSeen ? "ring-2 ring-emerald-400/70" : ""}`}>
+            <CircleHelp size={16} className="me-1.5" />{copy("Guide", "الدليل")}
+          </Button>
           <button type="button" onClick={onClose} disabled={saving} aria-label={copy("Close", "إغلاق")} className="grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><X size={18} /></button>
         </div>
 
@@ -516,6 +537,14 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
               </div>
             </div>
 
+            {!guideSeen && (
+              <div className="mx-3 mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2.5 text-sm" dir={isArabic ? "rtl" : "ltr"}>
+                <BookOpen size={16} className="shrink-0 text-emerald-300" />
+                <span className="min-w-0 flex-1">{copy("New to the Sound lab? A 2-minute guide explains the picture, the numbers and every tool, with examples.", "جديد على مختبر الصوت؟ دليل في دقيقتين يشرح الصورة والأرقام وكل أداة مع أمثلة.")}</span>
+                <Button size="sm" className="h-8 rounded-full bg-emerald-500 px-3 text-[#04140c] hover:bg-emerald-400" onClick={() => openHelp("start")}>{copy("Open the guide", "افتح الدليل")}</Button>
+                <button type="button" className="text-xs text-white/60 underline hover:text-white" onClick={markGuideSeen}>{copy("Not now", "ليس الآن")}</button>
+              </div>
+            )}
             <div className="px-3 pt-3" dir="ltr">
               {/* Spectrogram */}
               <div className="flex gap-1.5">
@@ -578,8 +607,9 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
             <div className="px-3" dir={isArabic ? "rtl" : "ltr"}>
               {box ? (
                 <div className="mt-2 rounded-2xl border border-white/20 bg-white/[0.06] p-3" role="group" aria-label={copy("Selected sound", "الصوت المحدد")}>
-                  <p className="text-sm font-semibold">
-                    {copy("Selected", "المحدد")}: <span className="font-mono text-xs font-normal text-white/70" dir="ltr">{clock(box.start)}–{clock(box.end)} · {isFullBand(box) ? copy("all frequencies", "كل الترددات") : `${hz(box.low)}–${hz(box.high)}`}</span>
+                  <p className="flex items-center gap-1 text-sm font-semibold">
+                    <span className="min-w-0 flex-1">{copy("Selected", "المحدد")}: <span className="font-mono text-xs font-normal text-white/70" dir="ltr">{clock(box.start)}–{clock(box.end)} · {isFullBand(box) ? copy("all frequencies", "كل الترددات") : `${hz(box.low)}–${hz(box.high)}`}</span></span>
+                    <HelpDot {...helpFor("boxes", "How do boxes work?", "كيف تعمل المربعات؟")} />
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button size="sm" variant="ghost" className="h-9 rounded-full bg-white/10 text-white hover:bg-white/20 hover:text-white" onClick={() => playRegion(box)}><Play size={13} className="me-1.5" fill="currentColor" />{copy("Listen to it", "استمع إليه")}</Button>
@@ -591,15 +621,20 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
                   </div>
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-white/45">
-                  {copy("Drag a box around any sound to remove, soften or boost just that. Drag sideways for all frequencies. Tap to move the playhead. Wheel to zoom.",
-                    "اسحب مربعًا حول أي صوت لحذفه أو خفضه أو رفعه وحده. اسحب أفقيًا لكل الترددات. انقر لتحريك موضع التشغيل. العجلة للتكبير.")}
-                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/45">
+                  <span className="min-w-0 flex-1">
+                    {copy("Drag a box around any sound to remove, soften or boost just that. Drag sideways for all frequencies. Tap to move the playhead. Wheel to zoom.",
+                      "اسحب مربعًا حول أي صوت لحذفه أو خفضه أو رفعه وحده. اسحب أفقيًا لكل الترددات. انقر لتحريك موضع التشغيل. العجلة للتكبير.")}
+                  </span>
+                  <button type="button" onClick={() => openHelp("picture")} className="inline-flex items-center gap-1 font-medium text-emerald-300 hover:underline"><CircleHelp size={13} />{copy("How to read this picture?", "كيف أقرأ هذه الصورة؟")}</button>
+                  <button type="button" onClick={() => openHelp("sounds")} className="inline-flex items-center gap-1 font-medium text-emerald-300 hover:underline"><CircleHelp size={13} />{copy("What do sounds look like?", "كيف تبدو الأصوات؟")}</button>
+                  <button type="button" onClick={() => openHelp("lane")} className="inline-flex items-center gap-1 font-medium text-emerald-300 hover:underline"><CircleHelp size={13} />{copy("The coloured bar", "الشريط الملوّن")}</button>
+                </div>
               )}
             </div>
 
             <div className="grid gap-3 p-3 lg:grid-cols-2" dir={isArabic ? "rtl" : "ltr"}>
-              <Panel title={copy("What's in this recording", "ماذا يوجد في هذا التسجيل")} icon={<Sparkles size={15} className="text-amber-300" />}
+              <Panel title={copy("What's in this recording", "ماذا يوجد في هذا التسجيل")} icon={<Sparkles size={15} className="text-amber-300" />} help={helpFor("numbers", "What do these numbers mean?", "ماذا تعني هذه الأرقام؟")}
                 note={copy("An automatic estimate from the sound itself.", "تقدير تلقائي من الصوت نفسه.")}>
                 {!analysis ? (
                   <p className="flex items-center gap-2 text-sm text-white/60"><Loader2 size={14} className="animate-spin" />{copy("Listening…", "جارٍ التحليل…")}</p>
@@ -642,7 +677,7 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
                 )}
               </Panel>
 
-              <Panel title={copy("Clean up", "التنظيف")} icon={<Wand2 size={15} className="text-emerald-300" />}
+              <Panel title={copy("Clean up", "التنظيف")} icon={<Wand2 size={15} className="text-emerald-300" />} help={helpFor("noise", "About noise reduction and hum", "عن تقليل الضوضاء والطنين")}
                 note={copy("Noise reduction and softer S sounds are heard with Hear exact result.", "تقليل الضوضاء وتنعيم حرف السين يُسمعان عبر «استمع للنتيجة الدقيقة».")}>
                 <p className="mb-1.5 text-xs font-medium text-white/70">{copy("Background noise reduction", "تقليل الضوضاء الخلفية")}</p>
                 <Segmented label={copy("Noise reduction", "تقليل الضوضاء")} value={settings.noise} onChange={(noise) => update({ noise })}
@@ -661,7 +696,7 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
                 </label>
               </Panel>
 
-              <Panel title={copy("Frequency bands", "نطاقات التردد")} icon={<AudioLines size={15} className="text-sky-300" />}
+              <Panel title={copy("Frequency bands", "نطاقات التردد")} icon={<AudioLines size={15} className="text-sky-300" />} help={helpFor("bands", "What does each band do?", "ماذا يفعل كل نطاق؟")}
                 note={copy("Each band is a part of the sound. Press the headphones to hear only that band, then remove or enlarge it.", "كل نطاق جزء من الصوت. اضغط السماعة لتسمع هذا النطاق فقط، ثم احذفه أو كبّره.")}>
                 <div className="space-y-3">
                   {BANDS.map((band) => {
@@ -693,7 +728,7 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
                 {solo && <p className="mt-3 rounded-xl bg-sky-400/10 px-3 py-2 text-xs text-sky-100">{copy("Listening to one band only. Press the headphones again to hear everything.", "تستمع لنطاق واحد فقط. اضغط السماعة مجددًا لتسمع كل شيء.")}</p>}
               </Panel>
 
-              <Panel title={copy("Volume", "مستوى الصوت")} icon={<Maximize2 size={15} className="text-violet-300" />}>
+              <Panel title={copy("Volume", "مستوى الصوت")} icon={<Maximize2 size={15} className="text-violet-300" />} help={helpFor("volume", "About volume", "عن مستوى الصوت")}>
                 <div className="flex items-center justify-between text-xs text-white/60"><span>{copy("Smaller", "أصغر")}</span><span className="font-mono tabular-nums text-white" dir="ltr">{signed(settings.volume)}</span><span>{copy("Bigger", "أكبر")}</span></div>
                 <input type="range" min={VOLUME_LIMITS.min} max={VOLUME_LIMITS.max} step={0.5} value={settings.volume} onChange={(event) => update({ volume: Number(event.target.value) })}
                   aria-label={copy("Overall volume", "مستوى الصوت العام")} className="mt-1 h-1.5 w-full cursor-pointer accent-violet-400" dir="ltr" />
@@ -729,6 +764,7 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
           </div>
         )}
 
+        {help && <SoundLabHelp topic={help} isArabic={isArabic} onClose={() => setHelp(null)} />}
         <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-4 py-3" dir={isArabic ? "rtl" : "ltr"}>
           <Button variant="ghost" className="h-10 rounded-full text-white/70 hover:bg-white/10 hover:text-white" disabled={isNeutral(settings) || saving}
             onClick={() => setSettings((current) => ({ ...DEFAULT_SETTINGS, noiseFloor: analysis ? round(analysis.noiseFloorDb - 3, 1) : current.noiseFloor }))}>
