@@ -44,6 +44,8 @@ import { clampView, panBy, rulerTicks, viewAround, zoomAt, type View } from "@/l
 import { useLanguage } from "@/lib/i18n";
 import { findSimilar, soundPrint, type Match, type Sensitivity, type SoundPrint } from "@/lib/similar-sounds";
 import { MusicTracks } from "@/components/music-track";
+import { mixPlan, songTimeAt, type MixSettings } from "@/lib/mix";
+import { dbHeight, getPeaks, peakAt, type Peaks } from "@/lib/waveform-cache";
 
 type Segment = { at: number; start: number; end: number };
 type Tool = "select" | "cut" | "zoom" | "hand" | "loop";
@@ -105,6 +107,15 @@ export function AudioEditor({ item, title, onClose, onEditMusic }: { item: Audio
   const [tool, setTool] = useState<Tool>("select");
   const [preview, setPreview] = useState<Range | null>(null); // live box while dragging cut/zoom/loop
   const [width, setWidth] = useState(600);
+  // The background music, drawn as its own lane under your voice.
+  const [musicPeaks, setMusicPeaks] = useState<Peaks | null>(null);
+  const musicCanvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!item.mix) { setMusicPeaks(null); return; }
+    let cancelled = false;
+    getPeaks(item.mix.musicUrl).then((peaks) => { if (!cancelled) setMusicPeaks(peaks); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [item.mix?.musicUrl]);
   const [tab, setTab] = useState<"cuts" | "cleanup" | "text" | "tracks">(item.mix ? "tracks" : "cuts");
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
@@ -886,6 +897,53 @@ export function AudioEditor({ item, title, onClose, onEditMusic }: { item: Audio
                   </div>
                 </div>
               )}
+
+              {item.mix && (() => {
+                const layer = item.mix;
+                // Where the music sits once your edits are saved (a block that ran to the end of the voice still does).
+                const placed: MixSettings = { ...(layer.settings as MixSettings) };
+                if (placed.regionEnd >= duration - 0.05) placed.regionEnd = Math.max(placed.regionStart + 1, length + (placed.regionEnd - duration));
+                const plan = musicPeaks ? mixPlan(length, musicPeaks.duration, placed) : null;
+                return (
+                  <div className="relative mt-1.5 h-11 overflow-hidden rounded-lg bg-violet-500/[0.06]" dir="ltr" role="img"
+                    aria-label={copy("Background music lane", "مسار الموسيقى الخلفية")}>
+                    <canvas ref={(element) => {
+                      musicCanvas.current = element;
+                      if (!element || !plan || !musicPeaks) return;
+                      const height = 44;
+                      const scale = Math.min(2, window.devicePixelRatio || 1);
+                      element.width = Math.round(width * scale);
+                      element.height = Math.round(height * scale);
+                      const ctx = element.getContext("2d");
+                      if (!ctx) return;
+                      ctx.scale(scale, scale);
+                      ctx.clearRect(0, 0, width, height);
+                      const per = span / width;
+                      const gain = 10 ** (placed.musicVolume / 20);
+                      const loudest = Math.max(0.05, peaks ? Math.max(...Array.from(peaks.max.subarray(0, Math.min(peaks.max.length, 20000)))) : 0.5);
+                      for (let px = 0; px < width; px++) {
+                        const time = view.start + px * per;
+                        const elapsed = time - placed.regionStart;
+                        const song = songTimeAt(plan, placed, elapsed);
+                        if (song === null) continue;
+                        const fadeIn = Math.min(placed.fadeIn, plan.played / 2);
+                        const fadeOut = Math.min(placed.fadeOut, plan.played / 2);
+                        const fade = Math.min(1, fadeIn ? elapsed / fadeIn : 1, fadeOut ? (plan.played - elapsed) / fadeOut : 1);
+                        const level = peakAt(musicPeaks, song, song + per * plan.tempo) * gain * Math.max(0, fade);
+                        const h = Math.max(1, dbHeight(level, loudest) * (height - 6));
+                        ctx.fillStyle = "rgba(167,139,250,0.9)";
+                        ctx.fillRect(px, (height - h) / 2, 1, h);
+                      }
+                    }} className="absolute inset-0 h-full w-full" />
+                    {plan && <div className="pointer-events-none absolute inset-y-0 border-x border-violet-300/40 bg-violet-400/10"
+                      style={{ left: x(Math.max(view.start, placed.regionStart)), width: `${((Math.min(view.end, placed.regionStart + plan.played) - Math.max(view.start, placed.regionStart)) / span) * 100}%` }} />}
+                    <span className="pointer-events-none absolute start-1.5 top-1 flex items-center gap-1 rounded bg-black/60 px-1.5 text-[10px] font-semibold text-violet-100">
+                      <Music2 size={10} /><span dir="auto">{layer.musicTitle || copy("Music", "موسيقى")}</span>
+                      <span className="font-normal text-violet-200/80">· {placed.musicVolume} dB{placed.regionStart < 0 ? copy(` · starts ${Math.round(-placed.regionStart)} s before your voice`, ` · تبدأ قبل صوتك بـ ${Math.round(-placed.regionStart)} ث`) : ""}</span>
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* Status bar */}
               <div className="flex flex-wrap items-center justify-between gap-2 py-2 text-[11px] text-white/50">
