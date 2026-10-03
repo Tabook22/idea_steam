@@ -14,6 +14,8 @@ export interface AudioLibraryItem {
   url: string;
   /** music = a song uploaded to use as background music. */
   kind: AudioLibraryItemKind;
+  /** An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from). */
+  bakedMusic: boolean;
   /** Background music added as a removable layer (null when there is none). */
   mix: null | AudioMixLayer;
   /**

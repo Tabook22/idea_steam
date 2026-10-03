@@ -85,3 +85,20 @@ test("real mixes: placement, loop, stretch, once, fades and ducking", { skip: !f
     assert.ok(dip(ducked) > 6, `ducking lowers the music while the voice speaks (${dip(ducked).toFixed(1)} dB)`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("old '· with music' copies find the recording they were made from", async () => {
+  const { findLegacySource } = await import("../artifacts/api-server/src/lib/legacy-mix.ts");
+  const at = (minutes) => new Date(Date.UTC(2026, 9, 3, 10, minutes));
+  const voice = { id: 1, title: null, transcript: "حالياً أيش عمل؟ شغال على التطبيق", kind: "recording", createdAt: at(0), mix: null };
+  const other = { id: 2, title: "Other", transcript: "something else", kind: "recording", createdAt: at(1), mix: null };
+  const song = { id: 3, title: "Calm Song", transcript: null, kind: "music", createdAt: at(2), mix: null };
+  const copy = { id: 4, title: "حالياً أيش عمل؟ شغال على التطبيق · with music", transcript: voice.transcript, kind: "recording", createdAt: at(5), mix: null };
+  const all = [voice, other, song, copy];
+  assert.equal(findLegacySource(copy, all)?.id, 1, "matched by transcript");
+  const titled = { id: 5, title: "Morning talk", transcript: null, kind: "recording", createdAt: at(0), mix: null };
+  const titledCopy = { id: 6, title: "Morning talk · مع موسيقى", transcript: null, kind: "recording", createdAt: at(3), mix: null };
+  assert.equal(findLegacySource(titledCopy, [titled, titledCopy])?.id, 5, "matched by the name it was given (Arabic suffix)");
+  assert.equal(findLegacySource(voice, all), null, "a normal recording is not a copy");
+  assert.equal(findLegacySource({ ...copy, mix: { voiceUrl: "x" } }, all), null, "a new-style recording uses its own layer");
+  assert.equal(findLegacySource({ ...copy, transcript: "nothing matches", title: "Unknown · with music" }, all), null, "no source, no removal");
+});

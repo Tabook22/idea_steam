@@ -980,7 +980,7 @@ components:
             $ref: "#/components/schemas/SearchDraftHit"
     AudioLibraryItem:
       type: object
-      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, kind, mix, capturedAt, createdAt]
+      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, kind, mix, bakedMusic, capturedAt, createdAt]
       properties:
         id:
           type: integer
@@ -990,6 +990,9 @@ components:
           type: string
           enum: [recording, music]
           description: music = a song uploaded to use as background music.
+        bakedMusic:
+          type: boolean
+          description: An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).
         mix:
           description: Background music added as a removable layer (null when there is none).
           oneOf:

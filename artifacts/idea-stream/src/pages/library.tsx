@@ -28,6 +28,7 @@ import {
   Search,
   SkipForward,
   Trash2,
+  VolumeX,
   X,
 } from "lucide-react";
 import {
@@ -638,9 +639,9 @@ export default function LibraryPage() {
                                   <BookOpen size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.sourceSubjectTitle}</span>
                                 </span>
                               )}
-                              {item.mix && (
+                              {(item.mix || item.bakedMusic) && (
                                 <span className="inline-flex max-w-[10rem] items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900 dark:bg-violet-900/40 dark:text-violet-100" title={copy("Background music", "موسيقى خلفية")}>
-                                  <Music2 size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.mix.musicTitle || copy("Music", "موسيقى")}</span>
+                                  <Music2 size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.mix?.musicTitle || copy("Music", "موسيقى")}</span>
                                 </span>
                               )}
                               {item.kind === "music" && (
@@ -670,8 +671,14 @@ export default function LibraryPage() {
                             <DropdownMenuContent align="end" className="w-56">
                               <DropdownMenuItem onSelect={() => setExporting(item)}><Download size={15} />{copy("Download as MP3, WAV…", "تنزيل MP3، WAV…")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => openTool(item, "edit")}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }}><Music2 size={15} />{item.mix ? copy("Edit background music", "عدّل الموسيقى الخلفية") : copy("Add background music", "أضف موسيقى خلفية")}</DropdownMenuItem>
-                              {item.mix && <DropdownMenuItem onSelect={() => setUnmixing(item)}><Music2 size={15} className="opacity-60" />{copy("Remove background music", "أزل الموسيقى الخلفية")}</DropdownMenuItem>}
+                              {(item.mix || item.bakedMusic) && (
+                                <DropdownMenuItem onSelect={() => setUnmixing(item)} className="font-medium text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-400 dark:focus:bg-red-950/40">
+                                  <VolumeX size={15} />{copy("Remove background music", "أزل الموسيقى الخلفية")}
+                                </DropdownMenuItem>
+                              )}
+                              {!item.bakedMusic && (
+                                <DropdownMenuItem onSelect={() => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }}><Music2 size={15} />{item.mix ? copy("Edit background music", "عدّل الموسيقى الخلفية") : copy("Add background music", "أضف موسيقى خلفية")}</DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onSelect={() => openTool(item, "lab")}><Wand2 size={15} />{copy("Sound lab: improve sound", "مختبر الصوت: تحسين")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }}><Pencil size={15} />{copy("Rename", "إعادة تسمية")}</DropdownMenuItem>
                               {item.edited && <DropdownMenuItem onSelect={() => setRestoring(item)}><RotateCcw size={15} />{copy("Restore original", "استعادة الأصل")}</DropdownMenuItem>}
@@ -723,7 +730,7 @@ export default function LibraryPage() {
                             {([
                               [Scissors, copy("Edit audio", "تحرير الصوت"), () => openTool(item, "edit")],
                               [Wand2, copy("Sound lab", "مختبر الصوت"), () => openTool(item, "lab")],
-                              [Music2, item.mix ? copy("Edit music", "عدّل الموسيقى") : copy("Add music", "أضف موسيقى"), () => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }],
+                              ...(item.bakedMusic ? [] : [[Music2, item.mix ? copy("Edit music", "عدّل الموسيقى") : copy("Add music", "أضف موسيقى"), () => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }] as const]),
                               [Download, copy("Download as…", "تنزيل بصيغة…"), () => setExporting(item)],
                               [Pencil, copy("Rename", "إعادة تسمية"), () => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }],
                             ] as const).map(([Icon, label, action]) => (
@@ -738,6 +745,25 @@ export default function LibraryPage() {
                             )}
                           </div>
 
+                          {(item.mix || item.bakedMusic) && (
+                            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-violet-300/60 bg-violet-50 px-3 py-2.5 dark:border-violet-700/50 dark:bg-violet-950/30">
+                              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-violet-500 text-white"><Music2 size={15} /></span>
+                              <span className="min-w-0 flex-1 text-sm">
+                                <span className="block font-semibold text-violet-950 dark:text-violet-100">{copy("Background music is on", "الموسيقى الخلفية مفعّلة")}</span>
+                                <span className="block truncate text-xs text-violet-800/80 dark:text-violet-200/70" dir="auto">
+                                  {item.mix ? (item.mix.musicTitle || copy("Music", "موسيقى")) : copy("Mixed in when this copy was made", "مدموجة عند إنشاء هذه النسخة")}
+                                </span>
+                              </span>
+                              {item.mix && (
+                                <Button size="sm" variant="outline" className="h-9 rounded-full bg-card" onClick={() => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }}>
+                                  <Pencil size={14} className="me-1.5" />{copy("Edit / change", "تعديل / تغيير")}
+                                </Button>
+                              )}
+                              <Button size="sm" className="h-9 rounded-full bg-red-600 px-4 text-white hover:bg-red-500" onClick={() => setUnmixing(item)}>
+                                <VolumeX size={14} className="me-1.5" />{copy("Remove music", "أزل الموسيقى")}
+                              </Button>
+                            </div>
+                          )}
                           {item.mix && <MusicTracks item={item} onEdit={() => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }} />}
 
                           {item.marks.length > 0 && (
@@ -875,8 +901,11 @@ export default function LibraryPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{copy("Remove the background music?", "إزالة الموسيقى الخلفية؟")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {copy(`“${unmixing?.mix?.musicTitle ?? "The music"}” is taken off and the recording goes back to your voice as it was. You can add music again any time.`,
-                `تُزال «${unmixing?.mix?.musicTitle ?? "الموسيقى"}» ويعود التسجيل إلى صوتك كما كان. يمكنك إضافة موسيقى مجددًا في أي وقت.`)}
+              {unmixing?.bakedMusic
+                ? copy("This copy was made with the music mixed in. Removing it gives this recording your voice back, taken from the original recording it was made from. You can then add new music.",
+                  "صُنعت هذه النسخة والموسيقى مدموجة فيها. إزالتها تعيد لهذا التسجيل صوتك من التسجيل الأصلي الذي صُنعت منه، ثم يمكنك إضافة موسيقى جديدة.")
+                : copy(`“${unmixing?.mix?.musicTitle ?? "The music"}” is taken off and the recording goes back to your voice as it was. You can add music again any time.`,
+                  `تُزال «${unmixing?.mix?.musicTitle ?? "الموسيقى"}» ويعود التسجيل إلى صوتك كما كان. يمكنك إضافة موسيقى مجددًا في أي وقت.`)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

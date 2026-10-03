@@ -32,6 +32,7 @@ import {
 import { AudioEditError, convertRecording, duplicateStored, enhanceRecording, joinRecordings, keepRanges, mixPreview, mixRecording, soundLabPreview, soundLabRecording, storedDuration } from "../lib/audio-edit";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
+import { LEGACY_SUFFIX, findLegacySource, snippet } from "../lib/legacy-mix";
 
 const router: IRouter = Router();
 
@@ -69,8 +70,9 @@ const select = () =>
     .from(audioLibraryTable)
     .leftJoin(ideasTable, eq(ideasTable.id, audioLibraryTable.sourceIdeaId));
 
-function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; ideaId: number | null; subjectId: number | null }) {
+function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; ideaId: number | null; subjectId: number | null }, bakedMusic = false) {
   return {
+    bakedMusic,
     id: item.id,
     url: item.url,
     title: item.title,
@@ -94,7 +96,9 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
 
 router.get("/audio-library", async (_req, res): Promise<void> => {
   const rows = await select().orderBy(desc(audioLibraryTable.capturedAt), desc(audioLibraryTable.id));
-  res.json(rows.map(serialize));
+  const items = rows.map((row) => row.item);
+  // Old "· with music" copies whose voice can still be recovered can have their music removed.
+  res.json(rows.map((row) => serialize(row, !!findLegacySource(row.item, items))));
 });
 
 router.post("/audio-library", async (req, res): Promise<void> => {
@@ -473,7 +477,30 @@ router.post("/audio-library/:itemId/mix/remove", async (req, res): Promise<void>
   if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
   const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
   if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
-  if (!current.mix) { res.status(409).json({ error: "This recording has no background music to remove." }); return; }
+  if (!current.mix) {
+    // An old copy with the music baked in: give it back the voice of the recording it was made from.
+    const all = await db.select().from(audioLibraryTable);
+    const source = findLegacySource(current, all);
+    if (!source) { res.status(409).json({ error: "This recording has no background music that can be removed." }); return; }
+    try {
+      const voiceUrl = await duplicateStored(source.mix?.voiceUrl ?? source.url);
+      const durationSeconds = (source.mix ? source.mix.voiceDuration : source.durationSeconds) ?? await storedDuration(voiceUrl).catch(() => null);
+      await db.update(audioLibraryTable).set({
+        url: voiceUrl,
+        mimeType: source.mimeType,
+        durationSeconds: durationSeconds == null ? null : Math.round(durationSeconds),
+        marks: source.mix?.voiceMarks ?? source.marks ?? [],
+        // The copy's name was "<name> · with music"; an automatic name (start of the transcript) stays automatic.
+        title: ((name) => (name && name !== snippet(current.transcript) ? name : null))(current.title?.replace(LEGACY_SUFFIX, "").trim()),
+        words: null, chapters: null, summary: null,
+      }).where(eq(audioLibraryTable.id, current.id));
+      const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
+      res.json(serialize(saved));
+    } catch (error) {
+      editFailure(res, error);
+    }
+    return;
+  }
   try {
     const { mix } = current;
     // A copy's voice may still belong to the recording it was made from: give it its own file.
