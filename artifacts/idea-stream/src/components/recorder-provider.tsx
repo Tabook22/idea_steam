@@ -488,7 +488,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         }
         await refresh();
         setReady(true);
-        void sync();
+        // Opening the app sends anything still waiting right away.
+        void sync(true);
       } catch {
         setError(
           "Device storage is unavailable. Enable browser storage before recording.",
@@ -513,12 +514,14 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     }, 10_000);
     const network = () => {
       setOnline(navigator.onLine);
-      if (navigator.onLine) void sync();
+      // Back online: send waiting recordings now, not after their retry wait.
+      if (navigator.onLine) void sync(true);
     };
     const visibility = () => {
       if (document.visibilityState === "visible") {
         void acquireWakeLock();
-        void sync();
+        // Back in the app: try waiting recordings straight away.
+        void sync(true);
       } else if (session.current?.recorder.state === "recording")
         session.current.recorder.requestData();
     };

@@ -65,7 +65,7 @@ test("private VPS uploads require login and a valid size-bound signature, persis
   const server = app.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const localUrl = url => { const parsed = new URL(url); return origin + parsed.pathname + parsed.search; };
+  const localUrl = url => { if (url.startsWith("/")) return origin + url; const parsed = new URL(url); return origin + parsed.pathname + parsed.search; };
   const headers = {
     Authorization: `Basic ${Buffer.from("owner:test-password").toString("base64")}`,
   };
@@ -76,7 +76,9 @@ test("private VPS uploads require login and a valid size-bound signature, persis
     });
     const objectPath = storage.normalizeObjectEntityPath(url);
     assert.ok(RequestUploadUrlResponse.safeParse({uploadURL:url,objectPath}).success);
+    assert.ok(url.startsWith("/ideas/api/storage/local-upload/"), "uploads go to the site the page is on");
     assert.equal(uploadCredentials(url,"https://nasserdiary.com"),"same-origin");
+    assert.equal(uploadCredentials(url,"https://www.nasserdiary.com"),"same-origin", "www works too");
     assert.equal(uploadCredentials("https://storage.example/put","https://nasserdiary.com"),"omit");
     const unauth = await fetch(localUrl(url), { method: "PUT", body: "hello" });
     assert.equal(unauth.status, 401);

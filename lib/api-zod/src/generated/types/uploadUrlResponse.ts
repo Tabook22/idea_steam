@@ -8,6 +8,7 @@
 import type { UploadUrlRequest } from './uploadUrlRequest';
 
 export interface UploadUrlResponse {
+  /** Where to PUT the file. For this app's own storage it is a path on the same site as the page. */
   uploadURL: string;
   objectPath: string;
   metadata?: UploadUrlRequest;

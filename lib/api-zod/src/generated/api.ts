@@ -2213,7 +2213,7 @@ export const RequestUploadUrlBody = zod.object({
 
 
 export const RequestUploadUrlResponse = zod.object({
-  "uploadURL": zod.string().url(),
+  "uploadURL": zod.string().describe('Where to PUT the file. For this app\'s own storage it is a path on the same site as the page.'),
   "objectPath": zod.string(),
   "metadata": zod.object({
   "name": zod.string().min(1),

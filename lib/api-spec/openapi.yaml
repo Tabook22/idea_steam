@@ -893,7 +893,7 @@ components:
       properties:
         uploadURL:
           type: string
-          format: uri
+          description: Where to PUT the file. For this app's own storage it is a path on the same site as the page.
         objectPath:
           type: string
         metadata:

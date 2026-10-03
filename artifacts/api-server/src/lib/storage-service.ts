@@ -74,8 +74,10 @@ export class ObjectStorageService {
       }),
     ).toString("base64url");
     const base = (this.env.APP_BASE_PATH || "").replace(/\/$/, "");
-    const origin = this.env.APP_ORIGIN || `http://127.0.0.1:${this.env.PORT || "5000"}`;
-    return new URL(`${base}/api/storage/local-upload/${id}?token=${payload}.${signature(secret, payload)}`, origin).href;
+    // A path, not a full address: the browser uploads to the same site the page is on, so the
+    // app works from www.example.com and example.com alike (a full address on the other one
+    // was refused as "Origin not allowed").
+    return `${base}/api/storage/local-upload/${id}?token=${payload}.${signature(secret, payload)}`;
   }
   normalizeObjectEntityPath(url: string) {
     if (!this.env.LOCAL_STORAGE_DIR)
