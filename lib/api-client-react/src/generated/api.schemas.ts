@@ -142,6 +142,82 @@ export const AudioLibraryItemKind = {
   music: 'music',
 } as const;
 
+/**
+ * How the song fills the time between start and end.
+ */
+export type MixSettingsFit = typeof MixSettingsFit[keyof typeof MixSettingsFit];
+
+
+export const MixSettingsFit = {
+  loop: 'loop',
+  stretch: 'stretch',
+  once: 'once',
+} as const;
+
+export interface MixSettings {
+  /**
+     * Where in the song to begin (seconds).
+     * @minimum 0
+     */
+  musicStart: number;
+  /**
+     * Where the music starts, on the recording's clock (negative = an intro before the voice).
+     * @minimum -60
+     * @maximum 86400
+     */
+  regionStart: number;
+  /**
+     * Where the music ends, on the recording's clock (past the end = an outro).
+     * @minimum -59
+     * @maximum 86460
+     */
+  regionEnd: number;
+  /** How the song fills the time between start and end. */
+  fit: MixSettingsFit;
+  /**
+     * @minimum -40
+     * @maximum 6
+     */
+  musicVolume: number;
+  /**
+     * @minimum -12
+     * @maximum 12
+     */
+  voiceVolume: number;
+  /**
+     * @minimum 0
+     * @maximum 15
+     */
+  fadeIn: number;
+  /**
+     * @minimum 0
+     * @maximum 15
+     */
+  fadeOut: number;
+  /**
+     * Lower the music while the voice speaks, 0 (off) to 3 (strong).
+     * @minimum 0
+     * @maximum 3
+     */
+  duck: number;
+  /** Dip the music's middle frequencies so words stay clear. */
+  makeRoom: boolean;
+}
+
+export interface AudioMixLayer {
+  /** The voice-only audio underneath the music. */
+  voiceUrl: string;
+  /** The song's audio (kept even if the song is later removed from the library). */
+  musicUrl: string;
+  /** @nullable */
+  musicItemId: number | null;
+  /** @nullable */
+  musicTitle: string | null;
+  /** Seconds of music before the voice starts. */
+  pre: number;
+  settings: MixSettings;
+}
+
 export interface AudioChapter {
   start: number;
   title: string;
@@ -152,6 +228,8 @@ export interface AudioLibraryItem {
   url: string;
   /** music = a song uploaded to use as background music. */
   kind: AudioLibraryItemKind;
+  /** Background music added as a removable layer (null when there is none). */
+  mix: null | AudioMixLayer;
   /**
      * Set when renamed; otherwise null.
      * @nullable
@@ -369,68 +447,19 @@ export interface SoundLabPreviewInput {
 }
 
 /**
- * How the song fills the time between start and end.
+ * same = put the music on this recording (removable later); copy = save the mix as a new recording.
  */
-export type MixSettingsFit = typeof MixSettingsFit[keyof typeof MixSettingsFit];
+export type MixInputTarget = typeof MixInputTarget[keyof typeof MixInputTarget];
 
 
-export const MixSettingsFit = {
-  loop: 'loop',
-  stretch: 'stretch',
-  once: 'once',
+export const MixInputTarget = {
+  same: 'same',
+  copy: 'copy',
 } as const;
 
-export interface MixSettings {
-  /**
-     * Where in the song to begin (seconds).
-     * @minimum 0
-     */
-  musicStart: number;
-  /**
-     * Where the music starts, on the recording's clock (negative = an intro before the voice).
-     * @minimum -60
-     * @maximum 86400
-     */
-  regionStart: number;
-  /**
-     * Where the music ends, on the recording's clock (past the end = an outro).
-     * @minimum -59
-     * @maximum 86460
-     */
-  regionEnd: number;
-  /** How the song fills the time between start and end. */
-  fit: MixSettingsFit;
-  /**
-     * @minimum -40
-     * @maximum 6
-     */
-  musicVolume: number;
-  /**
-     * @minimum -12
-     * @maximum 12
-     */
-  voiceVolume: number;
-  /**
-     * @minimum 0
-     * @maximum 15
-     */
-  fadeIn: number;
-  /**
-     * @minimum 0
-     * @maximum 15
-     */
-  fadeOut: number;
-  /**
-     * Lower the music while the voice speaks, 0 (off) to 3 (strong).
-     * @minimum 0
-     * @maximum 3
-     */
-  duck: number;
-  /** Dip the music's middle frequencies so words stay clear. */
-  makeRoom: boolean;
-}
-
 export interface MixInput {
+  /** same = put the music on this recording (removable later); copy = save the mix as a new recording. */
+  target?: MixInputTarget;
   musicItemId: number;
   settings: MixSettings;
   /** @maxLength 200 */

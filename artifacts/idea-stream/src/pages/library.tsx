@@ -35,6 +35,7 @@ import {
   joinAudioLibraryItems,
   restoreAudioLibraryItem,
   makeAudioLibraryChapters,
+  removeAudioLibraryMix,
   getListAudioLibraryQueryKey,
   updateAudioLibraryItem,
   useListAudioLibrary,
@@ -127,6 +128,10 @@ export default function LibraryPage() {
   const [restoring, setRestoring] = useState<AudioLibraryItem | null>(null);
   const [exporting, setExporting] = useState<AudioLibraryItem | null>(null);
   const [mixing, setMixing] = useState<AudioLibraryItem | null>(null);
+  /** Remove the music layer (asks first). */
+  const [unmixing, setUnmixing] = useState<AudioLibraryItem | null>(null);
+  /** Editing a recording that has music: remove the music first, or bake it in? */
+  const [musicGuard, setMusicGuard] = useState<{ item: AudioLibraryItem; tool: "edit" | "lab" } | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<number[]>([]);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -351,6 +356,24 @@ export default function LibraryPage() {
       toast({ variant: "destructive", title: copy("Couldn't join them", "تعذر الدمج"), description: (error as { data?: { error?: string } })?.data?.error });
     } finally {
       setJoining(false);
+    }
+  }
+
+  const openTool = (item: AudioLibraryItem, tool: "edit" | "lab") => {
+    if (activeId === item.id) audio.current?.pause();
+    if (item.mix) { setMusicGuard({ item, tool }); return; }
+    if (tool === "edit") setEditing(item); else setImproving(item);
+  };
+  async function removeMusic(item: AudioLibraryItem, then?: "edit" | "lab") {
+    try {
+      if (activeId === item.id) { audio.current?.pause(); setActiveId(null); }
+      const plain = await removeAudioLibraryMix(item.id);
+      await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+      toast({ title: copy("Music removed", "أُزيلت الموسيقى"), description: copy("The recording is back to your voice as it was.", "عاد التسجيل إلى صوتك كما كان.") });
+      if (then === "edit") setEditing(plain);
+      if (then === "lab") setImproving(plain);
+    } catch (error) {
+      toast({ variant: "destructive", title: copy("Couldn't remove the music", "تعذرت إزالة الموسيقى"), description: (error as { data?: { error?: string } })?.data?.error });
     }
   }
 
@@ -617,6 +640,11 @@ export default function LibraryPage() {
                                   <BookOpen size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.sourceSubjectTitle}</span>
                                 </span>
                               )}
+                              {item.mix && (
+                                <span className="inline-flex max-w-[10rem] items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900 dark:bg-violet-900/40 dark:text-violet-100" title={copy("Background music", "موسيقى خلفية")}>
+                                  <Music2 size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.mix.musicTitle || copy("Music", "موسيقى")}</span>
+                                </span>
+                              )}
                               {item.kind === "music" && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900 dark:bg-violet-900/40 dark:text-violet-100"><Music2 size={11} />{copy("Music", "موسيقى")}</span>
                               )}
@@ -643,9 +671,10 @@ export default function LibraryPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56">
                               <DropdownMenuItem onSelect={() => setExporting(item)}><Download size={15} />{copy("Download as MP3, WAV…", "تنزيل MP3، WAV…")}</DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => { if (activeId === item.id) audio.current?.pause(); setEditing(item); }}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }}><Music2 size={15} />{copy("Add background music", "أضف موسيقى خلفية")}</DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setImproving(item)}><Wand2 size={15} />{copy("Sound lab: improve sound", "مختبر الصوت: تحسين")}</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => openTool(item, "edit")}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }}><Music2 size={15} />{item.mix ? copy("Edit background music", "عدّل الموسيقى الخلفية") : copy("Add background music", "أضف موسيقى خلفية")}</DropdownMenuItem>
+                              {item.mix && <DropdownMenuItem onSelect={() => setUnmixing(item)}><Music2 size={15} className="opacity-60" />{copy("Remove background music", "أزل الموسيقى الخلفية")}</DropdownMenuItem>}
+                              <DropdownMenuItem onSelect={() => openTool(item, "lab")}><Wand2 size={15} />{copy("Sound lab: improve sound", "مختبر الصوت: تحسين")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }}><Pencil size={15} />{copy("Rename", "إعادة تسمية")}</DropdownMenuItem>
                               {item.edited && <DropdownMenuItem onSelect={() => setRestoring(item)}><RotateCcw size={15} />{copy("Restore original", "استعادة الأصل")}</DropdownMenuItem>}
                               {item.sourceSubjectId && item.sourceIdeaId && (
@@ -694,9 +723,9 @@ export default function LibraryPage() {
                         <div className="space-y-3 px-3 pb-4 sm:ps-[4.25rem]">
                           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                             {([
-                              [Scissors, copy("Edit audio", "تحرير الصوت"), () => { if (activeId === item.id) audio.current?.pause(); setEditing(item); }],
-                              [Wand2, copy("Sound lab", "مختبر الصوت"), () => setImproving(item)],
-                              [Music2, copy("Add music", "أضف موسيقى"), () => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }],
+                              [Scissors, copy("Edit audio", "تحرير الصوت"), () => openTool(item, "edit")],
+                              [Wand2, copy("Sound lab", "مختبر الصوت"), () => openTool(item, "lab")],
+                              [Music2, item.mix ? copy("Edit music", "عدّل الموسيقى") : copy("Add music", "أضف موسيقى"), () => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }],
                               [Download, copy("Download as…", "تنزيل بصيغة…"), () => setExporting(item)],
                               [Pencil, copy("Rename", "إعادة تسمية"), () => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }],
                             ] as const).map(([Icon, label, action]) => (
@@ -839,6 +868,41 @@ export default function LibraryPage() {
       </AlertDialog>
 
       <ExportDialog item={exporting} title={exporting ? displayTitle(exporting, fallbackTitle) : ""} onClose={() => setExporting(null)} />
+
+      <AlertDialog open={!!unmixing} onOpenChange={(open) => { if (!open) setUnmixing(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy("Remove the background music?", "إزالة الموسيقى الخلفية؟")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {copy(`“${unmixing?.mix?.musicTitle ?? "The music"}” is taken off and the recording goes back to your voice as it was. You can add music again any time.`,
+                `تُزال «${unmixing?.mix?.musicTitle ?? "الموسيقى"}» ويعود التسجيل إلى صوتك كما كان. يمكنك إضافة موسيقى مجددًا في أي وقت.`)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{copy("Keep the music", "أبقِ الموسيقى")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (unmixing) void removeMusic(unmixing); setUnmixing(null); }}>{copy("Remove music", "أزل الموسيقى")}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!musicGuard} onOpenChange={(open) => { if (!open) setMusicGuard(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy("This recording has background music", "هذا التسجيل فيه موسيقى خلفية")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {copy("To edit only your voice, remove the music first; you can add it back afterwards. If you edit it with the music in, the music becomes part of the sound and can't be removed later.",
+                "لتعديل صوتك فقط، أزل الموسيقى أولًا ثم أعدها بعد ذلك. إن عدّلته والموسيقى فيه تصبح الموسيقى جزءًا من الصوت ولا يمكن إزالتها لاحقًا.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel>{copy("Cancel", "إلغاء")}</AlertDialogCancel>
+            <Button variant="outline" onClick={() => { const guard = musicGuard; setMusicGuard(null); if (guard) { if (guard.tool === "edit") setEditing(guard.item); else setImproving(guard.item); } }}>
+              {copy("Edit with the music in", "عدّل مع الموسيقى")}
+            </Button>
+            <AlertDialogAction onClick={() => { const guard = musicGuard; setMusicGuard(null); if (guard) void removeMusic(guard.item, guard.tool); }}>{copy("Remove music, then edit", "أزل الموسيقى ثم عدّل")}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {mixing && <MusicMixer item={mixing} title={displayTitle(mixing, fallbackTitle)} items={items} onClose={() => setMixing(null)} />}
       {improving && <SoundLab item={improving} title={displayTitle(improving, fallbackTitle)} onClose={() => setImproving(null)} />}

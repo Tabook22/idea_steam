@@ -628,6 +628,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/mix/remove:
+    post:
+      operationId: removeAudioLibraryMix
+      tags: [audio-library]
+      summary: Remove the background music; the recording goes back to the voice as it was before
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      responses:
+        "200":
+          description: The recording without music
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
   /audio-library/{itemId}/mix/preview:
     post:
       operationId: previewMixAudioLibraryItem
@@ -966,7 +980,7 @@ components:
             $ref: "#/components/schemas/SearchDraftHit"
     AudioLibraryItem:
       type: object
-      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, kind, capturedAt, createdAt]
+      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, kind, mix, capturedAt, createdAt]
       properties:
         id:
           type: integer
@@ -976,6 +990,11 @@ components:
           type: string
           enum: [recording, music]
           description: music = a song uploaded to use as background music.
+        mix:
+          description: Background music added as a removable layer (null when there is none).
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/AudioMixLayer"
         title:
           type: [string, "null"]
           description: Set when renamed; otherwise null.
@@ -1180,10 +1199,32 @@ components:
         makeRoom:
           type: boolean
           description: Dip the music's middle frequencies so words stay clear.
+    AudioMixLayer:
+      type: object
+      required: [voiceUrl, musicItemId, musicUrl, musicTitle, pre, settings]
+      properties:
+        voiceUrl:
+          type: string
+          description: The voice-only audio underneath the music.
+        musicUrl:
+          type: string
+          description: The song's audio (kept even if the song is later removed from the library).
+        musicItemId: { type: [integer, "null"] }
+        musicTitle: { type: [string, "null"] }
+        pre:
+          type: number
+          description: Seconds of music before the voice starts.
+        settings:
+          $ref: "#/components/schemas/MixSettings"
     MixInput:
       type: object
       required: [musicItemId, settings]
       properties:
+        target:
+          type: string
+          enum: [same, copy]
+          default: copy
+          description: same = put the music on this recording (removable later); copy = save the mix as a new recording.
         musicItemId: { type: integer }
         settings:
           $ref: "#/components/schemas/MixSettings"

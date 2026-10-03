@@ -5,9 +5,12 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { MixInputTarget } from './mixInputTarget';
 import type { MixSettings } from './mixSettings';
 
 export interface MixInput {
+  /** same = put the music on this recording (removable later); copy = save the mix as a new recording. */
+  target?: MixInputTarget;
   musicItemId: number;
   settings: MixSettings;
   /** @maxLength 200 */

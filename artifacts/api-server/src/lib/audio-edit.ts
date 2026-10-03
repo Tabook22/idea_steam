@@ -269,3 +269,17 @@ export async function mixPreview(voiceUrl: string, musicUrl: string, settings: M
     await deliver(output);
   });
 }
+
+/** A separate copy of a stored recording (same format), for when two items would share one file. */
+export async function duplicateStored(url: string) {
+  const source = await storedFile(url);
+  const root = storageRoot();
+  const id = randomUUID();
+  const { copyFile, readFile } = await import("node:fs/promises");
+  const meta = await readFile(`${source.path}.json`, "utf8").catch(() => JSON.stringify({ contentType: "audio/webm" }));
+  const temporary = join(root, `${id}.${randomUUID()}.partial`);
+  await copyFile(source.path, temporary);
+  await rename(temporary, join(root, id));
+  await writeFile(join(root, `${id}.json`), meta, { mode: 0o600 });
+  return `${source.prefix}/api/storage/objects/${id}`;
+}

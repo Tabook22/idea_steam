@@ -33,6 +33,23 @@ export const audioLibraryTable = pgTable(
     summary: text("summary"),
     /** "music" for songs uploaded to use as background music; everything else is a recording. */
     kind: text("kind", { enum: ["recording", "music"] }).notNull().default("recording"),
+    /**
+     * Background music added as a layer: the voice-only audio underneath (to remove or change
+     * the music later), and how the music was placed. Cleared when the audio is edited further.
+     */
+    mix: jsonb("mix").$type<{
+      voiceUrl: string;
+      voiceMarks: number[];
+      voiceDuration: number | null;
+      musicItemId: number | null;
+      musicUrl: string;
+      musicTitle: string | null;
+      pre: number;
+      settings: {
+        musicStart: number; regionStart: number; regionEnd: number; fit: "loop" | "stretch" | "once";
+        musicVolume: number; voiceVolume: number; fadeIn: number; fadeOut: number; duck: number; makeRoom: boolean;
+      };
+    }>(),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

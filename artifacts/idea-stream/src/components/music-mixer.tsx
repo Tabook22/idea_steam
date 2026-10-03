@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Headphones, Loader2, Music2, Pause, Play, Repeat, Square, Upload, X, MoveHorizontal } from "lucide-react";
-import { createLibraryRecording, getListAudioLibraryQueryKey, mixAudioLibraryItem, type AudioLibraryItem } from "@workspace/api-client-react";
+import { Check, Copy, Headphones, Loader2, Music2, Pause, Play, Repeat, Square, Trash2, Upload, X, MoveHorizontal } from "lucide-react";
+import { createLibraryRecording, getListAudioLibraryQueryKey, mixAudioLibraryItem, removeAudioLibraryMix, type AudioLibraryItem } from "@workspace/api-client-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -117,12 +117,15 @@ export function MusicMixer({ item, title, items, onClose }: { item: AudioLibrary
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [settings, setSettings] = useState<MixSettings>(() => {
+    if (item.mix) return { ...item.mix.settings };
     try { return { ...DEFAULT_MIX, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}"), musicStart: 0 }; } catch { return DEFAULT_MIX; }
   });
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState<"live" | "exact" | null>(null);
   const [rendering, setRendering] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<"same" | "copy" | "remove" | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const layer = item.mix;
   const [name, setName] = useState(`${title} · ${copy("with music", "مع موسيقى")}`);
   const [width, setWidth] = useState(800);
   const [listening, setListening] = useState<number | null>(null);
@@ -155,12 +158,19 @@ export function MusicMixer({ item, title, items, onClose }: { item: AudioLibrary
       try {
         const ctx = new AudioContext();
         context.current = ctx;
-        const response = await fetch(appPath(item.url, import.meta.env.BASE_URL), { credentials: "include" });
+        // With music already on, edit the voice underneath it (not the mix).
+        const response = await fetch(appPath(item.mix?.voiceUrl ?? item.url, import.meta.env.BASE_URL), { credentials: "include" });
         if (!response.ok) throw new Error("download");
         const buffer = await decode(ctx, await response.arrayBuffer());
         if (cancelled) return;
         setVoice(buffer);
-        setSettings((current) => ({ ...current, regionStart: 0, regionEnd: round(buffer.duration) }));
+        if (item.mix) {
+          const used = items.find((other) => other.id === item.mix?.musicItemId)
+            ?? ({ id: item.mix.musicItemId ?? -1, url: item.mix.musicUrl, title: item.mix.musicTitle, kind: "music", durationSeconds: null } as unknown as AudioLibraryItem);
+          await chooseMusic(used, undefined, true);
+        } else {
+          setSettings((current) => ({ ...current, regionStart: 0, regionEnd: round(buffer.duration) }));
+        }
       } catch {
         if (!cancelled) setLoadError(copy("This recording couldn't be opened on this device.", "تعذر فتح هذا التسجيل على هذا الجهاز."));
       }
@@ -176,7 +186,7 @@ export function MusicMixer({ item, title, items, onClose }: { item: AudioLibrary
     };
   }, [item.url]);
 
-  async function chooseMusic(choice: AudioLibraryItem, data?: ArrayBuffer) {
+  async function chooseMusic(choice: AudioLibraryItem, data?: ArrayBuffer, keepSettings = false) {
     const ctx = context.current;
     if (!ctx) return;
     setLoadingMusic(choice.id);
@@ -186,7 +196,7 @@ export function MusicMixer({ item, title, items, onClose }: { item: AudioLibrary
       const bytes = data ?? await (await fetch(appPath(choice.url, import.meta.env.BASE_URL), { credentials: "include" })).arrayBuffer();
       const buffer = await decode(ctx, bytes);
       setMusic({ item: choice, buffer });
-      setSettings((current) => ({ ...current, musicStart: 0 }));
+      if (!keepSettings) setSettings((current) => ({ ...current, musicStart: 0 }));
     } catch {
       toast({ variant: "destructive", title: copy("This music couldn't be opened", "تعذر فتح هذه الموسيقى"), description: copy("Try another file (MP3, M4A or WAV work best).", "جرّب ملفًا آخر (MP3 أو M4A أو WAV الأفضل).") });
     } finally {
@@ -364,19 +374,36 @@ export function MusicMixer({ item, title, items, onClose }: { item: AudioLibrary
     }
   }
 
-  async function save() {
+  async function save(target: "same" | "copy") {
     if (!music) return;
     stop();
-    setSaving(true);
+    setSaving(target);
     try {
-      await mixAudioLibraryItem(item.id, { musicItemId: music.item.id, settings, title: name.trim() || undefined });
+      await mixAudioLibraryItem(item.id, { musicItemId: music.item.id, settings, target, title: target === "copy" ? name.trim() || undefined : undefined });
       await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
-      toast({ title: copy("Saved with music", "حُفظ مع الموسيقى"), description: copy("It's a new recording at the top of your library. The original is unchanged.", "تسجيل جديد في أعلى مكتبتك. الأصل لم يتغير.") });
+      toast(target === "same"
+        ? { title: layer ? copy("Music updated", "حُدّثت الموسيقى") : copy("Music added", "أُضيفت الموسيقى"), description: copy("You can edit or remove it any time from the recording's menu.", "يمكنك تعديلها أو إزالتها في أي وقت من قائمة التسجيل.") }
+        : { title: copy("Saved as a copy", "حُفظت كنسخة"), description: copy("The copy is at the top of your library; this recording is unchanged.", "النسخة في أعلى مكتبتك، وهذا التسجيل لم يتغير.") });
       onClose();
     } catch (error) {
       toast({ variant: "destructive", title: copy("Couldn't save", "تعذر الحفظ"), description: (error as { data?: { error?: string } })?.data?.error ?? (error as Error).message });
     } finally {
-      setSaving(false);
+      setSaving(null);
+    }
+  }
+
+  async function removeMusic() {
+    stop();
+    setSaving("remove");
+    try {
+      await removeAudioLibraryMix(item.id);
+      await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+      toast({ title: copy("Music removed", "أُزيلت الموسيقى"), description: copy("The recording is back to your voice as it was.", "عاد التسجيل إلى صوتك كما كان.") });
+      onClose();
+    } catch (error) {
+      toast({ variant: "destructive", title: copy("Couldn't remove the music", "تعذرت إزالة الموسيقى"), description: (error as { data?: { error?: string } })?.data?.error ?? (error as Error).message });
+    } finally {
+      setSaving(null);
     }
   }
 
@@ -488,10 +515,25 @@ export function MusicMixer({ item, title, items, onClose }: { item: AudioLibrary
         <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-violet-500/20 text-violet-300"><Music2 size={18} /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-base font-semibold text-white">{copy("Background music", "موسيقى خلفية")}</DialogTitle>
+            <DialogTitle className="text-base font-semibold text-white">{layer ? copy("Edit background music", "تعديل الموسيقى الخلفية") : copy("Background music", "موسيقى خلفية")}</DialogTitle>
             <DialogDescription className="truncate text-xs text-white/50" dir="auto">{title}</DialogDescription>
           </div>
-          <button type="button" onClick={onClose} disabled={saving} aria-label={copy("Close", "إغلاق")} className="grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><X size={18} /></button>
+          {layer && (
+            confirmRemove ? (
+              <span className="flex items-center gap-1.5 rounded-full bg-red-500/15 py-1 pe-1 ps-3 text-xs text-red-100">
+                {copy("Remove the music?", "إزالة الموسيقى؟")}
+                <Button size="sm" className="h-7 rounded-full bg-red-500 px-3 text-white hover:bg-red-400" disabled={!!saving} onClick={() => void removeMusic()}>
+                  {saving === "remove" ? <Loader2 size={13} className="animate-spin" /> : copy("Remove", "إزالة")}
+                </Button>
+                <button type="button" className="px-1.5 text-white/70 hover:text-white" onClick={() => setConfirmRemove(false)}>{copy("Keep", "إبقاء")}</button>
+              </span>
+            ) : (
+              <Button size="sm" variant="ghost" className="h-9 rounded-full text-red-200 hover:bg-red-500/15 hover:text-red-100" disabled={!!saving} onClick={() => setConfirmRemove(true)}>
+                <Trash2 size={15} className="me-1.5" />{copy("Remove music", "أزل الموسيقى")}
+              </Button>
+            )
+          )}
+          <button type="button" onClick={onClose} disabled={!!saving} aria-label={copy("Close", "إغلاق")} className="grid h-9 w-9 place-items-center rounded-full text-white/70 hover:bg-white/10"><X size={18} /></button>
         </div>
 
         <input ref={fileInput} type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" className="hidden"
@@ -699,14 +741,26 @@ export function MusicMixer({ item, title, items, onClose }: { item: AudioLibrary
 
         {music && (
           <div className="flex flex-col gap-2 border-t border-white/10 px-4 py-3 sm:flex-row sm:items-center">
-            <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-white/60">
-              <span className="shrink-0">{copy("Save as", "احفظ باسم")}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} maxLength={200} dir="auto"
-                className="h-9 min-w-0 flex-1 rounded-lg border border-white/15 bg-black/30 px-2.5 text-sm text-white outline-none focus:border-violet-300" />
-            </label>
-            <Button className="h-10 w-full rounded-full bg-violet-400 px-5 text-[#140a24] hover:bg-violet-300 sm:w-auto" disabled={saving} onClick={() => void save()}>
-              {saving ? <Loader2 size={16} className="me-2 animate-spin" /> : <Check size={16} className="me-2" />}
-              {saving ? copy("Mixing…", "جارٍ المزج…") : copy("Save as new recording", "احفظ كتسجيل جديد")}
+            <p className="min-w-0 flex-1 text-xs text-white/50">
+              {copy("The music stays a separate layer: you can edit, change or remove it later, and your voice underneath is kept.", "تبقى الموسيقى طبقة منفصلة: يمكنك تعديلها أو تغييرها أو إزالتها لاحقًا، ويُحفظ صوتك تحتها.")}
+            </p>
+            <details className="group relative">
+              <summary className="flex h-10 cursor-pointer list-none items-center justify-center gap-1.5 rounded-full px-4 text-sm text-white/75 hover:bg-white/10 hover:text-white">
+                <Copy size={15} />{copy("Save as a copy…", "احفظ كنسخة…")}
+              </summary>
+              <div className="absolute bottom-12 end-0 z-30 w-72 rounded-2xl border border-white/15 bg-[#17132a] p-3 shadow-2xl">
+                <label className="block text-xs text-white/60">{copy("Name of the copy", "اسم النسخة")}
+                  <input value={name} onChange={(event) => setName(event.target.value)} maxLength={200} dir="auto"
+                    className="mt-1 h-9 w-full rounded-lg border border-white/15 bg-black/30 px-2.5 text-sm text-white outline-none focus:border-violet-300" />
+                </label>
+                <Button className="mt-2 h-9 w-full rounded-full bg-white/15 text-white hover:bg-white/25" disabled={!!saving} onClick={() => void save("copy")}>
+                  {saving === "copy" ? <Loader2 size={15} className="me-2 animate-spin" /> : <Copy size={15} className="me-2" />}{copy("Save the copy", "احفظ النسخة")}
+                </Button>
+              </div>
+            </details>
+            <Button className="h-10 w-full rounded-full bg-violet-400 px-5 text-[#140a24] hover:bg-violet-300 sm:w-auto" disabled={!!saving} onClick={() => void save("same")}>
+              {saving === "same" ? <Loader2 size={16} className="me-2 animate-spin" /> : <Check size={16} className="me-2" />}
+              {saving === "same" ? copy("Mixing…", "جارٍ المزج…") : layer ? copy("Update the music", "حدّث الموسيقى") : copy("Add music to this recording", "أضف الموسيقى لهذا التسجيل")}
             </Button>
           </div>
         )}

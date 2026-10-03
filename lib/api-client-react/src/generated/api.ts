@@ -2877,6 +2877,80 @@ export const useMixAudioLibraryItem = <TError = ErrorType<unknown>,
       return useMutation(getMixAudioLibraryItemMutationOptions(options));
     }
 
+export const getRemoveAudioLibraryMixUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/mix/remove`
+}
+
+/**
+ * @summary Remove the background music; the recording goes back to the voice as it was before
+ */
+export const removeAudioLibraryMix = async (itemId: number, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+  return customFetch<AudioLibraryItem>(getRemoveAudioLibraryMixUrl(itemId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveAudioLibraryMixMutationKey = () => ['removeAudioLibraryMix'] as const;
+
+export const getRemoveAudioLibraryMixMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAudioLibraryMix>>, TError,RemoveAudioLibraryMixMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeAudioLibraryMix>>, TError,RemoveAudioLibraryMixMutationVariables, TContext> => {
+
+const mutationKey = getRemoveAudioLibraryMixMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeAudioLibraryMix>>, RemoveAudioLibraryMixMutationVariables> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  removeAudioLibraryMix(itemId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveAudioLibraryMixMutationResult = NonNullable<Awaited<ReturnType<typeof removeAudioLibraryMix>>>
+
+    export type RemoveAudioLibraryMixMutationError = ErrorType<unknown>
+    export type RemoveAudioLibraryMixMutationVariables = {itemId: number}
+
+    /**
+ * @summary Remove the background music; the recording goes back to the voice as it was before
+ */
+export const useRemoveAudioLibraryMix = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAudioLibraryMix>>, TError,RemoveAudioLibraryMixMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeAudioLibraryMix>>,
+        TError,
+        RemoveAudioLibraryMixMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveAudioLibraryMixMutationOptions(options));
+    }
+
 export const getPreviewMixAudioLibraryItemUrl = (itemId: number,) => {
 
 

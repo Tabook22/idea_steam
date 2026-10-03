@@ -29,7 +29,7 @@ import {
   transcriptionFailure,
   wordsForStoredAudio,
 } from "../lib/stored-transcription";
-import { AudioEditError, convertRecording, enhanceRecording, joinRecordings, keepRanges, mixPreview, mixRecording, soundLabPreview, soundLabRecording, storedDuration } from "../lib/audio-edit";
+import { AudioEditError, convertRecording, duplicateStored, enhanceRecording, joinRecordings, keepRanges, mixPreview, mixRecording, soundLabPreview, soundLabRecording, storedDuration } from "../lib/audio-edit";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
 
@@ -86,6 +86,7 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
     chapters: item.chapters,
     summary: item.summary,
     kind: item.kind,
+    mix: item.mix ? { voiceUrl: item.mix.voiceUrl, musicItemId: item.mix.musicItemId, musicUrl: item.mix.musicUrl, musicTitle: item.mix.musicTitle, pre: item.mix.pre, settings: item.mix.settings } : null,
     capturedAt: item.capturedAt.toISOString(),
     createdAt: item.createdAt.toISOString(),
   };
@@ -249,6 +250,7 @@ router.post("/audio-library/:itemId/edit", async (req, res): Promise<void> => {
       marks: remapMarks(current.marks ?? [], body.data.keep),
       originalMarks: current.originalMarks ?? current.marks ?? [],
       originalUrl: current.originalUrl ?? current.url,
+      mix: null,
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please reopen it." }); return; }
@@ -298,6 +300,7 @@ router.post("/audio-library/:itemId/enhance", async (req, res): Promise<void> =>
       mimeType: improved.mimeType,
       originalMarks: current.originalMarks ?? current.marks ?? [],
       originalUrl: current.originalUrl ?? current.url,
+      mix: null,
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
@@ -322,6 +325,7 @@ router.post("/audio-library/:itemId/sound-lab", async (req, res): Promise<void> 
       mimeType: improved.mimeType,
       originalMarks: current.originalMarks ?? current.marks ?? [],
       originalUrl: current.originalUrl ?? current.url,
+      mix: null,
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
@@ -349,34 +353,103 @@ router.post("/audio-library/:itemId/sound-lab/preview", async (req, res): Promis
   }
 });
 
-/** The recording and the music chosen for a mix (the music can be any library item). */
+/**
+ * The voice to mix (the voice-only layer if the recording already has music) and the music
+ * (a library item, or the song an existing mix used even if it was later removed from the library).
+ */
 async function mixSources(itemId: number, musicItemId: number) {
-  const [voice] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, itemId));
+  const [item] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, itemId));
+  if (!item) return null;
   const [music] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, musicItemId));
-  return { voice, music };
+  const musicUrl = music?.url ?? (item.mix?.musicItemId === musicItemId ? item.mix.musicUrl : null);
+  if (!musicUrl) return null;
+  return {
+    item,
+    voiceUrl: item.mix?.voiceUrl ?? item.url,
+    voiceMarks: item.mix?.voiceMarks ?? item.marks ?? [],
+    voiceDuration: item.mix ? item.mix.voiceDuration : item.durationSeconds,
+    musicUrl,
+    musicTitle: music?.title ?? item.mix?.musicTitle ?? null,
+  };
 }
+
+const shiftChapters = (chapters: AudioLibraryRecord["chapters"], by: number, length: number) =>
+  chapters?.map((chapter) => ({ ...chapter, start: Math.max(0, Math.min(length, chapter.start + by)) })) ?? null;
 
 router.post("/audio-library/:itemId/mix", async (req, res): Promise<void> => {
   const params = UpdateAudioLibraryItemParams.safeParse(req.params);
   const body = MixAudioLibraryItemBody.safeParse(req.body ?? {});
   if (!params.success || !body.success) { res.status(400).json({ error: "Invalid music settings" }); return; }
-  const { voice, music } = await mixSources(params.data.itemId, body.data.musicItemId);
-  if (!voice || !music) { res.status(404).json({ error: "The recording or the music is no longer in the library" }); return; }
+  const sources = await mixSources(params.data.itemId, body.data.musicItemId);
+  if (!sources) { res.status(404).json({ error: "The recording or the music is no longer in the library" }); return; }
+  const { item, voiceUrl, voiceMarks, voiceDuration, musicUrl, musicTitle } = sources;
   try {
-    const mixed = await mixRecording(voice.url, music.url, body.data.settings);
-    // Bookmarks move with the voice when music plays before it.
-    const marks = cleanMarks((voice.marks ?? []).map((mark) => mark + mixed.plan.pre), mixed.plan.total);
+    const mixed = await mixRecording(voiceUrl, musicUrl, body.data.settings);
+    const { pre, total } = mixed.plan;
+    const marks = cleanMarks(voiceMarks.map((mark) => mark + pre), total);
+    const layer = {
+      voiceUrl, voiceMarks, voiceDuration, musicItemId: body.data.musicItemId, musicUrl, musicTitle, pre,
+      settings: body.data.settings,
+    };
+    if ((body.data.target ?? "copy") === "same") {
+      // Music on this recording, removable later: the voice-only audio is kept in the layer.
+      const [updated] = await db.update(audioLibraryTable).set({
+        url: mixed.url,
+        mimeType: mixed.mimeType,
+        durationSeconds: Math.round(total),
+        marks,
+        words: null,
+        chapters: shiftChapters(item.chapters, pre - (item.mix?.pre ?? 0), total),
+        mix: layer,
+      }).where(and(eq(audioLibraryTable.id, item.id), eq(audioLibraryTable.url, item.url)))
+        .returning({ id: audioLibraryTable.id });
+      if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
+      const [saved] = await select().where(eq(audioLibraryTable.id, item.id));
+      res.json(serialize(saved));
+      return;
+    }
     const [inserted] = await db.insert(audioLibraryTable).values({
       url: mixed.url,
       title: body.data.title?.trim() || null,
       mimeType: mixed.mimeType,
-      durationSeconds: Math.round(mixed.plan.total),
-      transcript: voice.transcript,
+      durationSeconds: Math.round(total),
+      transcript: item.transcript,
       marks,
       kind: "recording",
+      mix: layer,
     }).returning({ id: audioLibraryTable.id });
     const [saved] = await select().where(eq(audioLibraryTable.id, inserted.id));
     res.status(201).json(serialize(saved));
+  } catch (error) {
+    editFailure(res, error);
+  }
+});
+
+router.post("/audio-library/:itemId/mix/remove", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid item" }); return; }
+  const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  if (!current.mix) { res.status(409).json({ error: "This recording has no background music to remove." }); return; }
+  try {
+    const { mix } = current;
+    // A copy's voice may still belong to the recording it was made from: give it its own file.
+    const [sharing] = await db.select({ id: audioLibraryTable.id }).from(audioLibraryTable).where(eq(audioLibraryTable.url, mix.voiceUrl));
+    const voiceUrl = sharing && sharing.id !== current.id ? await duplicateStored(mix.voiceUrl) : mix.voiceUrl;
+    const durationSeconds = mix.voiceDuration ?? await storedDuration(voiceUrl).catch(() => null);
+    const [updated] = await db.update(audioLibraryTable).set({
+      url: voiceUrl,
+      mimeType: null,
+      durationSeconds,
+      marks: mix.voiceMarks,
+      words: null,
+      chapters: shiftChapters(current.chapters, -mix.pre, durationSeconds ?? Infinity),
+      mix: null,
+    }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
+      .returning({ id: audioLibraryTable.id });
+    if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
+    const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
+    res.json(serialize(saved));
   } catch (error) {
     editFailure(res, error);
   }
@@ -386,10 +459,10 @@ router.post("/audio-library/:itemId/mix/preview", async (req, res): Promise<void
   const params = UpdateAudioLibraryItemParams.safeParse(req.params);
   const body = PreviewMixAudioLibraryItemBody.safeParse(req.body ?? {});
   if (!params.success || !body.success) { res.status(400).json({ error: "Invalid music settings" }); return; }
-  const { voice, music } = await mixSources(params.data.itemId, body.data.musicItemId);
-  if (!voice || !music) { res.status(404).json({ error: "The recording or the music is no longer in the library" }); return; }
+  const sources = await mixSources(params.data.itemId, body.data.musicItemId);
+  if (!sources) { res.status(404).json({ error: "The recording or the music is no longer in the library" }); return; }
   try {
-    await mixPreview(voice.url, music.url, body.data.settings, body.data.start, body.data.seconds ?? 15, (path) => new Promise<void>((resolve, reject) => {
+    await mixPreview(sources.voiceUrl, sources.musicUrl, body.data.settings, body.data.start, body.data.seconds ?? 15, (path) => new Promise<void>((resolve, reject) => {
       res.setHeader("Cache-Control", "private, no-store");
       res.sendFile(path, { headers: { "Content-Type": "audio/mpeg" } }, (error) => (error ? reject(error) : resolve()));
     }));
@@ -474,7 +547,7 @@ router.post("/audio-library/:itemId/restore", async (req, res): Promise<void> =>
     const durationSeconds = await storedDuration(current.originalUrl).catch(() => null);
     await db.update(audioLibraryTable)
       .set({ url: current.originalUrl, originalUrl: null, durationSeconds, transcript: null, words: null,
-        marks: current.originalMarks ?? current.marks ?? [], originalMarks: null, chapters: null, summary: null })
+        marks: current.originalMarks ?? current.marks ?? [], originalMarks: null, chapters: null, summary: null, mix: null })
       .where(eq(audioLibraryTable.id, current.id));
     retranscribe(current.id, current.originalUrl);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));

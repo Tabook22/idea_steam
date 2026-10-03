@@ -555,10 +555,54 @@ export const SearchWorkspaceResponse = zod.object({
 /**
  * @summary List every recording in the audio library, newest first
  */
+export const listAudioLibraryResponseMixTwoSettingsMusicStartMin = 0;
+
+export const listAudioLibraryResponseMixTwoSettingsRegionStartMin = -60;
+export const listAudioLibraryResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const listAudioLibraryResponseMixTwoSettingsRegionEndMin = -59;
+export const listAudioLibraryResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const listAudioLibraryResponseMixTwoSettingsMusicVolumeMin = -40;
+export const listAudioLibraryResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const listAudioLibraryResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const listAudioLibraryResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const listAudioLibraryResponseMixTwoSettingsFadeInMin = 0;
+export const listAudioLibraryResponseMixTwoSettingsFadeInMax = 15;
+
+export const listAudioLibraryResponseMixTwoSettingsFadeOutMin = 0;
+export const listAudioLibraryResponseMixTwoSettingsFadeOutMax = 15;
+
+export const listAudioLibraryResponseMixTwoSettingsDuckMin = 0;
+export const listAudioLibraryResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const ListAudioLibraryResponseItem = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(listAudioLibraryResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(listAudioLibraryResponseMixTwoSettingsRegionStartMin).max(listAudioLibraryResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(listAudioLibraryResponseMixTwoSettingsRegionEndMin).max(listAudioLibraryResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(listAudioLibraryResponseMixTwoSettingsMusicVolumeMin).max(listAudioLibraryResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(listAudioLibraryResponseMixTwoSettingsVoiceVolumeMin).max(listAudioLibraryResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(listAudioLibraryResponseMixTwoSettingsFadeInMin).max(listAudioLibraryResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(listAudioLibraryResponseMixTwoSettingsFadeOutMin).max(listAudioLibraryResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(listAudioLibraryResponseMixTwoSettingsDuckMin).max(listAudioLibraryResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -593,10 +637,54 @@ export const AddToAudioLibraryBody = zod.object({
   "attachmentIndex": zod.number().int().min(addToAudioLibraryBodyAttachmentIndexMin).default(addToAudioLibraryBodyAttachmentIndexDefault)
 })
 
+export const addToAudioLibraryResponseMixTwoSettingsMusicStartMin = 0;
+
+export const addToAudioLibraryResponseMixTwoSettingsRegionStartMin = -60;
+export const addToAudioLibraryResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const addToAudioLibraryResponseMixTwoSettingsRegionEndMin = -59;
+export const addToAudioLibraryResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const addToAudioLibraryResponseMixTwoSettingsMusicVolumeMin = -40;
+export const addToAudioLibraryResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const addToAudioLibraryResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const addToAudioLibraryResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const addToAudioLibraryResponseMixTwoSettingsFadeInMin = 0;
+export const addToAudioLibraryResponseMixTwoSettingsFadeInMax = 15;
+
+export const addToAudioLibraryResponseMixTwoSettingsFadeOutMin = 0;
+export const addToAudioLibraryResponseMixTwoSettingsFadeOutMax = 15;
+
+export const addToAudioLibraryResponseMixTwoSettingsDuckMin = 0;
+export const addToAudioLibraryResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const AddToAudioLibraryResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(addToAudioLibraryResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(addToAudioLibraryResponseMixTwoSettingsRegionStartMin).max(addToAudioLibraryResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(addToAudioLibraryResponseMixTwoSettingsRegionEndMin).max(addToAudioLibraryResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(addToAudioLibraryResponseMixTwoSettingsMusicVolumeMin).max(addToAudioLibraryResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(addToAudioLibraryResponseMixTwoSettingsVoiceVolumeMin).max(addToAudioLibraryResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(addToAudioLibraryResponseMixTwoSettingsFadeInMin).max(addToAudioLibraryResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(addToAudioLibraryResponseMixTwoSettingsFadeOutMin).max(addToAudioLibraryResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(addToAudioLibraryResponseMixTwoSettingsDuckMin).max(addToAudioLibraryResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -643,10 +731,54 @@ export const CreateLibraryRecordingBody = zod.object({
   "kind": zod.enum(['recording', 'music']).default(createLibraryRecordingBodyKindDefault)
 })
 
+export const createLibraryRecordingResponseMixTwoSettingsMusicStartMin = 0;
+
+export const createLibraryRecordingResponseMixTwoSettingsRegionStartMin = -60;
+export const createLibraryRecordingResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const createLibraryRecordingResponseMixTwoSettingsRegionEndMin = -59;
+export const createLibraryRecordingResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const createLibraryRecordingResponseMixTwoSettingsMusicVolumeMin = -40;
+export const createLibraryRecordingResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const createLibraryRecordingResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const createLibraryRecordingResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const createLibraryRecordingResponseMixTwoSettingsFadeInMin = 0;
+export const createLibraryRecordingResponseMixTwoSettingsFadeInMax = 15;
+
+export const createLibraryRecordingResponseMixTwoSettingsFadeOutMin = 0;
+export const createLibraryRecordingResponseMixTwoSettingsFadeOutMax = 15;
+
+export const createLibraryRecordingResponseMixTwoSettingsDuckMin = 0;
+export const createLibraryRecordingResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const CreateLibraryRecordingResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(createLibraryRecordingResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(createLibraryRecordingResponseMixTwoSettingsRegionStartMin).max(createLibraryRecordingResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(createLibraryRecordingResponseMixTwoSettingsRegionEndMin).max(createLibraryRecordingResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(createLibraryRecordingResponseMixTwoSettingsMusicVolumeMin).max(createLibraryRecordingResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(createLibraryRecordingResponseMixTwoSettingsVoiceVolumeMin).max(createLibraryRecordingResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(createLibraryRecordingResponseMixTwoSettingsFadeInMin).max(createLibraryRecordingResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(createLibraryRecordingResponseMixTwoSettingsFadeOutMin).max(createLibraryRecordingResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(createLibraryRecordingResponseMixTwoSettingsDuckMin).max(createLibraryRecordingResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -680,10 +812,54 @@ export const TranscribeLibraryItemBody = zod.object({
   "language": zod.enum(['auto', 'en', 'ar']).default(transcribeLibraryItemBodyLanguageDefault)
 })
 
+export const transcribeLibraryItemResponseMixTwoSettingsMusicStartMin = 0;
+
+export const transcribeLibraryItemResponseMixTwoSettingsRegionStartMin = -60;
+export const transcribeLibraryItemResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const transcribeLibraryItemResponseMixTwoSettingsRegionEndMin = -59;
+export const transcribeLibraryItemResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const transcribeLibraryItemResponseMixTwoSettingsMusicVolumeMin = -40;
+export const transcribeLibraryItemResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const transcribeLibraryItemResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const transcribeLibraryItemResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const transcribeLibraryItemResponseMixTwoSettingsFadeInMin = 0;
+export const transcribeLibraryItemResponseMixTwoSettingsFadeInMax = 15;
+
+export const transcribeLibraryItemResponseMixTwoSettingsFadeOutMin = 0;
+export const transcribeLibraryItemResponseMixTwoSettingsFadeOutMax = 15;
+
+export const transcribeLibraryItemResponseMixTwoSettingsDuckMin = 0;
+export const transcribeLibraryItemResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const TranscribeLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(transcribeLibraryItemResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(transcribeLibraryItemResponseMixTwoSettingsRegionStartMin).max(transcribeLibraryItemResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(transcribeLibraryItemResponseMixTwoSettingsRegionEndMin).max(transcribeLibraryItemResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(transcribeLibraryItemResponseMixTwoSettingsMusicVolumeMin).max(transcribeLibraryItemResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(transcribeLibraryItemResponseMixTwoSettingsVoiceVolumeMin).max(transcribeLibraryItemResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(transcribeLibraryItemResponseMixTwoSettingsFadeInMin).max(transcribeLibraryItemResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(transcribeLibraryItemResponseMixTwoSettingsFadeOutMin).max(transcribeLibraryItemResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(transcribeLibraryItemResponseMixTwoSettingsDuckMin).max(transcribeLibraryItemResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -719,10 +895,54 @@ export const JoinAudioLibraryItemsBody = zod.object({
   "title": zod.string().max(joinAudioLibraryItemsBodyTitleMax).optional()
 })
 
+export const joinAudioLibraryItemsResponseMixTwoSettingsMusicStartMin = 0;
+
+export const joinAudioLibraryItemsResponseMixTwoSettingsRegionStartMin = -60;
+export const joinAudioLibraryItemsResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const joinAudioLibraryItemsResponseMixTwoSettingsRegionEndMin = -59;
+export const joinAudioLibraryItemsResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const joinAudioLibraryItemsResponseMixTwoSettingsMusicVolumeMin = -40;
+export const joinAudioLibraryItemsResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const joinAudioLibraryItemsResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const joinAudioLibraryItemsResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const joinAudioLibraryItemsResponseMixTwoSettingsFadeInMin = 0;
+export const joinAudioLibraryItemsResponseMixTwoSettingsFadeInMax = 15;
+
+export const joinAudioLibraryItemsResponseMixTwoSettingsFadeOutMin = 0;
+export const joinAudioLibraryItemsResponseMixTwoSettingsFadeOutMax = 15;
+
+export const joinAudioLibraryItemsResponseMixTwoSettingsDuckMin = 0;
+export const joinAudioLibraryItemsResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const JoinAudioLibraryItemsResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(joinAudioLibraryItemsResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(joinAudioLibraryItemsResponseMixTwoSettingsRegionStartMin).max(joinAudioLibraryItemsResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(joinAudioLibraryItemsResponseMixTwoSettingsRegionEndMin).max(joinAudioLibraryItemsResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(joinAudioLibraryItemsResponseMixTwoSettingsMusicVolumeMin).max(joinAudioLibraryItemsResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(joinAudioLibraryItemsResponseMixTwoSettingsVoiceVolumeMin).max(joinAudioLibraryItemsResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(joinAudioLibraryItemsResponseMixTwoSettingsFadeInMin).max(joinAudioLibraryItemsResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(joinAudioLibraryItemsResponseMixTwoSettingsFadeOutMin).max(joinAudioLibraryItemsResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(joinAudioLibraryItemsResponseMixTwoSettingsDuckMin).max(joinAudioLibraryItemsResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -765,10 +985,54 @@ export const EditAudioLibraryItemBody = zod.object({
 })).min(1).max(editAudioLibraryItemBodyKeepMax).describe('Parts to keep, in seconds, in order and not overlapping.')
 })
 
+export const editAudioLibraryItemResponseMixTwoSettingsMusicStartMin = 0;
+
+export const editAudioLibraryItemResponseMixTwoSettingsRegionStartMin = -60;
+export const editAudioLibraryItemResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const editAudioLibraryItemResponseMixTwoSettingsRegionEndMin = -59;
+export const editAudioLibraryItemResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const editAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin = -40;
+export const editAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const editAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const editAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const editAudioLibraryItemResponseMixTwoSettingsFadeInMin = 0;
+export const editAudioLibraryItemResponseMixTwoSettingsFadeInMax = 15;
+
+export const editAudioLibraryItemResponseMixTwoSettingsFadeOutMin = 0;
+export const editAudioLibraryItemResponseMixTwoSettingsFadeOutMax = 15;
+
+export const editAudioLibraryItemResponseMixTwoSettingsDuckMin = 0;
+export const editAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const EditAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(editAudioLibraryItemResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(editAudioLibraryItemResponseMixTwoSettingsRegionStartMin).max(editAudioLibraryItemResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(editAudioLibraryItemResponseMixTwoSettingsRegionEndMin).max(editAudioLibraryItemResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(editAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin).max(editAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(editAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin).max(editAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(editAudioLibraryItemResponseMixTwoSettingsFadeInMin).max(editAudioLibraryItemResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(editAudioLibraryItemResponseMixTwoSettingsFadeOutMin).max(editAudioLibraryItemResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(editAudioLibraryItemResponseMixTwoSettingsDuckMin).max(editAudioLibraryItemResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -827,10 +1091,54 @@ export const EnhanceAudioLibraryItemBody = zod.object({
   "level": zod.boolean().default(enhanceAudioLibraryItemBodyLevelDefault).describe('Even out loudness to a comfortable listening level.')
 })
 
+export const enhanceAudioLibraryItemResponseMixTwoSettingsMusicStartMin = 0;
+
+export const enhanceAudioLibraryItemResponseMixTwoSettingsRegionStartMin = -60;
+export const enhanceAudioLibraryItemResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const enhanceAudioLibraryItemResponseMixTwoSettingsRegionEndMin = -59;
+export const enhanceAudioLibraryItemResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const enhanceAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin = -40;
+export const enhanceAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const enhanceAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const enhanceAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const enhanceAudioLibraryItemResponseMixTwoSettingsFadeInMin = 0;
+export const enhanceAudioLibraryItemResponseMixTwoSettingsFadeInMax = 15;
+
+export const enhanceAudioLibraryItemResponseMixTwoSettingsFadeOutMin = 0;
+export const enhanceAudioLibraryItemResponseMixTwoSettingsFadeOutMax = 15;
+
+export const enhanceAudioLibraryItemResponseMixTwoSettingsDuckMin = 0;
+export const enhanceAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const EnhanceAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(enhanceAudioLibraryItemResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(enhanceAudioLibraryItemResponseMixTwoSettingsRegionStartMin).max(enhanceAudioLibraryItemResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(enhanceAudioLibraryItemResponseMixTwoSettingsRegionEndMin).max(enhanceAudioLibraryItemResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(enhanceAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin).max(enhanceAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(enhanceAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin).max(enhanceAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(enhanceAudioLibraryItemResponseMixTwoSettingsFadeInMin).max(enhanceAudioLibraryItemResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(enhanceAudioLibraryItemResponseMixTwoSettingsFadeOutMin).max(enhanceAudioLibraryItemResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(enhanceAudioLibraryItemResponseMixTwoSettingsDuckMin).max(enhanceAudioLibraryItemResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -930,10 +1238,54 @@ export const SoundLabAudioLibraryItemBody = zod.object({
   "deess": zod.boolean()
 })
 
+export const soundLabAudioLibraryItemResponseMixTwoSettingsMusicStartMin = 0;
+
+export const soundLabAudioLibraryItemResponseMixTwoSettingsRegionStartMin = -60;
+export const soundLabAudioLibraryItemResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const soundLabAudioLibraryItemResponseMixTwoSettingsRegionEndMin = -59;
+export const soundLabAudioLibraryItemResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const soundLabAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin = -40;
+export const soundLabAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const soundLabAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const soundLabAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const soundLabAudioLibraryItemResponseMixTwoSettingsFadeInMin = 0;
+export const soundLabAudioLibraryItemResponseMixTwoSettingsFadeInMax = 15;
+
+export const soundLabAudioLibraryItemResponseMixTwoSettingsFadeOutMin = 0;
+export const soundLabAudioLibraryItemResponseMixTwoSettingsFadeOutMax = 15;
+
+export const soundLabAudioLibraryItemResponseMixTwoSettingsDuckMin = 0;
+export const soundLabAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const SoundLabAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(soundLabAudioLibraryItemResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(soundLabAudioLibraryItemResponseMixTwoSettingsRegionStartMin).max(soundLabAudioLibraryItemResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(soundLabAudioLibraryItemResponseMixTwoSettingsRegionEndMin).max(soundLabAudioLibraryItemResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(soundLabAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin).max(soundLabAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(soundLabAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin).max(soundLabAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(soundLabAudioLibraryItemResponseMixTwoSettingsFadeInMin).max(soundLabAudioLibraryItemResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(soundLabAudioLibraryItemResponseMixTwoSettingsFadeOutMin).max(soundLabAudioLibraryItemResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(soundLabAudioLibraryItemResponseMixTwoSettingsDuckMin).max(soundLabAudioLibraryItemResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -1053,6 +1405,7 @@ export const MixAudioLibraryItemParams = zod.object({
   "itemId": zod.coerce.number().int()
 })
 
+export const mixAudioLibraryItemBodyTargetDefault = `copy`;
 export const mixAudioLibraryItemBodySettingsMusicStartMin = 0;
 
 export const mixAudioLibraryItemBodySettingsRegionStartMin = -60;
@@ -1081,6 +1434,7 @@ export const mixAudioLibraryItemBodyTitleMax = 200;
 
 
 export const MixAudioLibraryItemBody = zod.object({
+  "target": zod.enum(['same', 'copy']).default(mixAudioLibraryItemBodyTargetDefault).describe('same = put the music on this recording (removable later); copy = save the mix as a new recording.'),
   "musicItemId": zod.number().int(),
   "settings": zod.object({
   "musicStart": zod.number().min(mixAudioLibraryItemBodySettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
@@ -1097,10 +1451,129 @@ export const MixAudioLibraryItemBody = zod.object({
   "title": zod.string().max(mixAudioLibraryItemBodyTitleMax).optional()
 })
 
+export const mixAudioLibraryItemResponseMixTwoSettingsMusicStartMin = 0;
+
+export const mixAudioLibraryItemResponseMixTwoSettingsRegionStartMin = -60;
+export const mixAudioLibraryItemResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const mixAudioLibraryItemResponseMixTwoSettingsRegionEndMin = -59;
+export const mixAudioLibraryItemResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const mixAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin = -40;
+export const mixAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const mixAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const mixAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const mixAudioLibraryItemResponseMixTwoSettingsFadeInMin = 0;
+export const mixAudioLibraryItemResponseMixTwoSettingsFadeInMax = 15;
+
+export const mixAudioLibraryItemResponseMixTwoSettingsFadeOutMin = 0;
+export const mixAudioLibraryItemResponseMixTwoSettingsFadeOutMax = 15;
+
+export const mixAudioLibraryItemResponseMixTwoSettingsDuckMin = 0;
+export const mixAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const MixAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsRegionStartMin).max(mixAudioLibraryItemResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsRegionEndMin).max(mixAudioLibraryItemResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin).max(mixAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin).max(mixAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsFadeInMin).max(mixAudioLibraryItemResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsFadeOutMin).max(mixAudioLibraryItemResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(mixAudioLibraryItemResponseMixTwoSettingsDuckMin).max(mixAudioLibraryItemResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Remove the background music; the recording goes back to the voice as it was before
+ */
+export const RemoveAudioLibraryMixParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const removeAudioLibraryMixResponseMixTwoSettingsMusicStartMin = 0;
+
+export const removeAudioLibraryMixResponseMixTwoSettingsRegionStartMin = -60;
+export const removeAudioLibraryMixResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const removeAudioLibraryMixResponseMixTwoSettingsRegionEndMin = -59;
+export const removeAudioLibraryMixResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const removeAudioLibraryMixResponseMixTwoSettingsMusicVolumeMin = -40;
+export const removeAudioLibraryMixResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const removeAudioLibraryMixResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const removeAudioLibraryMixResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const removeAudioLibraryMixResponseMixTwoSettingsFadeInMin = 0;
+export const removeAudioLibraryMixResponseMixTwoSettingsFadeInMax = 15;
+
+export const removeAudioLibraryMixResponseMixTwoSettingsFadeOutMin = 0;
+export const removeAudioLibraryMixResponseMixTwoSettingsFadeOutMax = 15;
+
+export const removeAudioLibraryMixResponseMixTwoSettingsDuckMin = 0;
+export const removeAudioLibraryMixResponseMixTwoSettingsDuckMax = 3;
+
+
+
+export const RemoveAudioLibraryMixResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(removeAudioLibraryMixResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(removeAudioLibraryMixResponseMixTwoSettingsRegionStartMin).max(removeAudioLibraryMixResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(removeAudioLibraryMixResponseMixTwoSettingsRegionEndMin).max(removeAudioLibraryMixResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(removeAudioLibraryMixResponseMixTwoSettingsMusicVolumeMin).max(removeAudioLibraryMixResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(removeAudioLibraryMixResponseMixTwoSettingsVoiceVolumeMin).max(removeAudioLibraryMixResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(removeAudioLibraryMixResponseMixTwoSettingsFadeInMin).max(removeAudioLibraryMixResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(removeAudioLibraryMixResponseMixTwoSettingsFadeOutMin).max(removeAudioLibraryMixResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(removeAudioLibraryMixResponseMixTwoSettingsDuckMin).max(removeAudioLibraryMixResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -1187,10 +1660,54 @@ export const MakeAudioLibraryChaptersParams = zod.object({
   "itemId": zod.coerce.number().int()
 })
 
+export const makeAudioLibraryChaptersResponseMixTwoSettingsMusicStartMin = 0;
+
+export const makeAudioLibraryChaptersResponseMixTwoSettingsRegionStartMin = -60;
+export const makeAudioLibraryChaptersResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const makeAudioLibraryChaptersResponseMixTwoSettingsRegionEndMin = -59;
+export const makeAudioLibraryChaptersResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const makeAudioLibraryChaptersResponseMixTwoSettingsMusicVolumeMin = -40;
+export const makeAudioLibraryChaptersResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const makeAudioLibraryChaptersResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const makeAudioLibraryChaptersResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const makeAudioLibraryChaptersResponseMixTwoSettingsFadeInMin = 0;
+export const makeAudioLibraryChaptersResponseMixTwoSettingsFadeInMax = 15;
+
+export const makeAudioLibraryChaptersResponseMixTwoSettingsFadeOutMin = 0;
+export const makeAudioLibraryChaptersResponseMixTwoSettingsFadeOutMax = 15;
+
+export const makeAudioLibraryChaptersResponseMixTwoSettingsDuckMin = 0;
+export const makeAudioLibraryChaptersResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const MakeAudioLibraryChaptersResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(makeAudioLibraryChaptersResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(makeAudioLibraryChaptersResponseMixTwoSettingsRegionStartMin).max(makeAudioLibraryChaptersResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(makeAudioLibraryChaptersResponseMixTwoSettingsRegionEndMin).max(makeAudioLibraryChaptersResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(makeAudioLibraryChaptersResponseMixTwoSettingsMusicVolumeMin).max(makeAudioLibraryChaptersResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(makeAudioLibraryChaptersResponseMixTwoSettingsVoiceVolumeMin).max(makeAudioLibraryChaptersResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(makeAudioLibraryChaptersResponseMixTwoSettingsFadeInMin).max(makeAudioLibraryChaptersResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(makeAudioLibraryChaptersResponseMixTwoSettingsFadeOutMin).max(makeAudioLibraryChaptersResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(makeAudioLibraryChaptersResponseMixTwoSettingsDuckMin).max(makeAudioLibraryChaptersResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -1235,10 +1752,54 @@ export const RestoreAudioLibraryItemParams = zod.object({
   "itemId": zod.coerce.number().int()
 })
 
+export const restoreAudioLibraryItemResponseMixTwoSettingsMusicStartMin = 0;
+
+export const restoreAudioLibraryItemResponseMixTwoSettingsRegionStartMin = -60;
+export const restoreAudioLibraryItemResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const restoreAudioLibraryItemResponseMixTwoSettingsRegionEndMin = -59;
+export const restoreAudioLibraryItemResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const restoreAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin = -40;
+export const restoreAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const restoreAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const restoreAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const restoreAudioLibraryItemResponseMixTwoSettingsFadeInMin = 0;
+export const restoreAudioLibraryItemResponseMixTwoSettingsFadeInMax = 15;
+
+export const restoreAudioLibraryItemResponseMixTwoSettingsFadeOutMin = 0;
+export const restoreAudioLibraryItemResponseMixTwoSettingsFadeOutMax = 15;
+
+export const restoreAudioLibraryItemResponseMixTwoSettingsDuckMin = 0;
+export const restoreAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const RestoreAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(restoreAudioLibraryItemResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(restoreAudioLibraryItemResponseMixTwoSettingsRegionStartMin).max(restoreAudioLibraryItemResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(restoreAudioLibraryItemResponseMixTwoSettingsRegionEndMin).max(restoreAudioLibraryItemResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(restoreAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin).max(restoreAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(restoreAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin).max(restoreAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(restoreAudioLibraryItemResponseMixTwoSettingsFadeInMin).max(restoreAudioLibraryItemResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(restoreAudioLibraryItemResponseMixTwoSettingsFadeOutMin).max(restoreAudioLibraryItemResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(restoreAudioLibraryItemResponseMixTwoSettingsDuckMin).max(restoreAudioLibraryItemResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
@@ -1278,10 +1839,54 @@ export const UpdateAudioLibraryItemBody = zod.object({
   "durationSeconds": zod.number().int().min(updateAudioLibraryItemBodyDurationSecondsMin).max(updateAudioLibraryItemBodyDurationSecondsMax).optional()
 })
 
+export const updateAudioLibraryItemResponseMixTwoSettingsMusicStartMin = 0;
+
+export const updateAudioLibraryItemResponseMixTwoSettingsRegionStartMin = -60;
+export const updateAudioLibraryItemResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const updateAudioLibraryItemResponseMixTwoSettingsRegionEndMin = -59;
+export const updateAudioLibraryItemResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const updateAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin = -40;
+export const updateAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const updateAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const updateAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const updateAudioLibraryItemResponseMixTwoSettingsFadeInMin = 0;
+export const updateAudioLibraryItemResponseMixTwoSettingsFadeInMax = 15;
+
+export const updateAudioLibraryItemResponseMixTwoSettingsFadeOutMin = 0;
+export const updateAudioLibraryItemResponseMixTwoSettingsFadeOutMax = 15;
+
+export const updateAudioLibraryItemResponseMixTwoSettingsDuckMin = 0;
+export const updateAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
+
+
+
 export const UpdateAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(updateAudioLibraryItemResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(updateAudioLibraryItemResponseMixTwoSettingsRegionStartMin).max(updateAudioLibraryItemResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(updateAudioLibraryItemResponseMixTwoSettingsRegionEndMin).max(updateAudioLibraryItemResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(updateAudioLibraryItemResponseMixTwoSettingsMusicVolumeMin).max(updateAudioLibraryItemResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(updateAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMin).max(updateAudioLibraryItemResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(updateAudioLibraryItemResponseMixTwoSettingsFadeInMin).max(updateAudioLibraryItemResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(updateAudioLibraryItemResponseMixTwoSettingsFadeOutMin).max(updateAudioLibraryItemResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(updateAudioLibraryItemResponseMixTwoSettingsDuckMin).max(updateAudioLibraryItemResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
   "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
   "mimeType": zod.string().nullable(),
   "durationSeconds": zod.number().int().nullable(),
