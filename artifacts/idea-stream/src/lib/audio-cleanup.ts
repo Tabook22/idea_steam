@@ -4,8 +4,16 @@ export type TimedWord = { word: string; start: number; end: number };
 
 const FRAME = 0.02; // seconds per loudness frame
 
+/** How quiet counts as silence: strict keeps soft sounds, loose also treats breaths and hum as silence. */
+export type SilenceLevel = "strict" | "normal" | "loose";
+const LEVELS: Record<SilenceLevel, { floor: number; loud: number }> = {
+  strict: { floor: 2, loud: 0.04 },
+  normal: { floor: 2.5, loud: 0.06 },
+  loose: { floor: 3.5, loud: 0.1 },
+};
+
 /** Loudness (RMS) per 20 ms frame, and a silence threshold adapted to the background noise. */
-function loudness(samples: Float32Array, rate: number) {
+function loudness(samples: Float32Array, rate: number, level: SilenceLevel = "normal") {
   const size = Math.max(1, Math.round(rate * FRAME));
   const frames: number[] = [];
   for (let i = 0; i < samples.length; i += size) {
@@ -18,12 +26,15 @@ function loudness(samples: Float32Array, rate: number) {
   const floor = sorted[Math.floor(sorted.length * 0.15)] ?? 0;
   const loud = sorted[Math.floor(sorted.length * 0.95)] ?? 0;
   // Between the noise floor and speech: car hum stays "silence", quiet speech does not.
-  const threshold = Math.max(0.004, floor * 2.5, loud * 0.06);
+  const threshold = Math.max(0.004, floor * LEVELS[level].floor, loud * LEVELS[level].loud);
   return { frames, threshold };
 }
 
-function silentRuns(samples: Float32Array, rate: number) {
-  const { frames, threshold } = loudness(samples, rate);
+/** A click or breath this short inside a silence does not end it. */
+const BLIP = 0.08;
+
+function silentRuns(samples: Float32Array, rate: number, level: SilenceLevel = "normal") {
+  const { frames, threshold } = loudness(samples, rate, level);
   const runs: Range[] = [];
   let start = -1;
   frames.forEach((value, index) => {
@@ -31,15 +42,31 @@ function silentRuns(samples: Float32Array, rate: number) {
     else if (start >= 0) { runs.push({ start: start * FRAME, end: index * FRAME }); start = -1; }
   });
   if (start >= 0) runs.push({ start: start * FRAME, end: frames.length * FRAME });
-  return runs;
+  const merged: Range[] = [];
+  for (const run of runs) {
+    const last = merged.at(-1);
+    if (last && run.start - last.end < BLIP) last.end = run.end;
+    else merged.push({ ...run });
+  }
+  return merged;
+}
+
+export type PauseOptions = { longer?: number; keep?: number; level?: SilenceLevel };
+
+/**
+ * Silences inside the recording (not the start or end) longer than `longer` seconds, each cut
+ * so that `keep` seconds of natural gap remain (half on each side).
+ */
+export function findPauses(samples: Float32Array, rate: number, { longer = 0.5, keep = 0.15, level = "normal" }: PauseOptions = {}): Range[] {
+  const duration = samples.length / rate;
+  return silentRuns(samples, rate, level)
+    .filter(({ start, end }) => start > 0.05 && end < duration - 0.05 && end - start > longer && end - start - keep > 0.05)
+    .map(({ start, end }) => ({ start: start + keep / 2, end: end - keep / 2 }));
 }
 
 /** Long pauses shortened: each silence over `longer` seconds keeps `keep` seconds (half each side). */
 export function longPauses(samples: Float32Array, rate: number, longer = 1.0, keep = 0.4): Range[] {
-  const duration = samples.length / rate;
-  return silentRuns(samples, rate)
-    .filter(({ start, end }) => start > 0.05 && end < duration - 0.05 && end - start > longer)
-    .map(({ start, end }) => ({ start: start + keep / 2, end: end - keep / 2 }));
+  return findPauses(samples, rate, { longer, keep });
 }
 
 /** Silence before you start speaking and after you stop (leaving a short natural margin). */

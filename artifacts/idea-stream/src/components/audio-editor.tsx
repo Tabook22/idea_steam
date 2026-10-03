@@ -36,7 +36,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { appPath } from "@/lib/app-path";
 import { EditedTimeline, formatTime, mergeRanges, type Range } from "@/lib/audio-ranges";
-import { fillerIndexes, isWordRemoved, longPauses, rangesForWords, silentEdges, subtractRange, type TimedWord } from "@/lib/audio-cleanup";
+import { fillerIndexes, findPauses, isWordRemoved, rangesForWords, silentEdges, subtractRange, type SilenceLevel, type TimedWord } from "@/lib/audio-cleanup";
 import { buildPeaks, peakBetween, type PeakCache } from "@/lib/audio-peaks";
 import { clampView, panBy, rulerTicks, viewAround, zoomAt, type View } from "@/lib/audio-view";
 import { useLanguage } from "@/lib/i18n";
@@ -51,6 +51,9 @@ type Drag =
 
 const WAVE_HEIGHT = 200;
 const ASK_KEY = "idea-stream-editor-confirm-cuts";
+const PAUSE_KEY = "idea-stream-editor-pauses";
+type PauseSettings = { longer: number; keep: number; level: SilenceLevel };
+const PAUSE_DEFAULT: PauseSettings = { longer: 0.5, keep: 0.15, level: "normal" };
 const clock = (seconds: number) => {
   const value = Math.max(0, seconds);
   const minutes = Math.floor(value / 60);
@@ -98,6 +101,14 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const [tab, setTab] = useState<"cuts" | "cleanup" | "text">("cuts");
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
+  const [pauseSettings, setPauseSettings] = useState<PauseSettings>(() => {
+    try { return { ...PAUSE_DEFAULT, ...JSON.parse(localStorage.getItem(PAUSE_KEY) ?? "{}") }; } catch { return PAUSE_DEFAULT; }
+  });
+  const choosePauses = (patch: Partial<PauseSettings>) => setPauseSettings((current) => {
+    const next = { ...current, ...patch };
+    try { localStorage.setItem(PAUSE_KEY, JSON.stringify(next)); } catch { /* optional */ }
+    return next;
+  });
   const [words, setWords] = useState<TimedWord[] | null>(null);
   const [wordsState, setWordsState] = useState<"idle" | "loading" | "error">("idle");
   const [wordsError, setWordsError] = useState("");
@@ -125,6 +136,17 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
 
   const duration = buffer?.duration ?? 0;
   const timeline = useMemo(() => new EditedTimeline(removed, duration), [removed, duration]);
+  // Silences that "Remove silences" would take out, shown in yellow while Clean up is open.
+  const pauses = useMemo(() => {
+    if (!buffer || tab !== "cleanup") return [];
+    return findPauses(buffer.getChannelData(0), buffer.sampleRate, pauseSettings)
+      .flatMap((pause) => removed.reduce((parts, cut) => subtractRange(parts, cut), [pause]))
+      .filter((pause) => pause.end - pause.start > 0.05);
+  }, [buffer, tab, pauseSettings, removed]);
+  const pauseSaving = useMemo(
+    () => (pauses.length ? timeline.length - new EditedTimeline(mergeRanges([...removed, ...pauses], duration), duration).length : 0),
+    [pauses, removed, duration, timeline],
+  );
   const length = timeline.length;
   const span = Math.max(0.001, view.end - view.start);
   const cuts = mergeRanges(removed, duration);
@@ -535,9 +557,8 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const trimEdges = () => {
     if (buffer) applyCleanup(silentEdges(buffer.getChannelData(0), buffer.sampleRate), () => copy("Trimmed the silent start and end", "قُصّ الصمت في البداية والنهاية"), copy("No silent start or end found.", "لا يوجد صمت في البداية أو النهاية."));
   };
-  const shortenPauses = () => {
-    if (buffer) applyCleanup(longPauses(buffer.getChannelData(0), buffer.sampleRate), (n) => copy(`Shortened ${n} long pause${n > 1 ? "s" : ""}`, `قُصّرت ${n} وقفة طويلة`), copy("No long pauses found.", "لا توجد وقفات طويلة."));
-  };
+  const removeSilences = () => applyCleanup(pauses, (n) => copy(`Removed ${n} silence${n > 1 ? "s" : ""}`, `حُذف ${n} صمت`),
+    copy("No silences found with these settings. Try shorter pauses or Loose.", "لا يوجد صمت بهذه الإعدادات. جرّب وقفات أقصر أو «مرن»."));
   async function loadWords() {
     if (words || wordsState === "loading") return words;
     setWordsState("loading");
@@ -750,6 +771,13 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                     </span>
                   </div>
                 )}
+                {pauses.map((pause) => {
+                  const range = { start: timeline.toEdited(pause.start), end: timeline.toEdited(pause.end) };
+                  return range.end > view.start && range.start < view.end ? (
+                    <div key={pause.start} className="pointer-events-none absolute inset-y-0 border-x border-amber-300/80 bg-amber-400/25 [background-image:repeating-linear-gradient(135deg,transparent_0_6px,rgba(251,191,36,0.25)_6px_9px)]"
+                      style={{ left: x(range.start), width: w(range) }} />
+                  ) : null;
+                })}
                 {inView(playhead) && <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" style={{ left: x(playhead) }} />}
                 {pendingCut && (
                   pendingCut.kind === "cut" ? (
@@ -841,10 +869,41 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                   <>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" className="h-9 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10" onClick={trimEdges}><Wand2 size={14} className="me-1.5" />{copy("Trim silent start & end", "قص الصمت في الطرفين")}</Button>
-                      <Button size="sm" variant="outline" className="h-9 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10" onClick={shortenPauses}>{copy("Shorten long pauses", "قصّر الوقفات الطويلة")}</Button>
                       <Button size="sm" variant="outline" className="h-9 rounded-full border-white/20 bg-transparent text-white hover:bg-white/10" disabled={wordsState === "loading"} onClick={() => void removeFillers()}>
                         {wordsState === "loading" ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Sparkles size={14} className="me-1.5" />}
                         {copy("Remove filler words", "احذف كلمات الحشو")}{words ? ` (${[...fillerSet].filter((i) => !isWordRemoved(words[i], removed)).length})` : ""}
+                      </Button>
+                    </div>
+                    <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-400/[0.06] p-3">
+                      <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm font-semibold text-white">
+                        {copy("Remove silences", "احذف الصمت")}
+                        <span className="text-xs font-normal text-amber-200" role="status">
+                          {pauses.length
+                            ? copy(`${pauses.length} found (yellow on the waveform) · ${pauseSaving.toFixed(1)} s shorter`, `وُجد ${pauses.length} (بالأصفر على الموجة) · أقصر بـ ${pauseSaving.toFixed(1)} ث`)
+                            : copy("None found with these settings", "لا يوجد بهذه الإعدادات")}
+                        </span>
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                        {([
+                          [copy("Pauses longer than", "الوقفات الأطول من"), "longer", [[0.3, "0.3 s"], [0.5, "0.5 s"], [1, "1 s"], [2, "2 s"]]],
+                          [copy("Leave a natural gap", "اترك فجوة طبيعية"), "keep", [[0, copy("None", "بلا")], [0.15, "0.15 s"], [0.3, "0.3 s"]]],
+                          [copy("Counts as silence", "يُعد صمتًا"), "level", [["strict", copy("Strict", "صارم")], ["normal", copy("Normal", "عادي")], ["loose", copy("Loose", "مرن")]]],
+                        ] as const).map(([label, key, options]) => (
+                          <div key={key}>
+                            <p className="mb-1 text-[11px] text-white/55">{label}</p>
+                            <div role="radiogroup" aria-label={label} className="flex rounded-lg bg-black/30 p-0.5">
+                              {options.map(([value, text]) => (
+                                <button key={String(value)} type="button" role="radio" aria-checked={pauseSettings[key] === value}
+                                  onClick={() => choosePauses({ [key]: value } as Partial<PauseSettings>)}
+                                  className={`h-7 flex-1 rounded-md px-1 text-[11px] font-medium transition-colors ${pauseSettings[key] === value ? "bg-amber-400 text-black" : "text-white/70 hover:text-white"}`}>{text}</button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <Button size="sm" className="mt-3 h-9 rounded-full bg-amber-400 px-4 text-black hover:bg-amber-300" disabled={!pauses.length} onClick={removeSilences}>
+                        <Scissors size={14} className="me-1.5" />
+                        {pauses.length ? copy(`Remove ${pauses.length} silence${pauses.length > 1 ? "s" : ""}`, `احذف ${pauses.length} صمت`) : copy("Remove silences", "احذف الصمت")}
                       </Button>
                     </div>
                     {note && <p className="mt-2 text-xs font-medium text-emerald-300" role="status">{note}</p>}
