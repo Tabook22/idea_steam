@@ -86,7 +86,7 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
     chapters: item.chapters,
     summary: item.summary,
     kind: item.kind,
-    mix: item.mix ? { voiceUrl: item.mix.voiceUrl, musicItemId: item.mix.musicItemId, musicUrl: item.mix.musicUrl, musicTitle: item.mix.musicTitle, pre: item.mix.pre, settings: item.mix.settings } : null,
+    mix: item.mix ? { voiceUrl: item.mix.voiceUrl, voiceDuration: item.mix.voiceDuration, musicItemId: item.mix.musicItemId, musicUrl: item.mix.musicUrl, musicTitle: item.mix.musicTitle, pre: item.mix.pre, settings: item.mix.settings } : null,
     capturedAt: item.capturedAt.toISOString(),
     createdAt: item.createdAt.toISOString(),
   };
@@ -193,6 +193,27 @@ function retranscribe(id: number, url: string) {
   })().catch(() => { /* The audio is saved; the text can be added later. */ });
 }
 
+/**
+ * After the voice under background music changes (cut, cleaned, improved), lay the same music
+ * back on. A music block that ran to the end of the voice keeps doing so.
+ */
+async function remix(current: AudioLibraryRecord, voice: { url: string; marks: number[]; duration: number | null }) {
+  const layer = current.mix!;
+  const before = layer.voiceDuration ?? voice.duration ?? 0;
+  const after = voice.duration ?? before;
+  const settings = { ...layer.settings };
+  if (settings.regionEnd >= before - 0.05) settings.regionEnd = Math.max(settings.regionStart + 1, after + (settings.regionEnd - before));
+  const mixed = await mixRecording(voice.url, layer.musicUrl, settings);
+  const { pre, total } = mixed.plan;
+  return {
+    url: mixed.url,
+    mimeType: mixed.mimeType,
+    durationSeconds: Math.round(total),
+    marks: cleanMarks(voice.marks.map((mark) => mark + pre), total),
+    mix: { ...layer, voiceUrl: voice.url, voiceMarks: voice.marks, voiceDuration: after, pre, settings },
+  };
+}
+
 function editFailure(res: import("express").Response, error: unknown) {
   if (error instanceof AudioEditError) { res.status(error.status).json({ error: error.message }); return; }
   console.warn("Audio edit failed", { reason: error instanceof Error ? error.name : "unknown" });
@@ -238,6 +259,22 @@ router.post("/audio-library/:itemId/edit", async (req, res): Promise<void> => {
   const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
   if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
   try {
+    if (current.mix) {
+      const edited = await keepRanges(current.mix.voiceUrl, body.data.keep);
+      const layered = await remix(current, { url: edited.url, marks: remapMarks(current.mix.voiceMarks, body.data.keep), duration: edited.durationSeconds });
+      const [updated] = await db.update(audioLibraryTable).set({
+        ...layered,
+        transcript: null, words: null, chapters: null, summary: null,
+        originalMarks: current.originalMarks ?? current.mix.voiceMarks,
+        originalUrl: current.originalUrl ?? current.mix.voiceUrl,
+      }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
+        .returning({ id: audioLibraryTable.id });
+      if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please reopen it." }); return; }
+      retranscribe(current.id, layered.url);
+      const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
+      res.json(serialize(saved));
+      return;
+    }
     const edited = await keepRanges(current.url, body.data.keep);
     const [updated] = await db.update(audioLibraryTable).set({
       url: edited.url,
@@ -273,7 +310,7 @@ router.post("/audio-library/:itemId/words", async (req, res): Promise<void> => {
   // Stored words need no AI; fetching new ones does.
   if (!aiConfigured) { res.status(503).json({ error: "AI is not configured yet, so the words can't be read. Your recording is unchanged." }); return; }
   try {
-    const result = await wordsForStoredAudio(canonicalStorageUrl(current.url), body.data.language ?? "auto");
+    const result = await wordsForStoredAudio(canonicalStorageUrl(current.mix?.voiceUrl ?? current.url), body.data.language ?? "auto");
     if (!result.words.length) { res.status(422).json({ error: "No speech was detected in this recording." }); return; }
     // Keep the timings only if the audio hasn't changed meanwhile.
     await db.update(audioLibraryTable)
@@ -293,14 +330,17 @@ router.post("/audio-library/:itemId/enhance", async (req, res): Promise<void> =>
   const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
   if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
   try {
-    const improved = await enhanceRecording(current.url, { denoise: body.data.denoise ?? true, level: body.data.level ?? true });
+    const voiceUrl = current.mix?.voiceUrl ?? current.url;
+    const voiceDone = await enhanceRecording(voiceUrl, { denoise: body.data.denoise ?? true, level: body.data.level ?? true });
+    const improved = current.mix ? await remix(current, { url: voiceDone.url, marks: current.mix.voiceMarks, duration: current.mix.voiceDuration }) : { ...voiceDone, mix: null };
     // Timing is unchanged, so the transcript and word timings stay valid.
     const [updated] = await db.update(audioLibraryTable).set({
       url: improved.url,
       mimeType: improved.mimeType,
-      originalMarks: current.originalMarks ?? current.marks ?? [],
-      originalUrl: current.originalUrl ?? current.url,
-      mix: null,
+      ...(current.mix ? { durationSeconds: (improved as { durationSeconds?: number }).durationSeconds, marks: (improved as { marks?: number[] }).marks } : {}),
+      originalMarks: current.originalMarks ?? current.mix?.voiceMarks ?? current.marks ?? [],
+      originalUrl: current.originalUrl ?? current.mix?.voiceUrl ?? current.url,
+      mix: improved.mix,
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
@@ -318,14 +358,17 @@ router.post("/audio-library/:itemId/sound-lab", async (req, res): Promise<void> 
   const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
   if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
   try {
-    const improved = await soundLabRecording(current.url, { ...body.data, hum: body.data.hum ?? null });
+    const voiceUrl = current.mix?.voiceUrl ?? current.url;
+    const voiceDone = await soundLabRecording(voiceUrl, { ...body.data, hum: body.data.hum ?? null });
+    const improved = current.mix ? await remix(current, { url: voiceDone.url, marks: current.mix.voiceMarks, duration: current.mix.voiceDuration }) : { ...voiceDone, mix: null };
     // Timing is unchanged, so the transcript, word timings, bookmarks and chapters stay valid.
     const [updated] = await db.update(audioLibraryTable).set({
       url: improved.url,
       mimeType: improved.mimeType,
-      originalMarks: current.originalMarks ?? current.marks ?? [],
-      originalUrl: current.originalUrl ?? current.url,
-      mix: null,
+      ...(current.mix ? { durationSeconds: (improved as { durationSeconds?: number }).durationSeconds, marks: (improved as { marks?: number[] }).marks } : {}),
+      originalMarks: current.originalMarks ?? current.mix?.voiceMarks ?? current.marks ?? [],
+      originalUrl: current.originalUrl ?? current.mix?.voiceUrl ?? current.url,
+      mix: improved.mix,
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
@@ -344,7 +387,7 @@ router.post("/audio-library/:itemId/sound-lab/preview", async (req, res): Promis
   if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
   try {
     const { settings, start, seconds } = body.data;
-    await soundLabPreview(current.url, { ...settings, hum: settings.hum ?? null }, start, seconds ?? 15, (path) => new Promise<void>((resolve, reject) => {
+    await soundLabPreview(current.mix?.voiceUrl ?? current.url, { ...settings, hum: settings.hum ?? null }, start, seconds ?? 15, (path) => new Promise<void>((resolve, reject) => {
       res.setHeader("Cache-Control", "private, no-store");
       res.sendFile(path, { headers: { "Content-Type": "audio/mpeg" } }, (error) => (error ? reject(error) : resolve()));
     }));
@@ -482,7 +525,7 @@ router.post("/audio-library/:itemId/chapters", async (req, res): Promise<void> =
     let words = current.words;
     if (!words) {
       if (!isStoredAudioUrl(current.url)) { res.status(400).json({ error: "Only recordings saved in this app can be used." }); return; }
-      const result = await wordsForStoredAudio(canonicalStorageUrl(current.url), "auto");
+      const result = await wordsForStoredAudio(canonicalStorageUrl(current.mix?.voiceUrl ?? current.url), "auto");
       words = result.words;
       await db.update(audioLibraryTable).set({ words, ...(current.transcript ? {} : { transcript: result.text }) })
         .where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)));
@@ -500,7 +543,8 @@ router.post("/audio-library/:itemId/chapters", async (req, res): Promise<void> =
     }, { timeout: 90_000, maxRetries: 0 });
     const parsed = parseChapters(JSON.parse(response.choices[0]?.message?.content || "{}"), duration);
     if (!parsed) { res.status(422).json({ error: "Chapters couldn't be made for this recording. Please try again." }); return; }
-    await db.update(audioLibraryTable).set({ chapters: parsed.chapters, summary: parsed.summary || null })
+    const chapters = current.mix ? shiftChapters(parsed.chapters, current.mix.pre, duration) : parsed.chapters;
+    await db.update(audioLibraryTable).set({ chapters, summary: parsed.summary || null })
       .where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)));
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
     res.json(serialize(saved));

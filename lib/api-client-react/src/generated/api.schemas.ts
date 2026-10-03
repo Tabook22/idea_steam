@@ -207,6 +207,11 @@ export interface MixSettings {
 export interface AudioMixLayer {
   /** The voice-only audio underneath the music. */
   voiceUrl: string;
+  /**
+     * Length of the voice-only audio (seconds).
+     * @nullable
+     */
+  voiceDuration: number | null;
   /** The song's audio (kept even if the song is later removed from the library). */
   musicUrl: string;
   /** @nullable */

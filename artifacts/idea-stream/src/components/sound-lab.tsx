@@ -142,7 +142,8 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
     let cancelled = false;
     (async () => {
       try {
-        const response = await fetch(appPath(item.url, import.meta.env.BASE_URL), { credentials: "include" });
+        // With background music, the lab works on your voice; the music is laid back on when you save.
+        const response = await fetch(appPath(item.mix?.voiceUrl ?? item.url, import.meta.env.BASE_URL), { credentials: "include" });
         if (!response.ok) throw new Error("download");
         const ctx = new AudioContext();
         context.current = ctx;
@@ -174,7 +175,7 @@ export function SoundLab({ item, title, onClose }: { item: AudioLibraryItem; tit
       if (exactUrl.current) URL.revokeObjectURL(exactUrl.current);
       void context.current?.close().catch(() => {});
     };
-  }, [item.url]);
+  }, [item.mix?.voiceUrl ?? item.url]);
 
   // Fit the picture to its box.
   useEffect(() => {

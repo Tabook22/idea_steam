@@ -8,6 +8,7 @@ import {
   Hand,
   Loader2,
   Maximize2,
+  Music2,
   MousePointer2,
   Pause,
   Play,
@@ -42,6 +43,7 @@ import { buildPeaks, peakBetween, type PeakCache } from "@/lib/audio-peaks";
 import { clampView, panBy, rulerTicks, viewAround, zoomAt, type View } from "@/lib/audio-view";
 import { useLanguage } from "@/lib/i18n";
 import { findSimilar, soundPrint, type Match, type Sensitivity, type SoundPrint } from "@/lib/similar-sounds";
+import { MusicTracks } from "@/components/music-track";
 
 type Segment = { at: number; start: number; end: number };
 type Tool = "select" | "cut" | "zoom" | "hand" | "loop";
@@ -76,7 +78,10 @@ const Divider = () => <span className="mx-1 h-6 w-px shrink-0 bg-white/15" aria-
  * effect at once (the rest joins up). Everything is tracked against the original recording,
  * which the server keeps for "Restore original".
  */
-export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; title: string; onClose: () => void }) {
+export function AudioEditor({ item, title, onClose, onEditMusic }: { item: AudioLibraryItem; title: string; onClose: () => void; onEditMusic?: () => void }) {
+  // With background music, you edit your voice; the music is laid back on when you save.
+  const sourceUrl = item.mix?.voiceUrl ?? item.url;
+  const voiceMarks = item.mix ? (item.marks ?? []).map((mark) => mark - (item.mix?.pre ?? 0)).filter((mark) => mark >= 0) : item.marks ?? [];
   const { isArabic } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
   const queryClient = useQueryClient();
@@ -100,7 +105,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
   const [tool, setTool] = useState<Tool>("select");
   const [preview, setPreview] = useState<Range | null>(null); // live box while dragging cut/zoom/loop
   const [width, setWidth] = useState(600);
-  const [tab, setTab] = useState<"cuts" | "cleanup" | "text">("cuts");
+  const [tab, setTab] = useState<"cuts" | "cleanup" | "text" | "tracks">(item.mix ? "tracks" : "cuts");
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
   /** "Find similar sounds": the example (original time), how strict, what was found, and which to cut. */
@@ -172,7 +177,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
     let cancelled = false;
     (async () => {
       try {
-        const response = await fetch(appPath(item.url, import.meta.env.BASE_URL), { credentials: "include" });
+        const response = await fetch(appPath(sourceUrl, import.meta.env.BASE_URL), { credentials: "include" });
         if (!response.ok) throw new Error("download");
         const ctx = new AudioContext();
         context.current = ctx;
@@ -186,7 +191,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
       }
     })();
     return () => { cancelled = true; stop(); void context.current?.close().catch(() => {}); };
-  }, [item.url, stop]);
+  }, [sourceUrl, stop]);
 
   useEffect(() => {
     const element = wave.current;
@@ -713,6 +718,17 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
               <ToolButton onClick={findLikeSelection} label={copy("Find similar sounds (select one example, e.g. an 'um')", "ابحث عن أصوات مشابهة (حدد مثالًا واحدًا مثل «امم»)")} disabled={!selection || searching}><Fingerprint size={16} /></ToolButton>
             </div>
 
+            {item.mix && (
+              <button type="button" onClick={() => setTab("tracks")}
+                className="mx-4 mt-3 flex w-[calc(100%-2rem)] items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-start text-xs text-violet-100 hover:bg-violet-500/15">
+                <Music2 size={14} className="shrink-0 text-violet-300" />
+                <span className="min-w-0 flex-1">
+                  {copy("This recording has background music", "هذا التسجيل فيه موسيقى خلفية")} (<span dir="auto">{item.mix.musicTitle || copy("music", "موسيقى")}</span>).{" "}
+                  {copy("You're editing your voice; the music is laid back on when you save.", "أنت تعدّل صوتك، وتُعاد الموسيقى عند الحفظ.")}
+                </span>
+                <span className="shrink-0 font-semibold underline">{copy("Tracks", "المسارات")}</span>
+              </button>
+            )}
             {/* Time display */}
             <div className="flex flex-wrap items-end gap-x-6 gap-y-1 px-4 pt-3">
               <div>
@@ -789,7 +805,7 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
                     <Scissors size={11} className="absolute -start-[6px] top-1 rounded-full bg-[#07110d] text-red-400" />
                   </div>
                 ))}
-                {(item.marks ?? []).filter((mark) => !cuts.some((cut) => mark >= cut.start && mark < cut.end)).map((mark) => timeline.toEdited(mark)).filter(inView).map((mark) => (
+                {voiceMarks.filter((mark) => !cuts.some((cut) => mark >= cut.start && mark < cut.end)).map((mark) => timeline.toEdited(mark)).filter(inView).map((mark) => (
                   <div key={`mark-${mark}`} className="pointer-events-none absolute inset-y-0 w-0 border-s border-amber-300/80" style={{ left: x(mark) }}>
                     <Bookmark size={12} className="absolute -start-[6px] bottom-1 fill-amber-300 text-amber-400" />
                   </div>
@@ -884,12 +900,16 @@ export function AudioEditor({ item, title, onClose }: { item: AudioLibraryItem; 
             {/* Panels */}
             <div className="mx-4 mb-4 rounded-xl border border-white/10 bg-white/[0.03]" dir={isArabic ? "rtl" : "ltr"}>
               <div className="flex border-b border-white/10 text-sm" role="tablist">
-                {([["cuts", copy(`Cuts (${cuts.length})`, `المقطوع (${cuts.length})`)], ["cleanup", copy("Clean up", "تنظيف")], ["text", copy("Edit by text", "التحرير بالنص")]] as const).map(([id, label]) => (
+                {([["cuts", copy(`Cuts (${cuts.length})`, `المقطوع (${cuts.length})`)], ["cleanup", copy("Clean up", "تنظيف")], ["text", copy("Edit by text", "التحرير بالنص")], ...(item.mix ? [["tracks", copy("Tracks (2)", "المسارات (2)")] as const] : [])] as const).map(([id, label]) => (
                   <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
                     className={`px-4 py-2.5 font-medium transition-colors ${tab === id ? "border-b-2 border-emerald-400 text-white" : "text-white/50 hover:text-white/80"}`}>{label}</button>
                 ))}
               </div>
               <div className="p-3">
+                {tab === "tracks" && item.mix && (
+                  <MusicTracks item={item} dark onEdit={() => onEditMusic?.()}
+                    locked={removed.length ? copy("Save or undo your cuts first, then change the music.", "احفظ قصّاتك أو تراجع عنها أولًا، ثم غيّر الموسيقى.") : undefined} />
+                )}
                 {tab === "cuts" && (cuts.length ? (
                   <>
                     <div className="flex flex-wrap gap-2">

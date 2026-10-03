@@ -47,6 +47,7 @@ import { AudioEditor } from "@/components/audio-editor";
 import { ExportDialog } from "@/components/export-dialog";
 import { SoundLab } from "@/components/sound-lab";
 import { MusicMixer } from "@/components/music-mixer";
+import { MusicTracks } from "@/components/music-track";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { usePressToTalk } from "@/components/press-to-talk";
 import { useRecorderPrefs } from "@/lib/recorder-prefs";
@@ -130,8 +131,6 @@ export default function LibraryPage() {
   const [mixing, setMixing] = useState<AudioLibraryItem | null>(null);
   /** Remove the music layer (asks first). */
   const [unmixing, setUnmixing] = useState<AudioLibraryItem | null>(null);
-  /** Editing a recording that has music: remove the music first, or bake it in? */
-  const [musicGuard, setMusicGuard] = useState<{ item: AudioLibraryItem; tool: "edit" | "lab" } | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<number[]>([]);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -361,7 +360,6 @@ export default function LibraryPage() {
 
   const openTool = (item: AudioLibraryItem, tool: "edit" | "lab") => {
     if (activeId === item.id) audio.current?.pause();
-    if (item.mix) { setMusicGuard({ item, tool }); return; }
     if (tool === "edit") setEditing(item); else setImproving(item);
   };
   async function removeMusic(item: AudioLibraryItem, then?: "edit" | "lab") {
@@ -740,6 +738,8 @@ export default function LibraryPage() {
                             )}
                           </div>
 
+                          {item.mix && <MusicTracks item={item} onEdit={() => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }} />}
+
                           {item.marks.length > 0 && (
                             <div>
                               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{copy("Bookmarks", "العلامات")}</p>
@@ -852,7 +852,8 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {editing && <AudioEditor item={editing} title={displayTitle(editing, fallbackTitle)} onClose={() => setEditing(null)} />}
+      {editing && <AudioEditor item={items.find((other) => other.id === editing.id) ?? editing} title={displayTitle(editing, fallbackTitle)} onClose={() => setEditing(null)}
+        onEditMusic={() => { const target = items.find((other) => other.id === editing.id) ?? editing; setEditing(null); setMixing(target); }} />}
 
       <AlertDialog open={!!restoring} onOpenChange={(open) => { if (!open) setRestoring(null); }}>
         <AlertDialogContent>
@@ -885,27 +886,8 @@ export default function LibraryPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!musicGuard} onOpenChange={(open) => { if (!open) setMusicGuard(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{copy("This recording has background music", "هذا التسجيل فيه موسيقى خلفية")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {copy("To edit only your voice, remove the music first; you can add it back afterwards. If you edit it with the music in, the music becomes part of the sound and can't be removed later.",
-                "لتعديل صوتك فقط، أزل الموسيقى أولًا ثم أعدها بعد ذلك. إن عدّلته والموسيقى فيه تصبح الموسيقى جزءًا من الصوت ولا يمكن إزالتها لاحقًا.")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel>{copy("Cancel", "إلغاء")}</AlertDialogCancel>
-            <Button variant="outline" onClick={() => { const guard = musicGuard; setMusicGuard(null); if (guard) { if (guard.tool === "edit") setEditing(guard.item); else setImproving(guard.item); } }}>
-              {copy("Edit with the music in", "عدّل مع الموسيقى")}
-            </Button>
-            <AlertDialogAction onClick={() => { const guard = musicGuard; setMusicGuard(null); if (guard) void removeMusic(guard.item, guard.tool); }}>{copy("Remove music, then edit", "أزل الموسيقى ثم عدّل")}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {mixing && <MusicMixer item={mixing} title={displayTitle(mixing, fallbackTitle)} items={items} onClose={() => setMixing(null)} />}
-      {improving && <SoundLab item={improving} title={displayTitle(improving, fallbackTitle)} onClose={() => setImproving(null)} />}
+      {mixing && <MusicMixer key={`${mixing.id}-${items.find((other) => other.id === mixing.id)?.url}`} item={items.find((other) => other.id === mixing.id) ?? mixing} title={displayTitle(mixing, fallbackTitle)} items={items} onClose={() => setMixing(null)} />}
+      {improving && <SoundLab item={items.find((other) => other.id === improving.id) ?? improving} title={displayTitle(improving, fallbackTitle)} onClose={() => setImproving(null)} />}
 
       <Dialog open={joinOpen} onOpenChange={(open) => { if (!joining) setJoinOpen(open); }}>
         <DialogContent className="max-w-md">

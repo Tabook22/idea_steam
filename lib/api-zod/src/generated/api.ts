@@ -586,6 +586,7 @@ export const ListAudioLibraryResponseItem = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -668,6 +669,7 @@ export const AddToAudioLibraryResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -762,6 +764,7 @@ export const CreateLibraryRecordingResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -843,6 +846,7 @@ export const TranscribeLibraryItemResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -926,6 +930,7 @@ export const JoinAudioLibraryItemsResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -1016,6 +1021,7 @@ export const EditAudioLibraryItemResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -1122,6 +1128,7 @@ export const EnhanceAudioLibraryItemResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -1269,6 +1276,7 @@ export const SoundLabAudioLibraryItemResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -1482,6 +1490,7 @@ export const MixAudioLibraryItemResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -1557,6 +1566,7 @@ export const RemoveAudioLibraryMixResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -1691,6 +1701,7 @@ export const MakeAudioLibraryChaptersResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -1783,6 +1794,7 @@ export const RestoreAudioLibraryItemResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),
@@ -1870,6 +1882,7 @@ export const UpdateAudioLibraryItemResponse = zod.object({
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
   "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
   "musicItemId": zod.number().int().nullable(),
   "musicTitle": zod.string().nullable(),

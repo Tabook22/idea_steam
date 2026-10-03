@@ -1201,11 +1201,14 @@ components:
           description: Dip the music's middle frequencies so words stay clear.
     AudioMixLayer:
       type: object
-      required: [voiceUrl, musicItemId, musicUrl, musicTitle, pre, settings]
+      required: [voiceUrl, voiceDuration, musicItemId, musicUrl, musicTitle, pre, settings]
       properties:
         voiceUrl:
           type: string
           description: The voice-only audio underneath the music.
+        voiceDuration:
+          type: [number, "null"]
+          description: Length of the voice-only audio (seconds).
         musicUrl:
           type: string
           description: The song's audio (kept even if the song is later removed from the library).
