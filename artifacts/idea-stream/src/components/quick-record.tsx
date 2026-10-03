@@ -106,6 +106,10 @@ function LatestNote() {
     title = inInbox
       ? copy("Saved as text in your Idea inbox", "حُفظت نصًا في صندوق الأفكار")
       : copy(`Saved in your audio library and as text in “${subjectName}”`, `حُفظت في مكتبة الصوت ونصًا في «${subjectName}»`);
+  } else if (!record.transcriptionStatus && record.autoTranscribe === false) {
+    // Saved fast, text later: that's the normal, finished state.
+    icon = <CheckCircle2 size={18} className="text-primary" />;
+    title = copy(`Saved in your audio library and in “${subjectName}”`, `حُفظت في مكتبة الصوت وفي «${subjectName}»`);
   } else {
     icon = <TriangleAlert size={18} className="text-amber-600" />;
     title = record.transcriptionStatus
@@ -131,6 +135,11 @@ function LatestNote() {
             {record.ideaId && record.subjectId && !inInbox && (
               <Link href={`/subjects/${record.subjectId}#idea-${record.ideaId}`} className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
                 {copy("Open in subject", "افتحها في الموضوع")}<ArrowUpRight size={14} />
+              </Link>
+            )}
+            {!record.transcript && record.status === "synced" && (
+              <Link href="/library" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+                {copy("Convert to text in the library", "حوّلها إلى نص في المكتبة")}<ArrowUpRight size={14} />
               </Link>
             )}
             <Link href="/record" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
@@ -201,14 +210,14 @@ export function QuickRecord() {
               <option value="en">English</option>
             </OptionPill>
           </div>
-          {!prefs.autoTranscribe && (
-            <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-              {copy("Automatic text is off. ", "التحويل التلقائي إلى نص متوقف. ")}
-              <button type="button" className="font-medium underline" onClick={() => setPrefs({ autoTranscribe: true })}>
-                {copy("Turn it on", "شغّله")}
-              </button>
-            </p>
-          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            {prefs.autoTranscribe
+              ? copy("Text is made automatically after saving. ", "يُحوَّل إلى نص تلقائيًا بعد الحفظ. ")
+              : copy("Fast saving: convert to text later in the audio library. ", "حفظ سريع: حوّل إلى نص لاحقًا في مكتبة الصوت. ")}
+            <button type="button" className="font-medium text-primary underline" onClick={() => setPrefs({ autoTranscribe: !prefs.autoTranscribe })}>
+              {prefs.autoTranscribe ? copy("Make text later instead", "حوّل لاحقًا بدلًا من ذلك") : copy("Convert automatically instead", "حوّل تلقائيًا بدلًا من ذلك")}
+            </button>
+          </p>
           {error && stage === "idle" && <p className="mt-3 text-xs text-destructive" role="alert">{error}</p>}
         </div>
         <div className="order-1 flex flex-col items-center gap-2 sm:order-2">

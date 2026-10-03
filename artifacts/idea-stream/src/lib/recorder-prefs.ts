@@ -24,13 +24,14 @@ export function readRecorderPrefs(): RecorderPrefs {
     limit: RECORDING_LIMITS.includes(fromUrl)
       ? fromUrl
       : RECORDING_LIMITS.includes(saved.limit as number) ? (saved.limit as number) : 900,
-    autoTranscribe: saved.autoTranscribe !== false,
+    // Text is made later from the audio library unless "convert automatically" was chosen.
+    autoTranscribe: (saved as { textMode?: string }).textMode === "auto",
   };
 }
 
 export function writeRecorderPrefs(prefs: RecorderPrefs) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(prefs));
+    localStorage.setItem(KEY, JSON.stringify({ ...prefs, textMode: prefs.autoTranscribe ? "auto" : "later" }));
   } catch { /* Ignore unavailable storage. */ }
 }
 

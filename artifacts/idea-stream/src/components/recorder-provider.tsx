@@ -138,43 +138,58 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     setMarkCount(current.marks.length);
     try { navigator.vibrate?.([15, 60, 15]); } catch { /* optional */ }
   }, []);
+  /** Text conversion: its own queue, so it never holds up saving new recordings. */
+  const converting = useRef(false);
+  const convertText = useCallback(async () => {
+    if (converting.current || !navigator.onLine) return;
+    converting.current = true;
+    const work = async () => {
+      try {
+        for (const record of await recordingStore.list()) {
+          if (record.status !== "synced" || record.autoTranscribe === false || record.transcriptionStatus === "done" ||
+              (record.transcriptionAttempts || 0) >= maxTranscriptionAttempts || (record.nextTranscriptionAt || 0) > Date.now()) continue;
+          setTranscribingId(record.id);
+          const idea = await transcribeRecording(recordingStore, record.id, { basePath: import.meta.env.BASE_URL });
+          if (idea) await queryClient.invalidateQueries();
+          await refresh();
+        }
+      } finally {
+        setTranscribingId(null);
+      }
+    };
+    try {
+      if (navigator.locks) await navigator.locks.request(`${lockPrefix}-text`, { ifAvailable: true }, (lock) => (lock ? work() : undefined));
+      else await work();
+    } catch { /* The audio is saved; text can be made later. */ } finally {
+      converting.current = false;
+    }
+  }, [queryClient, refresh]);
+
+  /** A request that arrives while a pass is running gets its own pass right after (never dropped). */
+  const syncAgain = useRef(false);
   const sync = useCallback(
     async (force = false) => {
-      if (
-        syncing.current ||
-        !navigator.onLine ||
-        session.current ||
-        preparing.current
-      )
-        return;
+      if (!navigator.onLine || session.current || preparing.current) return;
+      if (syncing.current) { syncAgain.current = true; return; }
       syncing.current = true;
       const work = async () => {
         try {
-          for (const record of await recordingStore.list()) {
-            if (session.current || preparing.current) break;
-            if (
-              record.status !== "saved" ||
-              (!force && record.nextRetryAt > Date.now())
-            )
-              continue;
-            setSyncingId(record.id);
-            const idea = await syncRecording(recordingStore, record.id, { basePath: import.meta.env.BASE_URL });
-            if (idea) await queryClient.invalidateQueries();
-            await refresh();
-          }
-          setSyncingId(null);
-          // Finish every audio upload before spending time on text conversion.
-          for (const record of await recordingStore.list()) {
-            if (session.current || preparing.current) break;
-            if (record.status !== "synced" || record.autoTranscribe === false || record.transcriptionStatus === "done" ||
-                (record.transcriptionAttempts || 0) >= maxTranscriptionAttempts || (record.nextTranscriptionAt || 0) > Date.now()) continue;
-            setTranscribingId(record.id);
-            const idea = await transcribeRecording(recordingStore, record.id, { basePath: import.meta.env.BASE_URL });
-            if (idea) await queryClient.invalidateQueries();
-            await refresh();
-          }
+          do {
+            syncAgain.current = false;
+            for (const record of await recordingStore.list()) {
+              if (session.current || preparing.current) break;
+              if (
+                record.status !== "saved" ||
+                (!force && record.nextRetryAt > Date.now())
+              )
+                continue;
+              setSyncingId(record.id);
+              const idea = await syncRecording(recordingStore, record.id, { basePath: import.meta.env.BASE_URL });
+              if (idea) await queryClient.invalidateQueries();
+              await refresh();
+            }
+          } while (syncAgain.current && !session.current && !preparing.current);
         } finally {
-          setTranscribingId(null);
           setSyncingId(null);
         }
       };
@@ -191,8 +206,10 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       } finally {
         syncing.current = false;
       }
+      // Text afterwards, in the background.
+      void convertText();
     },
-    [queryClient, refresh],
+    [queryClient, refresh, convertText],
   );
 
   const requestTranscript = useCallback(async (id: string, language: "auto" | "en" | "ar") => {

@@ -12,6 +12,7 @@ import {
   ArrowUp,
   BookOpen,
   BookPlus,
+  Captions,
   MoreVertical,
   ListMusic,
   Music2,
@@ -38,6 +39,7 @@ import {
   restoreAudioLibraryItem,
   makeAudioLibraryChapters,
   removeAudioLibraryMix,
+  transcribeLibraryItem,
   getListAudioLibraryQueryKey,
   updateAudioLibraryItem,
   useListAudioLibrary,
@@ -71,7 +73,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type Sort = "newest" | "oldest" | "longest" | "shortest" | "title";
-type Quick = "all" | "marked" | "edited" | "notebooks" | "library" | "music";
+type Quick = "all" | "marked" | "edited" | "notebooks" | "library" | "music" | "notext";
 const SORT_KEY = "idea-stream-library-sort";
 const SPEEDS = [1, 1.25, 1.5, 2];
 
@@ -92,12 +94,16 @@ const longClock = (seconds: number, arabic = false) => {
   return minutes < 60 ? `${minutes} ${m}` : `${Math.floor(minutes / 60)} ${h}${minutes % 60 ? ` ${minutes % 60} ${m}` : ""}`;
 };
 
+/** A recording (not a song) that hasn't been converted to text yet. */
+const needsText = (item: AudioLibraryItem) => item.kind !== "music" && !item.transcript?.trim();
+
 const quickMatch = (item: AudioLibraryItem, quick: Quick) =>
   quick === "marked" ? item.marks.length > 0
   : quick === "edited" ? item.edited
   : quick === "notebooks" ? item.subjects.length > 0
   : quick === "library" ? item.subjects.length === 0
   : quick === "music" ? item.kind === "music"
+  : quick === "notext" ? needsText(item)
   : true;
 
 export function displayTitle(item: Pick<AudioLibraryItem, "title" | "transcript">, fallback: string) {
@@ -133,6 +139,10 @@ export default function LibraryPage() {
   const [exporting, setExporting] = useState<AudioLibraryItem | null>(null);
   const [mixing, setMixing] = useState<AudioLibraryItem | null>(null);
   const [filing, setFiling] = useState<AudioLibraryItem | null>(null);
+  /** Text is made here, when wanted (saving stays fast). */
+  const [converting, setConverting] = useState<Set<number>>(new Set());
+  const [textLanguage, setTextLanguage] = useState<"auto" | "ar" | "en">("auto");
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   /** Remove the music layer (asks first). */
   const [unmixing, setUnmixing] = useState<AudioLibraryItem | null>(null);
   const [selecting, setSelecting] = useState(false);
@@ -182,6 +192,7 @@ export default function LibraryPage() {
     ["notebooks", copy("In subjects", "في المواضيع")],
     ["library", copy("Not in a subject", "ليست في موضوع")],
     ["music", copy("Music", "موسيقى")],
+    ["notext", copy("No text yet", "بلا نص بعد")],
   ] as const).map(([id, label]) => [id, label, kept.filter((item) => quickMatch(item, id)).length] as [Quick, string, number])
     .filter(([id, , count]) => id === "all" || id === quick || count > 0);
   const timeFormat = useMemo(() => new Intl.DateTimeFormat(language, { hour: "numeric", minute: "2-digit" }), [language]);
@@ -362,6 +373,35 @@ export default function LibraryPage() {
     }
   }
 
+  async function convertToText(item: AudioLibraryItem, quiet = false) {
+    setConverting((current) => new Set(current).add(item.id));
+    try {
+      const updated = await transcribeLibraryItem(item.id, { language: textLanguage });
+      await queryClient.invalidateQueries({ queryKey: getListAudioLibraryQueryKey() });
+      if (!quiet) toast({ title: copy("Converted to text", "حُوّل إلى نص"), description: updated.subjects.length ? copy("The text was added to its subjects too.", "وأُضيف النص إلى مواضيعه أيضًا.") : undefined });
+      return true;
+    } catch (error) {
+      toast({ variant: "destructive", title: copy("Couldn't convert to text", "تعذر التحويل إلى نص"), description: (error as { data?: { error?: string } })?.data?.error });
+      return false;
+    } finally {
+      setConverting((current) => { const next = new Set(current); next.delete(item.id); return next; });
+    }
+  }
+  async function convertAll() {
+    const waiting = items.filter((item) => !hidden.has(item.id) && needsText(item));
+    if (!waiting.length) return;
+    setBulk({ done: 0, total: waiting.length });
+    let done = 0;
+    for (const item of waiting) {
+      // One at a time; stop at the first failure (e.g. AI not set up) instead of repeating it.
+      if (!(await convertToText(item, true))) break;
+      done++;
+      setBulk({ done, total: waiting.length });
+    }
+    setBulk(null);
+    if (done) toast({ title: copy(`Converted ${done} recording${done > 1 ? "s" : ""} to text`, `حُوّل ${done} تسجيل إلى نص`) });
+  }
+
   const openTool = (item: AudioLibraryItem, tool: "edit" | "lab") => {
     if (activeId === item.id) audio.current?.pause();
     if (tool === "edit") setEditing(item); else setImproving(item);
@@ -460,6 +500,31 @@ export default function LibraryPage() {
           ))}
         </dl>
       )}
+
+      {(() => {
+        const waiting = kept.filter(needsText).length;
+        if (!waiting && !bulk) return null;
+        return (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border bg-card px-3 py-2.5 text-sm">
+            <Captions size={16} className="shrink-0 text-primary" />
+            <span className="min-w-0 flex-1">
+              {bulk
+                ? copy(`Converting to text… ${bulk.done} of ${bulk.total}`, `جارٍ التحويل إلى نص… ${bulk.done} من ${bulk.total}`)
+                : copy(`${waiting} recording${waiting > 1 ? "s have" : " has"} no text yet. Saving stays fast; convert when you need the words.`, `${waiting} تسجيل بلا نص بعد. يبقى الحفظ سريعًا؛ حوّل عندما تحتاج الكلمات.`)}
+            </span>
+            <select value={textLanguage} onChange={(event) => setTextLanguage(event.target.value as "auto" | "ar" | "en")} disabled={!!bulk}
+              aria-label={copy("Spoken language", "لغة الكلام")} className="h-9 rounded-full border bg-background px-3 text-xs">
+              <option value="auto">{copy("Arabic or English", "العربية أو الإنجليزية")}</option>
+              <option value="ar">العربية</option>
+              <option value="en">English</option>
+            </select>
+            <Button size="sm" className="h-9 rounded-full" disabled={!!bulk} onClick={() => void convertAll()}>
+              {bulk ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Captions size={14} className="me-1.5" />}
+              {copy("Convert all to text", "حوّل الكل إلى نص")}
+            </Button>
+          </div>
+        );
+      })()}
 
       {pendingHere > 0 && (
         <p className="mt-3 flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-xs font-medium text-primary" role="status">
@@ -648,6 +713,11 @@ export default function LibraryPage() {
                                   <Music2 size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.mix?.musicTitle || copy("Music", "موسيقى")}</span>
                                 </span>
                               )}
+                              {needsText(item) && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 font-medium text-muted-foreground">
+                                  {converting.has(item.id) ? <Loader2 size={11} className="animate-spin" /> : <Captions size={11} />}{converting.has(item.id) ? copy("Converting…", "جارٍ التحويل…") : copy("No text", "بلا نص")}
+                                </span>
+                              )}
                               {item.kind === "music" && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900 dark:bg-violet-900/40 dark:text-violet-100"><Music2 size={11} />{copy("Music", "موسيقى")}</span>
                               )}
@@ -674,6 +744,7 @@ export default function LibraryPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56">
                               <DropdownMenuItem onSelect={() => setFiling(item)} className="font-medium"><BookPlus size={15} />{item.subjects.length ? copy("Add to / move between subjects…", "أضف إلى موضوع أو انقل…") : copy("Add to a subject…", "أضف إلى موضوع…")}</DropdownMenuItem>
+                              {needsText(item) && <DropdownMenuItem disabled={converting.has(item.id)} onSelect={() => void convertToText(item)}><Captions size={15} />{copy("Convert to text", "حوّل إلى نص")}</DropdownMenuItem>}
                               <DropdownMenuItem onSelect={() => setExporting(item)}><Download size={15} />{copy("Download as MP3, WAV…", "تنزيل MP3، WAV…")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => openTool(item, "edit")}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
                               {(item.mix || item.bakedMusic) && (
@@ -809,6 +880,22 @@ export default function LibraryPage() {
                             </Button>
                           )}
 
+                          {needsText(item) && (
+                            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-dashed px-3 py-2.5">
+                              <Captions size={16} className="shrink-0 text-primary" />
+                              <span className="min-w-0 flex-1 text-sm text-muted-foreground">{copy("No text yet.", "لا يوجد نص بعد.")}</span>
+                              <select value={textLanguage} onChange={(event) => setTextLanguage(event.target.value as "auto" | "ar" | "en")}
+                                aria-label={copy("Spoken language", "لغة الكلام")} className="h-9 rounded-full border bg-background px-3 text-xs">
+                                <option value="auto">{copy("Arabic or English", "العربية أو الإنجليزية")}</option>
+                                <option value="ar">العربية</option>
+                                <option value="en">English</option>
+                              </select>
+                              <Button size="sm" className="h-9 rounded-full" disabled={converting.has(item.id)} onClick={() => void convertToText(item)}>
+                                {converting.has(item.id) ? <Loader2 size={14} className="me-1.5 animate-spin" /> : <Captions size={14} className="me-1.5" />}
+                                {converting.has(item.id) ? copy("Converting…", "جارٍ التحويل…") : copy("Convert to text", "حوّل إلى نص")}
+                              </Button>
+                            </div>
+                          )}
                           {item.transcript && (
                             <div>
                               <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{copy("Transcript", "النص")}</p>
