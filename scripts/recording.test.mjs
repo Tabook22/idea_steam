@@ -106,106 +106,114 @@ test("spoken routing requires an unambiguous leading command", () => {
   assert.equal(retryDelay(100), 300000);
 });
 
-test("lost create response retries the same capture ID, keeps checkpoints and original audio", async () => {
+test("every recording goes to the audio library first; a lost response retries without duplicates, then files it in the chosen subject", async () => {
   const { store, id } = await recording(2);
   await store.append(id, new Blob(["original audio"]), 3);
   await store.patch(id, { status: "saved" });
   const calls = [];
-  const remote = new Map();
+  const library = new Map();
+  const ideas = new Map();
   let loseResponse = true;
   const fetcher = async (url, options = {}) => {
     calls.push(url);
     if (url === "/api/storage/uploads/request-url")
-      return response({
-        uploadURL: "/signed-upload",
-        objectPath: "/objects/test",
-      });
+      return response({ uploadURL: "/signed-upload", objectPath: "/objects/test" });
     if (url === "/signed-upload") return response({});
-    if (url === "/api/transcriptions")
-      return response({
-        text: "Save this under Education. My original thought.",
-      });
-    if (url === "/api/subjects")
-      return response([{ id: 2, title: "Education" }]);
-    assert.equal(url, "/api/subjects/2/ideas");
-    const body = JSON.parse(options.body);
-    assert.equal(body.clientCaptureId, id);
-    assert.equal(body.capturedAt, "2026-09-20T12:00:00.000Z");
-    assert.equal(body.attachments[0].transcript, undefined);
-    if (!remote.has(id)) remote.set(id, { ...body, id: 55, subjectId: 2 });
-    if (loseResponse) {
-      loseResponse = false;
-      throw new Error("Connection lost after commit");
+    if (url === "/api/audio-library/recordings") {
+      const body = JSON.parse(options.body);
+      assert.equal(body.clientCaptureId, id);
+      assert.equal(body.capturedAt, "2026-09-20T12:00:00.000Z");
+      if (!library.has(id)) library.set(id, { id: 70, url: body.url, subjects: [] });
+      if (loseResponse) { loseResponse = false; throw new Error("Connection lost after commit"); }
+      return response(library.get(id));
     }
-    return response(remote.get(id));
+    assert.equal(url, "/api/audio-library/70/subjects");
+    assert.deepEqual(JSON.parse(options.body), { subjectId: 2 });
+    if (!ideas.has(2)) ideas.set(2, 55);
+    return response({ ...library.get(id), subjects: [{ subjectId: 2, subjectTitle: "Education", ideaId: 55 }] });
   };
   assert.equal(await syncRecording(store, id, { fetcher }), null);
   assert.equal((await store.get(id)).status, "saved");
   assert.ok((await store.get(id)).nextRetryAt > Date.now());
-  assert.equal((await syncRecording(store, id, { fetcher })).id, 55);
-  assert.equal(remote.size, 1);
-  assert.equal(calls.filter((url) => url === "/signed-upload").length, 1);
-  assert.equal(calls.filter((url) => url === "/api/transcriptions").length, 0);
-  assert.equal((await store.get(id)).status, "synced");
+  assert.equal((await syncRecording(store, id, { fetcher })).id, 70);
+  assert.equal(library.size, 1, "one library entry, even after the retry");
+  assert.equal(ideas.size, 1);
+  assert.equal(calls.filter((url) => url === "/signed-upload").length, 1, "the audio is uploaded once");
+  assert.ok(calls.indexOf("/api/audio-library/recordings") < calls.indexOf("/api/audio-library/70/subjects"), "library first, then the subject");
+  const saved = await store.get(id);
+  assert.equal(saved.status, "synced");
+  assert.equal(saved.libraryItemId, 70);
+  assert.equal(saved.ideaId, 55);
+  assert.equal(saved.subjectId, 2);
   assert.equal(await (await store.audio(id)).text(), "original audio");
 });
 
-test("transcription outage still saves audio to the explicitly selected notebook", async () => {
+test("a recording without a subject stays in the audio library only", async () => {
+  const { store, id } = await recording(null);
+  await store.append(id, new Blob(["audio"]), 1);
+  await store.patch(id, { status: "saved", uploadedAudio: { url: "/api/storage/objects/solo", name: "a.webm", mimeType: "audio/webm" } });
+  const calls = [];
+  const fetcher = async (url, options) => {
+    calls.push(url);
+    assert.equal(url, "/api/audio-library/recordings");
+    return response({ id: 80, url: JSON.parse(options.body).url, subjects: [] });
+  };
+  assert.equal((await syncRecording(store, id, { fetcher })).id, 80);
+  assert.deepEqual(calls, ["/api/audio-library/recordings"], "no subject and no inbox notebook is created");
+  const saved = await store.get(id);
+  assert.equal(saved.destination, "library");
+  assert.equal(saved.libraryItemId, 80);
+});
+
+test("transcription outage still saves audio to the library and the explicitly selected notebook", async () => {
   const { store, id } = await recording(7);
   await store.append(id, new Blob(["audio"]), 1);
   await store.patch(id, {
     status: "saved",
-    uploadedAudio: {
-      url: "/api/storage/objects/test",
-      name: "audio.webm",
-      mimeType: "audio/webm",
-    },
+    uploadedAudio: { url: "/api/storage/objects/test", name: "audio.webm", mimeType: "audio/webm" },
   });
   const fetcher = async (url, options) => {
-    if (url === "/api/ideas/8/transcription")
-      return response({ error: "offline" }, 503);
-    if (url === "/api/subjects")
-      return response([{ id: 7, title: "Research" }]);
-    assert.equal(url, "/api/subjects/7/ideas");
-    const body = JSON.parse(options.body);
-    assert.equal(body.content, "Voice idea");
-    assert.equal(body.attachments[0].url, "/api/storage/objects/test");
-    return response({ ...body, id: 8, subjectId: 7 });
+    if (url === "/api/audio-library/9/transcription") return response({ error: "offline" }, 503);
+    if (url === "/api/audio-library/recordings") {
+      assert.equal(JSON.parse(options.body).url, "/api/storage/objects/test");
+      return response({ id: 9, subjects: [] });
+    }
+    assert.equal(url, "/api/audio-library/9/subjects");
+    return response({ id: 9, subjects: [{ subjectId: 7, subjectTitle: "Research", ideaId: 8 }] });
   };
   assert.ok(await syncRecording(store, id, { fetcher }));
-  assert.equal((await store.get(id)).status, "synced");
+  const saved = await store.get(id);
+  assert.equal(saved.status, "synced");
+  assert.equal(saved.ideaId, 8);
   await transcribeRecording(store, id, { fetcher });
   assert.equal((await store.get(id)).transcriptionStatus, "unavailable");
 });
 
-test("deleted destination and disconnected server preserve local audio for later filing", async () => {
+test("a deleted subject keeps the recording in the library; a disconnected server keeps the audio on the device", async () => {
   const { store, id } = await recording(99);
   await store.append(id, new Blob(["audio"]), 1);
   await store.patch(id, {
     status: "saved",
     transcriptionStatus: "done",
     transcript: "Idea",
-    uploadedAudio: {
-      url: "/audio",
-      name: "audio.webm",
-      mimeType: "audio/webm",
-    },
+    uploadedAudio: { url: "/audio", name: "audio.webm", mimeType: "audio/webm" },
   });
   assert.equal(
-    await syncRecording(store, id, { fetcher: async () => response([]) }),
-    null,
-  );
-  assert.match((await store.get(id)).error, /no longer exists/);
-  assert.equal(
-    await syncRecording(store, id, {
-      fetcher: async () => {
-        throw new Error("offline");
-      },
-    }),
+    await syncRecording(store, id, { fetcher: async () => { throw new Error("offline"); } }),
     null,
   );
   assert.equal((await store.get(id)).status, "saved");
   assert.equal(await (await store.audio(id)).text(), "audio");
+  const fetcher = async (url) => {
+    if (url === "/api/audio-library/recordings") return response({ id: 90, subjects: [] });
+    return response({ error: "That subject no longer exists." }, 404);
+  };
+  assert.ok(await syncRecording(store, id, { fetcher }));
+  const saved = await store.get(id);
+  assert.equal(saved.status, "synced");
+  assert.equal(saved.libraryItemId, 90);
+  assert.equal(saved.subjectId, null);
+  assert.equal(saved.destination, "library");
 });
 
 
@@ -308,4 +316,24 @@ test("library-only recordings upload once, never touch subjects, and transcribe 
   await transcribeRecording(store, id, { fetcher });
   assert.equal((await store.get(id)).transcript, "تسجيل في المكتبة");
   assert.equal(await (await store.audio(id)).text(), "library audio");
+});
+
+test("if adding to the subject fails on the network, it retries later without a second library copy", async () => {
+  const { store, id } = await recording(5);
+  await store.append(id, new Blob(["audio"]), 1);
+  await store.patch(id, { status: "saved", uploadedAudio: { url: "/api/storage/objects/net", name: "a.webm", mimeType: "audio/webm" } });
+  let created = 0;
+  let online = false;
+  const fetcher = async (url) => {
+    if (url === "/api/audio-library/recordings") { created++; return response({ id: 60, subjects: [] }); }
+    if (!online) throw new Error("offline");
+    return response({ id: 60, subjects: [{ subjectId: 5, subjectTitle: "Plans", ideaId: 61 }] });
+  };
+  assert.equal(await syncRecording(store, id, { fetcher }), null);
+  assert.equal((await store.get(id)).status, "saved", "kept for a retry");
+  assert.equal((await store.get(id)).subjectId, 5, "the chosen subject is remembered");
+  online = true;
+  assert.ok(await syncRecording(store, id, { fetcher }));
+  assert.equal(created, 1, "the library entry is not made twice");
+  assert.equal((await store.get(id)).ideaId, 61);
 });

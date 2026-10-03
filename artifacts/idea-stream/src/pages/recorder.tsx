@@ -28,6 +28,7 @@ import {
   createSubject,
   getListSubjectsQueryKey,
   updateIdea,
+  addAudioLibraryItemToSubject,
   useListSubjects,
   type Subject,
 } from "@workspace/api-client-react";
@@ -150,8 +151,15 @@ function RecordingCard({ record, subjects, inboxIds }: {
           if (subjectId === null) return;
           await updateIdea(record.ideaId, { subjectId });
           await queryClient.invalidateQueries();
+        } else if (record.libraryItemId && subjectId !== null) {
+          // Already in the audio library: add that copy to the subject.
+          const item = await addAudioLibraryItemToSubject(record.libraryItemId, { subjectId });
+          const ideaId = item.subjects.find((link) => link.subjectId === subjectId)?.ideaId;
+          await recordingStore.patch(record.id, { subjectId, ideaId, destination: undefined, error: undefined });
+          await queryClient.invalidateQueries();
+          return;
         }
-        await recordingStore.patch(record.id, { subjectId, error: undefined, attempts: 0, nextRetryAt: 0 });
+        await recordingStore.patch(record.id, { subjectId, ...(subjectId !== null ? { destination: undefined } : {}), error: undefined, attempts: 0, nextRetryAt: 0 });
       });
       await refresh();
       setChanging(false);
@@ -352,17 +360,20 @@ function RecordingCard({ record, subjects, inboxIds }: {
           </div>
         )}
 
-        {inLibrary ? (
+        {inLibrary && !changing ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary/10 px-4 py-3">
             <p className="flex items-center gap-2 text-sm">
               <Headphones size={18} className="shrink-0 text-primary" />
               {record.status === "synced"
-                ? copy("Saved to your audio library only", "محفوظ في مكتبة الصوت فقط")
+                ? copy("Saved in your audio library", "محفوظ في مكتبة الصوت")
                 : copy("Will be saved to your audio library", "سيُحفظ في مكتبة الصوت")}
             </p>
-            <Button size="sm" variant="ghost" className="h-9 text-primary" asChild>
-              <Link href="/library">{copy("Open library", "افتح المكتبة")}<ArrowUpRight size={14} className="ms-1" /></Link>
-            </Button>
+            <span className="flex flex-wrap gap-1">
+              <Button size="sm" variant="outline" className="h-9 rounded-full" onClick={() => setChanging(true)}>{copy("Add to a subject", "أضف إلى موضوع")}</Button>
+              <Button size="sm" variant="ghost" className="h-9 text-primary" asChild>
+                <Link href="/library">{copy("Open library", "افتح المكتبة")}<ArrowUpRight size={14} className="ms-1" /></Link>
+              </Button>
+            </span>
           </div>
         ) : (
         <div className="mt-6">
@@ -639,7 +650,7 @@ export default function RecorderPage() {
             disabled={stage !== "idle"}
             onChange={(event) => setPrefs({ subjectId: event.target.value === "inbox" ? null : Number(event.target.value) })}
           >
-            <option value="inbox">{copy("Inbox · sort later", "الصندوق · صنّف لاحقًا")}</option>
+            <option value="inbox">{copy("Audio library · add to a subject later", "مكتبة الصوت · أضفها لموضوع لاحقًا")}</option>
             {choices.map((subject) => <option key={subject.id} value={subject.id}>{subject.title}</option>)}
           </OptionPill>
           <OptionPill

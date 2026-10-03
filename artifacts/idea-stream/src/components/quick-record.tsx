@@ -105,7 +105,7 @@ function LatestNote() {
     icon = <CheckCircle2 size={18} className="text-primary" />;
     title = inInbox
       ? copy("Saved as text in your Idea inbox", "حُفظت نصًا في صندوق الأفكار")
-      : copy(`Saved as text in “${subjectName}”`, `حُفظت نصًا في «${subjectName}»`);
+      : copy(`Saved in your audio library and as text in “${subjectName}”`, `حُفظت في مكتبة الصوت ونصًا في «${subjectName}»`);
   } else {
     icon = <TriangleAlert size={18} className="text-amber-600" />;
     title = record.transcriptionStatus
@@ -186,7 +186,7 @@ export function QuickRecord() {
               disabled={stage !== "idle"}
               onChange={(event) => setPrefs({ subjectId: event.target.value === "inbox" ? null : Number(event.target.value) })}
             >
-              <option value="inbox">{copy("Inbox · choose later", "الصندوق · اختر لاحقًا")}</option>
+              <option value="inbox">{copy("Audio library · add to a subject later", "مكتبة الصوت · أضفها لموضوع لاحقًا")}</option>
               {choices.map((subject) => <option key={subject.id} value={subject.id}>{subject.title}</option>)}
             </OptionPill>
             <OptionPill

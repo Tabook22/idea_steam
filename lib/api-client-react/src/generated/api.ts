@@ -25,6 +25,7 @@ import type {
   AudioJoinInput,
   AudioLibraryAdd,
   AudioLibraryItem,
+  AudioLibrarySubjectInput,
   AudioLibraryUpdate,
   AudioLibraryWords,
   Compilation,
@@ -2875,6 +2876,171 @@ export const useMixAudioLibraryItem = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getMixAudioLibraryItemMutationOptions(options));
+    }
+
+export const getAddAudioLibraryItemToSubjectUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/subjects`
+}
+
+/**
+ * @summary Add this recording to a subject (as a voice idea). Adding it again to the same subject does nothing.
+ */
+export const addAudioLibraryItemToSubject = async (itemId: number,
+    audioLibrarySubjectInput: AudioLibrarySubjectInput, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getAddAudioLibraryItemToSubjectUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(audioLibrarySubjectInput)
+  }
+);}
+
+
+
+
+
+export const getAddAudioLibraryItemToSubjectMutationKey = () => ['addAudioLibraryItemToSubject'] as const;
+
+export const getAddAudioLibraryItemToSubjectMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addAudioLibraryItemToSubject>>, TError,AddAudioLibraryItemToSubjectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addAudioLibraryItemToSubject>>, TError,AddAudioLibraryItemToSubjectMutationVariables, TContext> => {
+
+const mutationKey = getAddAudioLibraryItemToSubjectMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addAudioLibraryItemToSubject>>, AddAudioLibraryItemToSubjectMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  addAudioLibraryItemToSubject(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddAudioLibraryItemToSubjectMutationResult = NonNullable<Awaited<ReturnType<typeof addAudioLibraryItemToSubject>>>
+    export type AddAudioLibraryItemToSubjectMutationBody = BodyType<AudioLibrarySubjectInput>
+    export type AddAudioLibraryItemToSubjectMutationError = ErrorType<unknown>
+    export type AddAudioLibraryItemToSubjectMutationVariables = {itemId: number;data: BodyType<AudioLibrarySubjectInput>}
+
+    /**
+ * @summary Add this recording to a subject (as a voice idea). Adding it again to the same subject does nothing.
+ */
+export const useAddAudioLibraryItemToSubject = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addAudioLibraryItemToSubject>>, TError,AddAudioLibraryItemToSubjectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addAudioLibraryItemToSubject>>,
+        TError,
+        AddAudioLibraryItemToSubjectMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAddAudioLibraryItemToSubjectMutationOptions(options));
+    }
+
+export const getRemoveAudioLibraryItemFromSubjectUrl = (itemId: number,
+    subjectId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/subjects/${subjectId}/remove`
+}
+
+/**
+ * @summary Take this recording out of a subject; it stays in the audio library
+ */
+export const removeAudioLibraryItemFromSubject = async (itemId: number,
+    subjectId: number, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+  return customFetch<AudioLibraryItem>(getRemoveAudioLibraryItemFromSubjectUrl(itemId,subjectId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveAudioLibraryItemFromSubjectMutationKey = () => ['removeAudioLibraryItemFromSubject'] as const;
+
+export const getRemoveAudioLibraryItemFromSubjectMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAudioLibraryItemFromSubject>>, TError,RemoveAudioLibraryItemFromSubjectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeAudioLibraryItemFromSubject>>, TError,RemoveAudioLibraryItemFromSubjectMutationVariables, TContext> => {
+
+const mutationKey = getRemoveAudioLibraryItemFromSubjectMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeAudioLibraryItemFromSubject>>, RemoveAudioLibraryItemFromSubjectMutationVariables> = (props) => {
+          const {itemId,subjectId} = props ?? {};
+
+          return  removeAudioLibraryItemFromSubject(itemId,subjectId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveAudioLibraryItemFromSubjectMutationResult = NonNullable<Awaited<ReturnType<typeof removeAudioLibraryItemFromSubject>>>
+
+    export type RemoveAudioLibraryItemFromSubjectMutationError = ErrorType<unknown>
+    export type RemoveAudioLibraryItemFromSubjectMutationVariables = {itemId: number;subjectId: number}
+
+    /**
+ * @summary Take this recording out of a subject; it stays in the audio library
+ */
+export const useRemoveAudioLibraryItemFromSubject = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAudioLibraryItemFromSubject>>, TError,RemoveAudioLibraryItemFromSubjectMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeAudioLibraryItemFromSubject>>,
+        TError,
+        RemoveAudioLibraryItemFromSubjectMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveAudioLibraryItemFromSubjectMutationOptions(options));
     }
 
 export const getRemoveAudioLibraryMixUrl = (itemId: number,) => {

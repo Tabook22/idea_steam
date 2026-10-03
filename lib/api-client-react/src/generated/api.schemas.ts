@@ -142,6 +142,12 @@ export const AudioLibraryItemKind = {
   music: 'music',
 } as const;
 
+export interface AudioLibrarySubjectLink {
+  subjectId: number;
+  subjectTitle: string;
+  ideaId: number;
+}
+
 /**
  * How the song fills the time between start and end.
  */
@@ -233,6 +239,8 @@ export interface AudioLibraryItem {
   url: string;
   /** music = a song uploaded to use as background music. */
   kind: AudioLibraryItemKind;
+  /** The subjects this recording has been added to. */
+  subjects: AudioLibrarySubjectLink[];
   /** An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from). */
   bakedMusic: boolean;
   /** Background music added as a removable layer (null when there is none). */
@@ -453,6 +461,10 @@ export interface SoundLabPreviewInput {
   seconds?: number;
 }
 
+export interface AudioLibrarySubjectInput {
+  subjectId: number;
+}
+
 /**
  * same = put the music on this recording (removable later); copy = save the mix as a new recording.
  */
@@ -590,6 +602,10 @@ export interface IdeaAttachment {
      * @items.minimum 0
      */
   marks?: number[];
+  /** The audio library recording this audio came from (kept in step with it). */
+  libraryItemId?: number;
+  /** The idea's text will be filled in when the recording's transcript is ready. */
+  awaitingText?: boolean;
 }
 
 export interface Idea {

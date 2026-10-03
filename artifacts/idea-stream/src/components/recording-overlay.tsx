@@ -46,7 +46,7 @@ export function DrivingMode() {
   const limit = target?.limit ?? 900;
   const destination = target?.libraryOnly
     ? copy("Audio library", "مكتبة الصوت")
-    : subjects.find((subject) => subject.id === target?.subjectId)?.title ?? copy("Idea inbox", "صندوق الأفكار");
+    : subjects.find((subject) => subject.id === target?.subjectId)?.title ?? copy("Audio library", "مكتبة الصوت");
   const stopButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     stopButton.current?.focus();
@@ -98,9 +98,9 @@ export function DrivingMode() {
         </p>
         {target?.autoTranscribe !== false && (
           <p className="mt-6 max-w-sm rounded-2xl bg-white/5 px-4 py-2.5 text-sm text-white/70">
-            {target?.libraryOnly
-              ? copy("Saving to your audio library only. No subject.", "يُحفظ في مكتبة الصوت فقط، دون أي موضوع.")
-              : copy(`Your words will be saved as text in “${destination}”.`, `ستُحفظ كلماتك نصًا في «${destination}».`)}
+            {target?.libraryOnly || target?.subjectId == null
+              ? copy("Saving to your audio library. You can add it to any subject from there.", "يُحفظ في مكتبة الصوت، ويمكنك إضافته لأي موضوع من هناك.")
+              : copy(`Saving to your audio library, and as text in “${destination}”.`, `يُحفظ في مكتبة الصوت، ونصًا في «${destination}».`)}
           </p>
         )}
       </div>

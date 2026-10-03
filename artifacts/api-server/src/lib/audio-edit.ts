@@ -51,7 +51,11 @@ function run(command: string, args: string[], timeoutMs = 180_000) {
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code === 0) resolve(output);
-      else reject(new AudioEditError(422, "This audio couldn't be processed. Your recording is unchanged."));
+      else {
+        // Keep the tool's own explanation in the server log (never shown to users).
+        console.warn(`${command} failed (${code}):`, output.split("\n").filter((line) => /error|invalid|failed|no such|unable/i.test(line)).slice(-4).join(" | "));
+        reject(new AudioEditError(422, "This audio couldn't be processed. Your recording is unchanged."));
+      }
     });
   });
 }

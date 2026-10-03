@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   audioLibraryTable,
   db,
@@ -12,6 +12,8 @@ import {
   CreateLibraryRecordingBody,
   EditAudioLibraryItemBody,
   ExportAudioLibraryItemQueryParams,
+  AddAudioLibraryItemToSubjectBody,
+  RemoveAudioLibraryItemFromSubjectParams,
   MixAudioLibraryItemBody,
   PreviewMixAudioLibraryItemBody,
   PreviewSoundLabAudioLibraryItemBody,
@@ -70,9 +72,70 @@ const select = () =>
     .from(audioLibraryTable)
     .leftJoin(ideasTable, eq(ideasTable.id, audioLibraryTable.sourceIdeaId));
 
-function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; ideaId: number | null; subjectId: number | null }, bakedMusic = false) {
+type SubjectLink = { subjectId: number; subjectTitle: string; ideaId: number };
+
+/**
+ * The subjects each recording is in: ideas whose audio came from it (by library link), plays
+ * the same file, or is the idea it was first saved from.
+ */
+async function subjectLinks(items: AudioLibraryRecord[]) {
+  const links = new Map<number, SubjectLink[]>();
+  if (!items.length) return links;
+  const ideas = await db
+    .select({ id: ideasTable.id, subjectId: ideasTable.subjectId, subjectTitle: subjectsTable.title, attachments: ideasTable.attachments })
+    .from(ideasTable)
+    .innerJoin(subjectsTable, eq(subjectsTable.id, ideasTable.subjectId))
+    .where(sql`${ideasTable.attachments} @> '[{"type":"audio"}]'::jsonb`);
+  const byUrl = new Map<string, AudioLibraryRecord>(items.map((item) => [canonicalStorageUrl(item.url), item]));
+  const byId = new Map<number, AudioLibraryRecord>(items.map((item) => [item.id, item]));
+  const bySourceIdea = new Map<number, AudioLibraryRecord>(items.filter((item) => item.sourceIdeaId != null).map((item) => [item.sourceIdeaId!, item]));
+  for (const idea of ideas) {
+    const owners = new Set<AudioLibraryRecord>();
+    for (const attachment of idea.attachments) {
+      if (attachment.type !== "audio") continue;
+      const owner = (attachment.libraryItemId != null ? byId.get(attachment.libraryItemId) : undefined) ?? byUrl.get(canonicalStorageUrl(attachment.url));
+      if (owner) owners.add(owner);
+    }
+    const first = bySourceIdea.get(idea.id);
+    if (first) owners.add(first);
+    for (const owner of owners) {
+      const list = links.get(owner.id) ?? [];
+      if (!list.some((link) => link.ideaId === idea.id)) list.push({ subjectId: idea.subjectId, subjectTitle: idea.subjectTitle, ideaId: idea.id });
+      links.set(owner.id, list);
+    }
+  }
+  return links;
+}
+
+/**
+ * The library is the master copy: after its audio or text changes, the subject ideas made from
+ * it play the new version, and an idea still waiting for its text gets the transcript.
+ */
+async function relink(itemId: number) {
+  const [item] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, itemId));
+  if (!item) return;
+  const linked = await db.select().from(ideasTable).where(sql`${ideasTable.attachments} @> ${JSON.stringify([{ libraryItemId: itemId }])}::jsonb`);
+  for (const idea of linked) {
+    const waiting = idea.attachments.some((attachment) => attachment.libraryItemId === itemId && attachment.awaitingText);
+    const text = item.transcript?.trim();
+    const attachments = idea.attachments.map((attachment) => attachment.libraryItemId !== itemId ? attachment : {
+      ...attachment,
+      url: item.url,
+      ...(item.mimeType ? { mimeType: item.mimeType } : {}),
+      ...(item.durationSeconds != null ? { durationSeconds: item.durationSeconds } : {}),
+      marks: item.marks ?? [],
+      ...(text ? { transcript: text, awaitingText: undefined } : {}),
+    });
+    await db.update(ideasTable).set({ attachments, ...(waiting && text ? { content: text } : {}) }).where(eq(ideasTable.id, idea.id));
+  }
+}
+
+const relinkLater = (itemId: number) => { void relink(itemId).catch(() => { /* the library copy is saved; subjects catch up next change */ }); };
+
+function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; ideaId: number | null; subjectId: number | null }, bakedMusic = false, subjects: SubjectLink[] = []) {
   return {
     bakedMusic,
+    subjects,
     id: item.id,
     url: item.url,
     title: item.title,
@@ -97,8 +160,9 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
 router.get("/audio-library", async (_req, res): Promise<void> => {
   const rows = await select().orderBy(desc(audioLibraryTable.capturedAt), desc(audioLibraryTable.id));
   const items = rows.map((row) => row.item);
+  const links = await subjectLinks(items);
   // Old "· with music" copies whose voice can still be recovered can have their music removed.
-  res.json(rows.map((row) => serialize(row, !!findLegacySource(row.item, items))));
+  res.json(rows.map((row) => serialize(row, !!findLegacySource(row.item, items), links.get(row.item.id) ?? [])));
 });
 
 router.post("/audio-library", async (req, res): Promise<void> => {
@@ -169,7 +233,12 @@ router.post("/audio-library/:itemId/transcription", async (req, res): Promise<vo
   if (!params.success || !body.success) { res.status(400).json({ error: "Invalid recording or language" }); return; }
   const [current] = await select().where(eq(audioLibraryTable.id, params.data.itemId));
   if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
-  if (current.item.transcript) { res.json(serialize(current)); return; }
+  if (current.item.transcript) {
+    // Already has text: make sure the subjects it was added to have it too.
+    await relink(current.item.id).catch(() => {});
+    res.json(serialize(current));
+    return;
+  }
   if (!isStoredAudioUrl(current.item.url)) {
     res.status(400).json({ error: "Only recordings saved in this app can be transcribed" });
     return;
@@ -178,6 +247,7 @@ router.post("/audio-library/:itemId/transcription", async (req, res): Promise<vo
     const text = await transcribeStoredAudio(canonicalStorageUrl(current.item.url), body.data.language ?? "auto");
     if (!text) { res.status(422).json({ error: "No speech was detected. Your audio is still saved." }); return; }
     await db.update(audioLibraryTable).set({ transcript: text }).where(eq(audioLibraryTable.id, current.item.id));
+    await relink(current.item.id).catch(() => {});
     const [saved] = await select().where(eq(audioLibraryTable.id, current.item.id));
     res.json(serialize(saved ?? current));
   } catch (error) {
@@ -194,6 +264,7 @@ function retranscribe(id: number, url: string) {
     await db.update(audioLibraryTable).set({ transcript: text })
       // Only if the item still plays this audio (a newer edit wins).
       .where(and(eq(audioLibraryTable.id, id), eq(audioLibraryTable.url, url)));
+    await relink(id);
   })().catch(() => { /* The audio is saved; the text can be added later. */ });
 }
 
@@ -275,6 +346,7 @@ router.post("/audio-library/:itemId/edit", async (req, res): Promise<void> => {
         .returning({ id: audioLibraryTable.id });
       if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please reopen it." }); return; }
       retranscribe(current.id, layered.url);
+      relinkLater(current.id);
       const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
       res.json(serialize(saved));
       return;
@@ -296,6 +368,7 @@ router.post("/audio-library/:itemId/edit", async (req, res): Promise<void> => {
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please reopen it." }); return; }
     retranscribe(current.id, edited.url);
+    relinkLater(current.id);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
     res.json(serialize(saved));
   } catch (error) {
@@ -348,6 +421,7 @@ router.post("/audio-library/:itemId/enhance", async (req, res): Promise<void> =>
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
+    relinkLater(current.id);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
     res.json(serialize(saved));
   } catch (error) {
@@ -376,6 +450,7 @@ router.post("/audio-library/:itemId/sound-lab", async (req, res): Promise<void> 
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
+    relinkLater(current.id);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
     res.json(serialize(saved));
   } catch (error) {
@@ -451,6 +526,7 @@ router.post("/audio-library/:itemId/mix", async (req, res): Promise<void> => {
       }).where(and(eq(audioLibraryTable.id, item.id), eq(audioLibraryTable.url, item.url)))
         .returning({ id: audioLibraryTable.id });
       if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
+      relinkLater(item.id);
       const [saved] = await select().where(eq(audioLibraryTable.id, item.id));
       res.json(serialize(saved));
       return;
@@ -494,6 +570,7 @@ router.post("/audio-library/:itemId/mix/remove", async (req, res): Promise<void>
         title: ((name) => (name && name !== snippet(current.transcript) ? name : null))(current.title?.replace(LEGACY_SUFFIX, "").trim()),
         words: null, chapters: null, summary: null,
       }).where(eq(audioLibraryTable.id, current.id));
+      relinkLater(current.id);
       const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
       res.json(serialize(saved));
     } catch (error) {
@@ -518,6 +595,7 @@ router.post("/audio-library/:itemId/mix/remove", async (req, res): Promise<void>
     }).where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)))
       .returning({ id: audioLibraryTable.id });
     if (!updated) { res.status(409).json({ error: "This recording changed meanwhile. Please try again." }); return; }
+    relinkLater(current.id);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
     res.json(serialize(saved));
   } catch (error) {
@@ -539,6 +617,71 @@ router.post("/audio-library/:itemId/mix/preview", async (req, res): Promise<void
   } catch (error) {
     if (!res.headersSent) editFailure(res, error);
   }
+});
+
+const audioExtension = (mime: string | null) => (mime?.includes("mp4") ? "m4a" : mime?.includes("mpeg") ? "mp3" : mime?.includes("wav") ? "wav" : "webm");
+
+router.post("/audio-library/:itemId/subjects", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  const body = AddAudioLibraryItemToSubjectBody.safeParse(req.body ?? {});
+  if (!params.success || !body.success) { res.status(400).json({ error: "Choose a subject" }); return; }
+  const [row] = await select().where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!row) { res.status(404).json({ error: "Not in the library" }); return; }
+  const [subject] = await db.select({ id: subjectsTable.id, title: subjectsTable.title }).from(subjectsTable).where(eq(subjectsTable.id, body.data.subjectId));
+  if (!subject) { res.status(404).json({ error: "That subject no longer exists." }); return; }
+  const item = row.item;
+  let links = (await subjectLinks([item])).get(item.id) ?? [];
+  if (!links.some((link) => link.subjectId === subject.id)) {
+    const text = item.transcript?.trim();
+    const [idea] = await db.insert(ideasTable).values({
+      subjectId: subject.id,
+      content: text || item.title || "Voice note",
+      source: "voice",
+      attachments: [{
+        type: "audio",
+        url: item.url,
+        name: `${(item.title || "voice-note").replace(/[\\/:*?"<>|]+/g, " ").slice(0, 60)}.${audioExtension(item.mimeType)}`,
+        ...(item.mimeType ? { mimeType: item.mimeType } : {}),
+        ...(text ? { transcript: text } : { awaitingText: true }),
+        ...(item.durationSeconds != null ? { durationSeconds: item.durationSeconds } : {}),
+        ...(item.marks?.length ? { marks: item.marks } : {}),
+        libraryItemId: item.id,
+      }],
+    }).returning();
+    await db.update(subjectsTable).set({ updatedAt: new Date() }).where(eq(subjectsTable.id, subject.id));
+    if (item.sourceIdeaId == null) {
+      await db.update(audioLibraryTable).set({ sourceIdeaId: idea.id, sourceSubjectTitle: subject.title }).where(eq(audioLibraryTable.id, item.id));
+    }
+    links = [...links, { subjectId: subject.id, subjectTitle: subject.title, ideaId: idea.id }];
+  }
+  const [saved] = await select().where(eq(audioLibraryTable.id, item.id));
+  res.json(serialize(saved, false, links));
+});
+
+router.post("/audio-library/:itemId/subjects/:subjectId/remove", async (req, res): Promise<void> => {
+  const params = RemoveAudioLibraryItemFromSubjectParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Invalid request" }); return; }
+  const [row] = await select().where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!row) { res.status(404).json({ error: "Not in the library" }); return; }
+  const item = row.item;
+  const links = (await subjectLinks([item])).get(item.id) ?? [];
+  const removing = links.filter((link) => link.subjectId === params.data.subjectId);
+  for (const link of removing) {
+    const [idea] = await db.select().from(ideasTable).where(eq(ideasTable.id, link.ideaId));
+    if (!idea) continue;
+    const mine = (attachment: (typeof idea.attachments)[number]) =>
+      attachment.type === "audio" && (attachment.libraryItemId === item.id || canonicalStorageUrl(attachment.url) === canonicalStorageUrl(item.url));
+    const rest = idea.attachments.filter((attachment) => !mine(attachment));
+    // An idea that was just this recording goes; one with other material keeps it.
+    if (!rest.length || idea.id === item.sourceIdeaId && rest.length === idea.attachments.length) await db.delete(ideasTable).where(eq(ideasTable.id, idea.id));
+    else await db.update(ideasTable).set({ attachments: rest }).where(eq(ideasTable.id, idea.id));
+  }
+  if (removing.some((link) => link.ideaId === item.sourceIdeaId)) {
+    const next = links.find((link) => link.subjectId !== params.data.subjectId);
+    await db.update(audioLibraryTable).set({ sourceIdeaId: next?.ideaId ?? null, sourceSubjectTitle: next?.subjectTitle ?? null }).where(eq(audioLibraryTable.id, item.id));
+  }
+  const [saved] = await select().where(eq(audioLibraryTable.id, item.id));
+  res.json(serialize(saved, false, links.filter((link) => link.subjectId !== params.data.subjectId)));
 });
 
 router.post("/audio-library/:itemId/chapters", async (req, res): Promise<void> => {
@@ -573,6 +716,7 @@ router.post("/audio-library/:itemId/chapters", async (req, res): Promise<void> =
     const chapters = current.mix ? shiftChapters(parsed.chapters, current.mix.pre, duration) : parsed.chapters;
     await db.update(audioLibraryTable).set({ chapters, summary: parsed.summary || null })
       .where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)));
+    relinkLater(current.id);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
     res.json(serialize(saved));
   } catch (error) {
@@ -621,6 +765,7 @@ router.post("/audio-library/:itemId/restore", async (req, res): Promise<void> =>
         marks: current.originalMarks ?? current.marks ?? [], originalMarks: null, chapters: null, summary: null, mix: null })
       .where(eq(audioLibraryTable.id, current.id));
     retranscribe(current.id, current.originalUrl);
+    relinkLater(current.id);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.id));
     res.json(serialize(saved));
   } catch (error) {

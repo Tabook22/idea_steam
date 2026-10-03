@@ -271,7 +271,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           transcriptionLanguage: options?.language || "auto",
           autoTranscribe: options?.autoTranscribe ?? true,
           subjectId: options?.libraryOnly ? null : subjectId,
-          ...(options?.libraryOnly ? { destination: "library" as const } : {}),
+          // Without a subject it stays in the audio library (add it to a subject later from there).
+          ...(options?.libraryOnly || subjectId === null ? { destination: "library" as const } : {}),
           attempts: 0,
           nextRetryAt: 0,
         });

@@ -11,6 +11,7 @@ import {
   ArrowDown,
   ArrowUp,
   BookOpen,
+  BookPlus,
   MoreVertical,
   ListMusic,
   Music2,
@@ -49,6 +50,7 @@ import { ExportDialog } from "@/components/export-dialog";
 import { SoundLab } from "@/components/sound-lab";
 import { MusicMixer } from "@/components/music-mixer";
 import { MusicTracks } from "@/components/music-track";
+import { AddToSubject } from "@/components/add-to-subject";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { usePressToTalk } from "@/components/press-to-talk";
 import { useRecorderPrefs } from "@/lib/recorder-prefs";
@@ -93,8 +95,8 @@ const longClock = (seconds: number, arabic = false) => {
 const quickMatch = (item: AudioLibraryItem, quick: Quick) =>
   quick === "marked" ? item.marks.length > 0
   : quick === "edited" ? item.edited
-  : quick === "notebooks" ? !!item.sourceSubjectTitle
-  : quick === "library" ? !item.sourceSubjectTitle
+  : quick === "notebooks" ? item.subjects.length > 0
+  : quick === "library" ? item.subjects.length === 0
   : quick === "music" ? item.kind === "music"
   : true;
 
@@ -130,6 +132,7 @@ export default function LibraryPage() {
   const [restoring, setRestoring] = useState<AudioLibraryItem | null>(null);
   const [exporting, setExporting] = useState<AudioLibraryItem | null>(null);
   const [mixing, setMixing] = useState<AudioLibraryItem | null>(null);
+  const [filing, setFiling] = useState<AudioLibraryItem | null>(null);
   /** Remove the music layer (asks first). */
   const [unmixing, setUnmixing] = useState<AudioLibraryItem | null>(null);
   const [selecting, setSelecting] = useState(false);
@@ -157,7 +160,7 @@ export default function LibraryPage() {
   const visible = useMemo(() => {
     const needle = filter.trim().toLocaleLowerCase();
     const list = items.filter((item) => !hidden.has(item.id) && quickMatch(item, quick) && (!needle ||
-      [item.title, item.transcript, item.sourceSubjectTitle].some((text) => text?.toLocaleLowerCase().includes(needle))));
+      [item.title, item.transcript, ...item.subjects.map((link) => link.subjectTitle)].some((text) => text?.toLocaleLowerCase().includes(needle))));
     const time = (item: AudioLibraryItem) => Date.parse(item.capturedAt);
     const len = (item: AudioLibraryItem) => item.durationSeconds ?? -1;
     return [...list].sort((a, b) =>
@@ -176,8 +179,8 @@ export default function LibraryPage() {
     ["all", copy("All", "الكل")],
     ["marked", copy("Bookmarked", "بعلامات")],
     ["edited", copy("Edited", "معدّلة")],
-    ["notebooks", copy("From notebooks", "من الدفاتر")],
-    ["library", copy("Library only", "المكتبة فقط")],
+    ["notebooks", copy("In subjects", "في المواضيع")],
+    ["library", copy("Not in a subject", "ليست في موضوع")],
     ["music", copy("Music", "موسيقى")],
   ] as const).map(([id, label]) => [id, label, kept.filter((item) => quickMatch(item, id)).length] as [Quick, string, number])
     .filter(([id, , count]) => id === "all" || id === quick || count > 0);
@@ -634,11 +637,12 @@ export default function LibraryPage() {
                             {snippet && !open && <span dir="auto" className="mt-0.5 block truncate text-xs leading-5 text-muted-foreground">{snippet}</span>}
                             <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-4">
                               <span className="text-muted-foreground">{grouped ? timeFormat.format(captured) : shortDayFormat.format(captured)}</span>
-                              {item.sourceSubjectTitle && (
-                                <span className="inline-flex max-w-[11rem] items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
-                                  <BookOpen size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.sourceSubjectTitle}</span>
+                              {item.subjects.slice(0, 2).map((link) => (
+                                <span key={link.ideaId} className="inline-flex max-w-[11rem] items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
+                                  <BookOpen size={11} className="shrink-0" /><span dir="auto" className="truncate">{link.subjectTitle}</span>
                                 </span>
-                              )}
+                              ))}
+                              {item.subjects.length > 2 && <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">+{item.subjects.length - 2}</span>}
                               {(item.mix || item.bakedMusic) && (
                                 <span className="inline-flex max-w-[10rem] items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900 dark:bg-violet-900/40 dark:text-violet-100" title={copy("Background music", "موسيقى خلفية")}>
                                   <Music2 size={11} className="shrink-0" /><span dir="auto" className="truncate">{item.mix?.musicTitle || copy("Music", "موسيقى")}</span>
@@ -669,6 +673,7 @@ export default function LibraryPage() {
                               <MoreVertical size={17} />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuItem onSelect={() => setFiling(item)} className="font-medium"><BookPlus size={15} />{item.subjects.length ? copy("Add to / move between subjects…", "أضف إلى موضوع أو انقل…") : copy("Add to a subject…", "أضف إلى موضوع…")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => setExporting(item)}><Download size={15} />{copy("Download as MP3, WAV…", "تنزيل MP3، WAV…")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => openTool(item, "edit")}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
                               {(item.mix || item.bakedMusic) && (
@@ -682,11 +687,11 @@ export default function LibraryPage() {
                               <DropdownMenuItem onSelect={() => openTool(item, "lab")}><Wand2 size={15} />{copy("Sound lab: improve sound", "مختبر الصوت: تحسين")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => { setDraftTitle(item.title ?? ""); setRenaming(item.id); }}><Pencil size={15} />{copy("Rename", "إعادة تسمية")}</DropdownMenuItem>
                               {item.edited && <DropdownMenuItem onSelect={() => setRestoring(item)}><RotateCcw size={15} />{copy("Restore original", "استعادة الأصل")}</DropdownMenuItem>}
-                              {item.sourceSubjectId && item.sourceIdeaId && (
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/subjects/${item.sourceSubjectId}#idea-${item.sourceIdeaId}`}><ArrowUpRight size={15} /><span dir="auto" className="truncate">{copy("Open in", "افتح في")} {item.sourceSubjectTitle}</span></Link>
+                              {item.subjects.map((link) => (
+                                <DropdownMenuItem key={link.ideaId} asChild>
+                                  <Link href={`/subjects/${link.subjectId}#idea-${link.ideaId}`}><ArrowUpRight size={15} /><span dir="auto" className="truncate">{copy("Open in", "افتح في")} {link.subjectTitle}</span></Link>
                                 </DropdownMenuItem>
-                              )}
+                              ))}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onSelect={() => setConfirm(item)} className="text-destructive focus:bg-destructive/10 focus:text-destructive"><Trash2 size={15} />{copy("Remove from library", "إزالة من المكتبة")}</DropdownMenuItem>
                             </DropdownMenuContent>
@@ -811,13 +816,18 @@ export default function LibraryPage() {
                             </div>
                           )}
 
-                          {item.sourceSubjectId && item.sourceIdeaId ? (
-                            <Link href={`/subjects/${item.sourceSubjectId}#idea-${item.sourceIdeaId}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
-                              <BookOpen size={13} />{copy("Open in", "افتح في")} <span dir="auto">{item.sourceSubjectTitle}</span><ArrowUpRight size={12} className="rtl:-scale-x-100" />
-                            </Link>
-                          ) : item.sourceSubjectTitle ? (
-                            <p className="text-xs text-muted-foreground">{copy("Original idea deleted; this copy is kept.", "حُذفت الفكرة الأصلية؛ هذه النسخة محفوظة.")}</p>
-                          ) : null}
+                          <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-card px-3 py-2.5">
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{copy("Subjects", "المواضيع")}</span>
+                            {item.subjects.length ? item.subjects.map((link) => (
+                              <Link key={link.ideaId} href={`/subjects/${link.subjectId}#idea-${link.ideaId}`}
+                                className="inline-flex max-w-[14rem] items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground hover:bg-secondary/80">
+                                <BookOpen size={12} className="shrink-0" /><span dir="auto" className="truncate">{link.subjectTitle}</span><ArrowUpRight size={11} className="shrink-0 rtl:-scale-x-100" />
+                              </Link>
+                            )) : <span className="text-xs text-muted-foreground">{copy("Not in a subject yet", "ليست في موضوع بعد")}</span>}
+                            <Button size="sm" variant="outline" className="ms-auto h-8 rounded-full" onClick={() => setFiling(item)}>
+                              <BookPlus size={13} className="me-1.5" />{item.subjects.length ? copy("Add / move", "أضف / انقل") : copy("Add to a subject", "أضف إلى موضوع")}
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </li>
@@ -915,6 +925,7 @@ export default function LibraryPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {filing && <AddToSubject item={items.find((other) => other.id === filing.id) ?? filing} title={displayTitle(filing, fallbackTitle)} onClose={() => setFiling(null)} />}
       {mixing && <MusicMixer key={`${mixing.id}-${items.find((other) => other.id === mixing.id)?.url}`} item={items.find((other) => other.id === mixing.id) ?? mixing} title={displayTitle(mixing, fallbackTitle)} items={items} onClose={() => setMixing(null)} />}
       {improving && <SoundLab item={items.find((other) => other.id === improving.id) ?? improving} title={displayTitle(improving, fallbackTitle)} onClose={() => setImproving(null)} />}
 
@@ -958,8 +969,9 @@ export default function LibraryPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{copy("Remove from the audio library?", "إزالة من مكتبة الصوت؟")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirm?.sourceSubjectId
-                ? copy(`Only this library copy is removed. The idea in “${confirm.sourceSubjectTitle}” keeps its recording.`, `تُزال نسخة المكتبة فقط. الفكرة في «${confirm.sourceSubjectTitle}» تحتفظ بتسجيلها.`)
+              {confirm?.subjects.length
+                ? copy(`Only this library copy is removed. ${confirm.subjects.map((link) => `“${link.subjectTitle}”`).join(", ")} keep${confirm.subjects.length > 1 ? "" : "s"} the recording.`,
+                  `تُزال نسخة المكتبة فقط. ${confirm.subjects.map((link) => `«${link.subjectTitle}»`).join("، ")} تحتفظ بالتسجيل.`)
                 : copy("Only this library copy is removed.", "تُزال نسخة المكتبة فقط.")}
             </AlertDialogDescription>
           </AlertDialogHeader>

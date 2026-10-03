@@ -628,6 +628,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/subjects:
+    post:
+      operationId: addAudioLibraryItemToSubject
+      tags: [audio-library]
+      summary: Add this recording to a subject (as a voice idea). Adding it again to the same subject does nothing.
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AudioLibrarySubjectInput"
+      responses:
+        "200":
+          description: The recording, with the subjects it is in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/subjects/{subjectId}/remove:
+    post:
+      operationId: removeAudioLibraryItemFromSubject
+      tags: [audio-library]
+      summary: Take this recording out of a subject; it stays in the audio library
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The recording, with the subjects it is still in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
   /audio-library/{itemId}/mix/remove:
     post:
       operationId: removeAudioLibraryMix
@@ -980,7 +1019,7 @@ components:
             $ref: "#/components/schemas/SearchDraftHit"
     AudioLibraryItem:
       type: object
-      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, kind, mix, bakedMusic, capturedAt, createdAt]
+      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, kind, mix, bakedMusic, subjects, capturedAt, createdAt]
       properties:
         id:
           type: integer
@@ -990,6 +1029,11 @@ components:
           type: string
           enum: [recording, music]
           description: music = a song uploaded to use as background music.
+        subjects:
+          type: array
+          description: The subjects this recording has been added to.
+          items:
+            $ref: "#/components/schemas/AudioLibrarySubjectLink"
         bakedMusic:
           type: boolean
           description: An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).
@@ -1202,6 +1246,18 @@ components:
         makeRoom:
           type: boolean
           description: Dip the music's middle frequencies so words stay clear.
+    AudioLibrarySubjectLink:
+      type: object
+      required: [subjectId, subjectTitle, ideaId]
+      properties:
+        subjectId: { type: integer }
+        subjectTitle: { type: string }
+        ideaId: { type: integer }
+    AudioLibrarySubjectInput:
+      type: object
+      required: [subjectId]
+      properties:
+        subjectId: { type: integer }
     AudioMixLayer:
       type: object
       required: [voiceUrl, voiceDuration, musicItemId, musicUrl, musicTitle, pre, settings]
@@ -1393,6 +1449,12 @@ components:
           items:
             type: number
             minimum: 0
+        libraryItemId:
+          type: integer
+          description: The audio library recording this audio came from (kept in step with it).
+        awaitingText:
+          type: boolean
+          description: The idea's text will be filled in when the recording's transcript is ready.
     Idea:
       type: object
       required: [id, subjectId, content, source, attachments, createdAt]

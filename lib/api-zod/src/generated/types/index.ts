@@ -13,6 +13,8 @@ export * from './audioJoinInput';
 export * from './audioLibraryAdd';
 export * from './audioLibraryItem';
 export * from './audioLibraryItemKind';
+export * from './audioLibrarySubjectInput';
+export * from './audioLibrarySubjectLink';
 export * from './audioLibraryUpdate';
 export * from './audioLibraryWords';
 export * from './audioMixLayer';

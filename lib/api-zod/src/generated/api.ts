@@ -91,7 +91,9 @@ export const GetSubjectResponse = zod.object({
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
   "durationSeconds": zod.number().int().min(getSubjectResponseTwoIdeasItemAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
-  "marks": zod.array(zod.number().min(getSubjectResponseTwoIdeasItemAttachmentsItemMarksItemMin)).max(getSubjectResponseTwoIdeasItemAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
+  "marks": zod.array(zod.number().min(getSubjectResponseTwoIdeasItemAttachmentsItemMarksItemMin)).max(getSubjectResponseTwoIdeasItemAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.'),
+  "libraryItemId": zod.number().int().optional().describe('The audio library recording this audio came from (kept in step with it).'),
+  "awaitingText": zod.boolean().optional().describe('The idea\'s text will be filled in when the recording\'s transcript is ready.')
 })),
   "createdAt": zod.coerce.date()
 }))
@@ -165,7 +167,9 @@ export const CreateIdeaBody = zod.object({
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
   "durationSeconds": zod.number().int().min(createIdeaBodyAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
-  "marks": zod.array(zod.number().min(createIdeaBodyAttachmentsItemMarksItemMin)).max(createIdeaBodyAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
+  "marks": zod.array(zod.number().min(createIdeaBodyAttachmentsItemMarksItemMin)).max(createIdeaBodyAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.'),
+  "libraryItemId": zod.number().int().optional().describe('The audio library recording this audio came from (kept in step with it).'),
+  "awaitingText": zod.boolean().optional().describe('The idea\'s text will be filled in when the recording\'s transcript is ready.')
 })).default(createIdeaBodyAttachmentsDefault)
 })
 
@@ -193,7 +197,9 @@ export const CreateIdeaResponse = zod.object({
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
   "durationSeconds": zod.number().int().min(createIdeaResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
-  "marks": zod.array(zod.number().min(createIdeaResponseAttachmentsItemMarksItemMin)).max(createIdeaResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
+  "marks": zod.array(zod.number().min(createIdeaResponseAttachmentsItemMarksItemMin)).max(createIdeaResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.'),
+  "libraryItemId": zod.number().int().optional().describe('The audio library recording this audio came from (kept in step with it).'),
+  "awaitingText": zod.boolean().optional().describe('The idea\'s text will be filled in when the recording\'s transcript is ready.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -230,7 +236,9 @@ export const ListIdeasResponseItem = zod.object({
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
   "durationSeconds": zod.number().int().min(listIdeasResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
-  "marks": zod.array(zod.number().min(listIdeasResponseAttachmentsItemMarksItemMin)).max(listIdeasResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
+  "marks": zod.array(zod.number().min(listIdeasResponseAttachmentsItemMarksItemMin)).max(listIdeasResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.'),
+  "libraryItemId": zod.number().int().optional().describe('The audio library recording this audio came from (kept in step with it).'),
+  "awaitingText": zod.boolean().optional().describe('The idea\'s text will be filled in when the recording\'s transcript is ready.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -268,7 +276,9 @@ export const UpdateIdeaBody = zod.object({
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
   "durationSeconds": zod.number().int().min(updateIdeaBodyAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
-  "marks": zod.array(zod.number().min(updateIdeaBodyAttachmentsItemMarksItemMin)).max(updateIdeaBodyAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
+  "marks": zod.array(zod.number().min(updateIdeaBodyAttachmentsItemMarksItemMin)).max(updateIdeaBodyAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.'),
+  "libraryItemId": zod.number().int().optional().describe('The audio library recording this audio came from (kept in step with it).'),
+  "awaitingText": zod.boolean().optional().describe('The idea\'s text will be filled in when the recording\'s transcript is ready.')
 })).optional()
 })
 
@@ -296,7 +306,9 @@ export const UpdateIdeaResponse = zod.object({
   "transcript": zod.string().optional(),
   "extractedText": zod.string().optional(),
   "durationSeconds": zod.number().int().min(updateIdeaResponseAttachmentsItemDurationSecondsMin).optional().describe('Length of an audio recording, when known.'),
-  "marks": zod.array(zod.number().min(updateIdeaResponseAttachmentsItemMarksItemMin)).max(updateIdeaResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.')
+  "marks": zod.array(zod.number().min(updateIdeaResponseAttachmentsItemMarksItemMin)).max(updateIdeaResponseAttachmentsItemMarksMax).optional().describe('Seconds where "Mark" was tapped while recording.'),
+  "libraryItemId": zod.number().int().optional().describe('The audio library recording this audio came from (kept in step with it).'),
+  "awaitingText": zod.boolean().optional().describe('The idea\'s text will be filled in when the recording\'s transcript is ready.')
 })),
   "createdAt": zod.coerce.date()
 })
@@ -584,6 +596,11 @@ export const ListAudioLibraryResponseItem = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -668,6 +685,11 @@ export const AddToAudioLibraryResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -764,6 +786,11 @@ export const CreateLibraryRecordingResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -847,6 +874,11 @@ export const TranscribeLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -932,6 +964,11 @@ export const JoinAudioLibraryItemsResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -1024,6 +1061,11 @@ export const EditAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -1132,6 +1174,11 @@ export const EnhanceAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -1281,6 +1328,11 @@ export const SoundLabAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -1496,6 +1548,11 @@ export const MixAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -1514,6 +1571,175 @@ export const MixAudioLibraryItemResponse = zod.object({
   "fadeIn": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsFadeInMin).max(mixAudioLibraryItemResponseMixTwoSettingsFadeInMax),
   "fadeOut": zod.number().min(mixAudioLibraryItemResponseMixTwoSettingsFadeOutMin).max(mixAudioLibraryItemResponseMixTwoSettingsFadeOutMax),
   "duck": zod.number().int().min(mixAudioLibraryItemResponseMixTwoSettingsDuckMin).max(mixAudioLibraryItemResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Add this recording to a subject (as a voice idea). Adding it again to the same subject does nothing.
+ */
+export const AddAudioLibraryItemToSubjectParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const AddAudioLibraryItemToSubjectBody = zod.object({
+  "subjectId": zod.number().int()
+})
+
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsMusicStartMin = 0;
+
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsRegionStartMin = -60;
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsRegionEndMin = -59;
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsMusicVolumeMin = -40;
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsFadeInMin = 0;
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsFadeInMax = 15;
+
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsFadeOutMin = 0;
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsFadeOutMax = 15;
+
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsDuckMin = 0;
+export const addAudioLibraryItemToSubjectResponseMixTwoSettingsDuckMax = 3;
+
+
+
+export const AddAudioLibraryItemToSubjectResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
+  "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(addAudioLibraryItemToSubjectResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(addAudioLibraryItemToSubjectResponseMixTwoSettingsRegionStartMin).max(addAudioLibraryItemToSubjectResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(addAudioLibraryItemToSubjectResponseMixTwoSettingsRegionEndMin).max(addAudioLibraryItemToSubjectResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(addAudioLibraryItemToSubjectResponseMixTwoSettingsMusicVolumeMin).max(addAudioLibraryItemToSubjectResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(addAudioLibraryItemToSubjectResponseMixTwoSettingsVoiceVolumeMin).max(addAudioLibraryItemToSubjectResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(addAudioLibraryItemToSubjectResponseMixTwoSettingsFadeInMin).max(addAudioLibraryItemToSubjectResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(addAudioLibraryItemToSubjectResponseMixTwoSettingsFadeOutMin).max(addAudioLibraryItemToSubjectResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(addAudioLibraryItemToSubjectResponseMixTwoSettingsDuckMin).max(addAudioLibraryItemToSubjectResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Take this recording out of a subject; it stays in the audio library
+ */
+export const RemoveAudioLibraryItemFromSubjectParams = zod.object({
+  "itemId": zod.coerce.number().int(),
+  "subjectId": zod.coerce.number().int()
+})
+
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsMusicStartMin = 0;
+
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsRegionStartMin = -60;
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsRegionEndMin = -59;
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsMusicVolumeMin = -40;
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsFadeInMin = 0;
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsFadeInMax = 15;
+
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsFadeOutMin = 0;
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsFadeOutMax = 15;
+
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsDuckMin = 0;
+export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsDuckMax = 3;
+
+
+
+export const RemoveAudioLibraryItemFromSubjectResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
+  "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsRegionStartMin).max(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsRegionEndMin).max(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsMusicVolumeMin).max(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsVoiceVolumeMin).max(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsFadeInMin).max(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsFadeOutMin).max(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsDuckMin).max(removeAudioLibraryItemFromSubjectResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
   "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
 })
 })]).describe('Background music added as a removable layer (null when there is none).'),
@@ -1573,6 +1799,11 @@ export const RemoveAudioLibraryMixResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -1709,6 +1940,11 @@ export const MakeAudioLibraryChaptersResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -1803,6 +2039,11 @@ export const RestoreAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
@@ -1892,6 +2133,11 @@ export const UpdateAudioLibraryItemResponse = zod.object({
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
   "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
   "mix": zod.union([zod.null(),zod.object({
   "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),

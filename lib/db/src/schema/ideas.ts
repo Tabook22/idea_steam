@@ -29,6 +29,10 @@ export const ideasTable = pgTable("ideas", {
       extractedText?: string;
       durationSeconds?: number;
       marks?: number[];
+      /** The audio library recording this audio came from (kept in step with it). */
+      libraryItemId?: number;
+      /** The idea text is filled in when the recording's transcript is ready. */
+      awaitingText?: boolean;
     }>>()
     .notNull()
     .default([]),

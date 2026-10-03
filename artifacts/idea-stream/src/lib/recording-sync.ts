@@ -1,10 +1,7 @@
 import { appPath, uploadCredentials } from "./app-path.ts";
-import type { AudioLibraryItem, Idea, Subject } from "@workspace/api-client-react";
+import type { AudioLibraryItem, Idea } from "@workspace/api-client-react";
 import { RecordingStore } from "./recording-store.ts";
-import {
-  retryDelay,
-  spokenSubject,
-} from "./recording-utils.ts";
+import { retryDelay } from "./recording-utils.ts";
 
 type SyncOptions = {
   fetcher?: typeof fetch;
@@ -92,62 +89,42 @@ export async function syncRecording(
       };
       await store.patch(id, { uploadedAudio: record.uploadedAudio });
     }
-    if (record.destination === "library") {
-      // Library-only recordings skip subjects entirely.
-      const item = await json<AudioLibraryItem>(fetcher, "/api/audio-library/recordings", {
-        url: record.uploadedAudio.url,
-        clientCaptureId: record.id,
-        mimeType: record.uploadedAudio.mimeType,
-        capturedAt: record.capturedAt,
-        ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}),
-        ...(record.marks?.length ? { marks: record.marks } : {}),
-      });
-      await store.patch(id, { status: "synced", libraryItemId: item.id, error: undefined, nextRetryAt: 0, attempts: 0 });
-      changed?.();
-      return item;
-    }
-    const subjects = await json<Subject[]>(fetcher, "/api/subjects");
-    let subjectId = record.subjectId;
-    if (subjectId === null && record.transcript)
-      subjectId = spokenSubject(record.transcript, subjects);
-    if (subjectId === null) {
-      const inbox =
-        subjects.find((subject) =>
-          ["Idea inbox", "صندوق الأفكار"].includes(subject.title),
-        ) ??
-        (await json<Subject>(fetcher, "/api/subjects", {
-          title: record.language === "ar" ? "صندوق الأفكار" : "Idea inbox",
-          intro:
-            record.language === "ar"
-              ? "سجّل الآن ونظّم لاحقًا."
-              : "Capture now. Organize later.",
-        }));
-      subjectId = inbox.id;
-    }
-    if (
-      record.subjectId !== null &&
-      !subjects.some((subject) => subject.id === record!.subjectId)
-    )
-      throw new Error(
-        "The selected notebook no longer exists. Choose another notebook; your audio remains saved on this device.",
-      );
-    const idea = await json<Idea>(fetcher, `/api/subjects/${subjectId}/ideas`, {
+    // Every recording is saved to the audio library first; that copy is the master.
+    let item = record.libraryItemId ? null : await json<AudioLibraryItem>(fetcher, "/api/audio-library/recordings", {
+      url: record.uploadedAudio.url,
       clientCaptureId: record.id,
+      mimeType: record.uploadedAudio.mimeType,
       capturedAt: record.capturedAt,
-      content: record.transcript || record.title,
-      source: "voice",
-      attachments: [{ type: "audio", ...record.uploadedAudio, ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}), ...(record.marks?.length ? { marks: record.marks } : {}) }],
+      ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}),
+      ...(record.marks?.length ? { marks: record.marks } : {}),
     });
+    const libraryItemId = record.libraryItemId ?? item!.id;
+    await store.patch(id, { libraryItemId });
+    // Then, if a subject was chosen while recording, it goes there too.
+    let ideaId = record.ideaId;
+    let subjectId = record.subjectId;
+    if (subjectId !== null && !ideaId) {
+      try {
+        item = await json<AudioLibraryItem>(fetcher, `/api/audio-library/${libraryItemId}/subjects`, { subjectId });
+        ideaId = item.subjects.find((link) => link.subjectId === subjectId)?.ideaId;
+      } catch (error) {
+        // Deleted meanwhile: the recording stays safely in the library. Otherwise try again later.
+        if ((error as { status?: number }).status !== 404) throw error;
+        subjectId = null;
+      }
+    }
     await store.patch(id, {
       status: "synced",
-      ideaId: idea.id,
-      subjectId: idea.subjectId,
+      libraryItemId,
+      ...(ideaId ? { ideaId } : {}),
+      subjectId,
+      ...(subjectId === null ? { destination: "library" as const } : {}),
       error: undefined,
       nextRetryAt: 0,
       attempts: 0,
     });
     changed?.();
-    return idea;
+    return item;
   } catch (error) {
     const attempts = record.attempts + 1;
     await store.patch(id, {
@@ -173,9 +150,9 @@ export async function transcribeRecording(
 ) {
   const record = await store.get(id);
   if (!record || record.status !== "synced" || record.transcriptionStatus === "done") return null;
-  if (record.destination === "library" ? !record.libraryItemId : !record.ideaId) return null;
+  if (!record.libraryItemId && !record.ideaId) return null;
   try {
-    if (record.destination === "library") {
+    if (record.libraryItemId) {
       const response = await request(fetcher, appPath(`/api/audio-library/${record.libraryItemId}/transcription`, basePath), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language: record.transcriptionLanguage || "auto" }),
