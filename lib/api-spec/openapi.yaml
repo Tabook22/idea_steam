@@ -567,6 +567,47 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/sound-lab:
+    post:
+      operationId: soundLabAudioLibraryItem
+      tags: [audio-library]
+      summary: Apply Sound lab settings (noise, hum, bands, boxes, volume) to the whole recording; the original is kept for restoring
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SoundLabSettings"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/sound-lab/preview:
+    post:
+      operationId: previewSoundLabAudioLibraryItem
+      tags: [audio-library]
+      summary: Render a short stretch with the given settings, to compare before saving (nothing is saved)
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SoundLabPreviewInput"
+      responses:
+        "200":
+          description: The processed stretch as MP3
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
   /audio-library/{itemId}/chapters:
     post:
       operationId: makeAudioLibraryChapters
@@ -996,6 +1037,63 @@ components:
           type: boolean
           default: true
           description: Even out loudness to a comfortable listening level.
+    SoundLabRegionEdit:
+      type: object
+      required: [start, end, low, high, gain]
+      properties:
+        start: { type: number, minimum: 0 }
+        end: { type: number, minimum: 0 }
+        low: { type: number, minimum: 20, maximum: 24000 }
+        high: { type: number, minimum: 20, maximum: 24000 }
+        gain: { type: number, minimum: -40, maximum: 12 }
+    SoundLabSettings:
+      type: object
+      required: [noise, bands, edits, volume, level, deess]
+      properties:
+        noise:
+          type: integer
+          minimum: 0
+          maximum: 4
+          description: Noise reduction, 0 (off) to 4 (maximum).
+        noiseSample:
+          type: [object, "null"]
+          required: [start, end]
+          properties:
+            start: { type: number, minimum: 0 }
+            end: { type: number, minimum: 0 }
+        noiseFloor:
+          type: [number, "null"]
+          minimum: -120
+          maximum: 0
+          description: Measured loudness of the background noise (RMS dBFS). Measured on the server when missing.
+        hum:
+          type: [integer, "null"]
+          enum: [50, 60, null]
+        bands:
+          type: object
+          required: [rumble, warmth, voice, presence, air]
+          properties:
+            rumble: { type: number, minimum: -30, maximum: 12 }
+            warmth: { type: number, minimum: -30, maximum: 12 }
+            voice: { type: number, minimum: -30, maximum: 12 }
+            presence: { type: number, minimum: -30, maximum: 12 }
+            air: { type: number, minimum: -30, maximum: 12 }
+        edits:
+          type: array
+          maxItems: 40
+          items:
+            $ref: "#/components/schemas/SoundLabRegionEdit"
+        volume: { type: number, minimum: -12, maximum: 12 }
+        level: { type: boolean }
+        deess: { type: boolean }
+    SoundLabPreviewInput:
+      type: object
+      required: [settings, start]
+      properties:
+        settings:
+          $ref: "#/components/schemas/SoundLabSettings"
+        start: { type: number, minimum: 0 }
+        seconds: { type: number, minimum: 3, maximum: 30, default: 15 }
     AudioChapter:
       type: object
       required: [start, title]

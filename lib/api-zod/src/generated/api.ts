@@ -841,6 +841,200 @@ export const EnhanceAudioLibraryItemResponse = zod.object({
 
 
 /**
+ * @summary Apply Sound lab settings (noise, hum, bands, boxes, volume) to the whole recording; the original is kept for restoring
+ */
+export const SoundLabAudioLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const soundLabAudioLibraryItemBodyNoiseMin = 0;
+export const soundLabAudioLibraryItemBodyNoiseMax = 4;
+
+export const soundLabAudioLibraryItemBodyNoiseSampleStartMin = 0;
+
+export const soundLabAudioLibraryItemBodyNoiseSampleEndMin = 0;
+
+export const soundLabAudioLibraryItemBodyNoiseFloorMin = -120;
+export const soundLabAudioLibraryItemBodyNoiseFloorMax = 0;
+
+export const soundLabAudioLibraryItemBodyBandsRumbleMin = -30;
+export const soundLabAudioLibraryItemBodyBandsRumbleMax = 12;
+
+export const soundLabAudioLibraryItemBodyBandsWarmthMin = -30;
+export const soundLabAudioLibraryItemBodyBandsWarmthMax = 12;
+
+export const soundLabAudioLibraryItemBodyBandsVoiceMin = -30;
+export const soundLabAudioLibraryItemBodyBandsVoiceMax = 12;
+
+export const soundLabAudioLibraryItemBodyBandsPresenceMin = -30;
+export const soundLabAudioLibraryItemBodyBandsPresenceMax = 12;
+
+export const soundLabAudioLibraryItemBodyBandsAirMin = -30;
+export const soundLabAudioLibraryItemBodyBandsAirMax = 12;
+
+export const soundLabAudioLibraryItemBodyEditsItemStartMin = 0;
+
+export const soundLabAudioLibraryItemBodyEditsItemEndMin = 0;
+
+export const soundLabAudioLibraryItemBodyEditsItemLowMin = 20;
+export const soundLabAudioLibraryItemBodyEditsItemLowMax = 24000;
+
+export const soundLabAudioLibraryItemBodyEditsItemHighMin = 20;
+export const soundLabAudioLibraryItemBodyEditsItemHighMax = 24000;
+
+export const soundLabAudioLibraryItemBodyEditsItemGainMin = -40;
+export const soundLabAudioLibraryItemBodyEditsItemGainMax = 12;
+
+export const soundLabAudioLibraryItemBodyEditsMax = 40;
+
+export const soundLabAudioLibraryItemBodyVolumeMin = -12;
+export const soundLabAudioLibraryItemBodyVolumeMax = 12;
+
+
+
+export const SoundLabAudioLibraryItemBody = zod.object({
+  "noise": zod.number().int().min(soundLabAudioLibraryItemBodyNoiseMin).max(soundLabAudioLibraryItemBodyNoiseMax).describe('Noise reduction, 0 (off) to 4 (maximum).'),
+  "noiseSample": zod.object({
+  "start": zod.number().min(soundLabAudioLibraryItemBodyNoiseSampleStartMin),
+  "end": zod.number().min(soundLabAudioLibraryItemBodyNoiseSampleEndMin)
+}).nullish(),
+  "noiseFloor": zod.number().min(soundLabAudioLibraryItemBodyNoiseFloorMin).max(soundLabAudioLibraryItemBodyNoiseFloorMax).nullish().describe('Measured loudness of the background noise (RMS dBFS). Measured on the server when missing.'),
+  "hum": zod.union([zod.literal(50),zod.literal(60),zod.literal(null)]).nullish(),
+  "bands": zod.object({
+  "rumble": zod.number().min(soundLabAudioLibraryItemBodyBandsRumbleMin).max(soundLabAudioLibraryItemBodyBandsRumbleMax),
+  "warmth": zod.number().min(soundLabAudioLibraryItemBodyBandsWarmthMin).max(soundLabAudioLibraryItemBodyBandsWarmthMax),
+  "voice": zod.number().min(soundLabAudioLibraryItemBodyBandsVoiceMin).max(soundLabAudioLibraryItemBodyBandsVoiceMax),
+  "presence": zod.number().min(soundLabAudioLibraryItemBodyBandsPresenceMin).max(soundLabAudioLibraryItemBodyBandsPresenceMax),
+  "air": zod.number().min(soundLabAudioLibraryItemBodyBandsAirMin).max(soundLabAudioLibraryItemBodyBandsAirMax)
+}),
+  "edits": zod.array(zod.object({
+  "start": zod.number().min(soundLabAudioLibraryItemBodyEditsItemStartMin),
+  "end": zod.number().min(soundLabAudioLibraryItemBodyEditsItemEndMin),
+  "low": zod.number().min(soundLabAudioLibraryItemBodyEditsItemLowMin).max(soundLabAudioLibraryItemBodyEditsItemLowMax),
+  "high": zod.number().min(soundLabAudioLibraryItemBodyEditsItemHighMin).max(soundLabAudioLibraryItemBodyEditsItemHighMax),
+  "gain": zod.number().min(soundLabAudioLibraryItemBodyEditsItemGainMin).max(soundLabAudioLibraryItemBodyEditsItemGainMax)
+})).max(soundLabAudioLibraryItemBodyEditsMax),
+  "volume": zod.number().min(soundLabAudioLibraryItemBodyVolumeMin).max(soundLabAudioLibraryItemBodyVolumeMax),
+  "level": zod.boolean(),
+  "deess": zod.boolean()
+})
+
+export const SoundLabAudioLibraryItemResponse = zod.object({
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Render a short stretch with the given settings, to compare before saving (nothing is saved)
+ */
+export const PreviewSoundLabAudioLibraryItemParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const previewSoundLabAudioLibraryItemBodySettingsNoiseMin = 0;
+export const previewSoundLabAudioLibraryItemBodySettingsNoiseMax = 4;
+
+export const previewSoundLabAudioLibraryItemBodySettingsNoiseSampleStartMin = 0;
+
+export const previewSoundLabAudioLibraryItemBodySettingsNoiseSampleEndMin = 0;
+
+export const previewSoundLabAudioLibraryItemBodySettingsNoiseFloorMin = -120;
+export const previewSoundLabAudioLibraryItemBodySettingsNoiseFloorMax = 0;
+
+export const previewSoundLabAudioLibraryItemBodySettingsBandsRumbleMin = -30;
+export const previewSoundLabAudioLibraryItemBodySettingsBandsRumbleMax = 12;
+
+export const previewSoundLabAudioLibraryItemBodySettingsBandsWarmthMin = -30;
+export const previewSoundLabAudioLibraryItemBodySettingsBandsWarmthMax = 12;
+
+export const previewSoundLabAudioLibraryItemBodySettingsBandsVoiceMin = -30;
+export const previewSoundLabAudioLibraryItemBodySettingsBandsVoiceMax = 12;
+
+export const previewSoundLabAudioLibraryItemBodySettingsBandsPresenceMin = -30;
+export const previewSoundLabAudioLibraryItemBodySettingsBandsPresenceMax = 12;
+
+export const previewSoundLabAudioLibraryItemBodySettingsBandsAirMin = -30;
+export const previewSoundLabAudioLibraryItemBodySettingsBandsAirMax = 12;
+
+export const previewSoundLabAudioLibraryItemBodySettingsEditsItemStartMin = 0;
+
+export const previewSoundLabAudioLibraryItemBodySettingsEditsItemEndMin = 0;
+
+export const previewSoundLabAudioLibraryItemBodySettingsEditsItemLowMin = 20;
+export const previewSoundLabAudioLibraryItemBodySettingsEditsItemLowMax = 24000;
+
+export const previewSoundLabAudioLibraryItemBodySettingsEditsItemHighMin = 20;
+export const previewSoundLabAudioLibraryItemBodySettingsEditsItemHighMax = 24000;
+
+export const previewSoundLabAudioLibraryItemBodySettingsEditsItemGainMin = -40;
+export const previewSoundLabAudioLibraryItemBodySettingsEditsItemGainMax = 12;
+
+export const previewSoundLabAudioLibraryItemBodySettingsEditsMax = 40;
+
+export const previewSoundLabAudioLibraryItemBodySettingsVolumeMin = -12;
+export const previewSoundLabAudioLibraryItemBodySettingsVolumeMax = 12;
+
+export const previewSoundLabAudioLibraryItemBodyStartMin = 0;
+
+export const previewSoundLabAudioLibraryItemBodySecondsDefault = 15;
+export const previewSoundLabAudioLibraryItemBodySecondsMin = 3;
+export const previewSoundLabAudioLibraryItemBodySecondsMax = 30;
+
+
+
+export const PreviewSoundLabAudioLibraryItemBody = zod.object({
+  "settings": zod.object({
+  "noise": zod.number().int().min(previewSoundLabAudioLibraryItemBodySettingsNoiseMin).max(previewSoundLabAudioLibraryItemBodySettingsNoiseMax).describe('Noise reduction, 0 (off) to 4 (maximum).'),
+  "noiseSample": zod.object({
+  "start": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsNoiseSampleStartMin),
+  "end": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsNoiseSampleEndMin)
+}).nullish(),
+  "noiseFloor": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsNoiseFloorMin).max(previewSoundLabAudioLibraryItemBodySettingsNoiseFloorMax).nullish().describe('Measured loudness of the background noise (RMS dBFS). Measured on the server when missing.'),
+  "hum": zod.union([zod.literal(50),zod.literal(60),zod.literal(null)]).nullish(),
+  "bands": zod.object({
+  "rumble": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsBandsRumbleMin).max(previewSoundLabAudioLibraryItemBodySettingsBandsRumbleMax),
+  "warmth": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsBandsWarmthMin).max(previewSoundLabAudioLibraryItemBodySettingsBandsWarmthMax),
+  "voice": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsBandsVoiceMin).max(previewSoundLabAudioLibraryItemBodySettingsBandsVoiceMax),
+  "presence": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsBandsPresenceMin).max(previewSoundLabAudioLibraryItemBodySettingsBandsPresenceMax),
+  "air": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsBandsAirMin).max(previewSoundLabAudioLibraryItemBodySettingsBandsAirMax)
+}),
+  "edits": zod.array(zod.object({
+  "start": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsEditsItemStartMin),
+  "end": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsEditsItemEndMin),
+  "low": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsEditsItemLowMin).max(previewSoundLabAudioLibraryItemBodySettingsEditsItemLowMax),
+  "high": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsEditsItemHighMin).max(previewSoundLabAudioLibraryItemBodySettingsEditsItemHighMax),
+  "gain": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsEditsItemGainMin).max(previewSoundLabAudioLibraryItemBodySettingsEditsItemGainMax)
+})).max(previewSoundLabAudioLibraryItemBodySettingsEditsMax),
+  "volume": zod.number().min(previewSoundLabAudioLibraryItemBodySettingsVolumeMin).max(previewSoundLabAudioLibraryItemBodySettingsVolumeMax),
+  "level": zod.boolean(),
+  "deess": zod.boolean()
+}),
+  "start": zod.number().min(previewSoundLabAudioLibraryItemBodyStartMin),
+  "seconds": zod.number().min(previewSoundLabAudioLibraryItemBodySecondsMin).max(previewSoundLabAudioLibraryItemBodySecondsMax).default(previewSoundLabAudioLibraryItemBodySecondsDefault)
+})
+
+export const PreviewSoundLabAudioLibraryItemResponse = zod.unknown()
+
+
+/**
  * @summary AI chapters (topic titles with start times) and a short summary, in the recording's language
  */
 export const MakeAudioLibraryChaptersParams = zod.object({

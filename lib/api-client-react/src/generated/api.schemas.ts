@@ -232,6 +232,118 @@ export interface AudioEnhanceInput {
   level?: boolean;
 }
 
+export interface SoundLabRegionEdit {
+  /** @minimum 0 */
+  start: number;
+  /** @minimum 0 */
+  end: number;
+  /**
+     * @minimum 20
+     * @maximum 24000
+     */
+  low: number;
+  /**
+     * @minimum 20
+     * @maximum 24000
+     */
+  high: number;
+  /**
+     * @minimum -40
+     * @maximum 12
+     */
+  gain: number;
+}
+
+/**
+ * @nullable
+ */
+export type SoundLabSettingsNoiseSample = {
+  /** @minimum 0 */
+  start: number;
+  /** @minimum 0 */
+  end: number;
+} | null;
+
+/**
+ * @nullable
+ */
+export type SoundLabSettingsHum = typeof SoundLabSettingsHum[keyof typeof SoundLabSettingsHum] | null;
+
+
+export const SoundLabSettingsHum = {
+  NUMBER_50: 50,
+  NUMBER_60: 60,
+} as const;
+
+export type SoundLabSettingsBands = {
+  /**
+     * @minimum -30
+     * @maximum 12
+     */
+  rumble: number;
+  /**
+     * @minimum -30
+     * @maximum 12
+     */
+  warmth: number;
+  /**
+     * @minimum -30
+     * @maximum 12
+     */
+  voice: number;
+  /**
+     * @minimum -30
+     * @maximum 12
+     */
+  presence: number;
+  /**
+     * @minimum -30
+     * @maximum 12
+     */
+  air: number;
+};
+
+export interface SoundLabSettings {
+  /**
+     * Noise reduction, 0 (off) to 4 (maximum).
+     * @minimum 0
+     * @maximum 4
+     */
+  noise: number;
+  /** @nullable */
+  noiseSample?: SoundLabSettingsNoiseSample;
+  /**
+     * Measured loudness of the background noise (RMS dBFS). Measured on the server when missing.
+     * @minimum -120
+     * @maximum 0
+     * @nullable
+     */
+  noiseFloor?: number | null;
+  /** @nullable */
+  hum?: SoundLabSettingsHum;
+  bands: SoundLabSettingsBands;
+  /** @maxItems 40 */
+  edits: SoundLabRegionEdit[];
+  /**
+     * @minimum -12
+     * @maximum 12
+     */
+  volume: number;
+  level: boolean;
+  deess: boolean;
+}
+
+export interface SoundLabPreviewInput {
+  settings: SoundLabSettings;
+  /** @minimum 0 */
+  start: number;
+  /**
+     * @minimum 3
+     * @maximum 30
+     */
+  seconds?: number;
+}
+
 export interface AudioRange {
   /** @minimum 0 */
   start: number;

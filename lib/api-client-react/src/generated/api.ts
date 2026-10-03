@@ -45,6 +45,8 @@ import type {
   NoteTranslationInput,
   SearchResults,
   SearchWorkspaceParams,
+  SoundLabPreviewInput,
+  SoundLabSettings,
   Subject,
   SubjectDetail,
   SubjectInput,
@@ -2604,6 +2606,184 @@ export const useEnhanceAudioLibraryItem = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getEnhanceAudioLibraryItemMutationOptions(options));
+    }
+
+export const getSoundLabAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/sound-lab`
+}
+
+/**
+ * @summary Apply Sound lab settings (noise, hum, bands, boxes, volume) to the whole recording; the original is kept for restoring
+ */
+export const soundLabAudioLibraryItem = async (itemId: number,
+    soundLabSettings: SoundLabSettings, options?: Parameters<typeof customFetch>[1]): Promise<AudioLibraryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AudioLibraryItem>(getSoundLabAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(soundLabSettings)
+  }
+);}
+
+
+
+
+
+export const getSoundLabAudioLibraryItemMutationKey = () => ['soundLabAudioLibraryItem'] as const;
+
+export const getSoundLabAudioLibraryItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof soundLabAudioLibraryItem>>, TError,SoundLabAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof soundLabAudioLibraryItem>>, TError,SoundLabAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getSoundLabAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof soundLabAudioLibraryItem>>, SoundLabAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  soundLabAudioLibraryItem(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SoundLabAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof soundLabAudioLibraryItem>>>
+    export type SoundLabAudioLibraryItemMutationBody = BodyType<SoundLabSettings>
+    export type SoundLabAudioLibraryItemMutationError = ErrorType<unknown>
+    export type SoundLabAudioLibraryItemMutationVariables = {itemId: number;data: BodyType<SoundLabSettings>}
+
+    /**
+ * @summary Apply Sound lab settings (noise, hum, bands, boxes, volume) to the whole recording; the original is kept for restoring
+ */
+export const useSoundLabAudioLibraryItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof soundLabAudioLibraryItem>>, TError,SoundLabAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof soundLabAudioLibraryItem>>,
+        TError,
+        SoundLabAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSoundLabAudioLibraryItemMutationOptions(options));
+    }
+
+export const getPreviewSoundLabAudioLibraryItemUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/sound-lab/preview`
+}
+
+/**
+ * @summary Render a short stretch with the given settings, to compare before saving (nothing is saved)
+ */
+export const previewSoundLabAudioLibraryItem = async (itemId: number,
+    soundLabPreviewInput: SoundLabPreviewInput, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Blob>(getPreviewSoundLabAudioLibraryItemUrl(itemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(soundLabPreviewInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewSoundLabAudioLibraryItemMutationKey = () => ['previewSoundLabAudioLibraryItem'] as const;
+
+export const getPreviewSoundLabAudioLibraryItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewSoundLabAudioLibraryItem>>, TError,PreviewSoundLabAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewSoundLabAudioLibraryItem>>, TError,PreviewSoundLabAudioLibraryItemMutationVariables, TContext> => {
+
+const mutationKey = getPreviewSoundLabAudioLibraryItemMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewSoundLabAudioLibraryItem>>, PreviewSoundLabAudioLibraryItemMutationVariables> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  previewSoundLabAudioLibraryItem(itemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewSoundLabAudioLibraryItemMutationResult = NonNullable<Awaited<ReturnType<typeof previewSoundLabAudioLibraryItem>>>
+    export type PreviewSoundLabAudioLibraryItemMutationBody = BodyType<SoundLabPreviewInput>
+    export type PreviewSoundLabAudioLibraryItemMutationError = ErrorType<unknown>
+    export type PreviewSoundLabAudioLibraryItemMutationVariables = {itemId: number;data: BodyType<SoundLabPreviewInput>}
+
+    /**
+ * @summary Render a short stretch with the given settings, to compare before saving (nothing is saved)
+ */
+export const usePreviewSoundLabAudioLibraryItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewSoundLabAudioLibraryItem>>, TError,PreviewSoundLabAudioLibraryItemMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewSoundLabAudioLibraryItem>>,
+        TError,
+        PreviewSoundLabAudioLibraryItemMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPreviewSoundLabAudioLibraryItemMutationOptions(options));
     }
 
 export const getMakeAudioLibraryChaptersUrl = (itemId: number,) => {

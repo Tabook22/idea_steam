@@ -4,6 +4,7 @@ import { mkdtemp, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalStorageUrl } from "./stored-transcription";
+import { soundLabFilters, type SoundLabSettings } from "./sound-lab";
 
 /**
  * Cutting and joining recordings with ffmpeg. Edits always write a NEW stored file;
@@ -199,5 +200,44 @@ export async function convertRecording(url: string, format: ExportFormat, qualit
     // Voice recordings are mono; keep them mono (smaller files, same sound).
     await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-vn", "-ac", "1", ...spec.qualities[quality], "-f", spec.container, output], 300_000);
     await deliver(output, spec.mime, spec.ext);
+  });
+}
+
+/** Loudness (RMS dBFS) of the background noise: the quietest tenth of 50 ms moments. */
+export async function measureNoiseFloor(path: string) {
+  const output = await run("ffmpeg", ["-hide_banner", "-nostdin", "-i", path, "-af",
+    "aresample=16000,asetnsamples=n=800,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.Overall.RMS_level:file=-",
+    "-f", "null", "-"], 120_000);
+  const levels = [...output.matchAll(/RMS_level=(-?[\d.]+)/g)].map((match) => Number(match[1])).filter((value) => Number.isFinite(value) && value > -100).sort((a, b) => a - b);
+  return levels.length ? levels[Math.floor(levels.length * 0.1)] : -60;
+}
+
+async function soundLabChain(path: string, settings: SoundLabSettings) {
+  // The app sends the noise level it measured; if it didn't, measure it here.
+  const floor = settings.noise > 0 && (settings.noiseFloor == null) ? await measureNoiseFloor(path) : settings.noiseFloor;
+  return [NORMALIZE, ...soundLabFilters({ ...settings, noiseFloor: floor })].join(",");
+}
+
+/** Sound lab, whole recording: saves a new file (the original is kept for restoring). */
+export async function soundLabRecording(url: string, settings: SoundLabSettings) {
+  const source = await storedFile(url);
+  return withWorkspace(async (dir) => {
+    const output = join(dir, "lab.webm");
+    const chain = await soundLabChain(source.path, settings);
+    await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-af", chain, "-c:a", "libopus", "-b:a", "96k", "-ac", "1", "-f", "webm", output], 300_000);
+    return publish(output, source.prefix);
+  });
+}
+
+/** Sound lab, a short stretch rendered with the exact settings, to compare before saving. */
+export async function soundLabPreview(url: string, settings: SoundLabSettings, start: number, seconds: number, deliver: (path: string) => Promise<void>) {
+  const source = await storedFile(url);
+  return withWorkspace(async (dir) => {
+    const output = join(dir, "preview.mp3");
+    const chain = await soundLabChain(source.path, settings);
+    // Process from the beginning (timed edits use the recording's own clock), then keep the stretch.
+    await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-to", String(start + seconds), "-i", source.path,
+      "-af", `${chain},atrim=start=${start},asetpts=PTS-STARTPTS`, "-c:a", "libmp3lame", "-b:a", "160k", "-ac", "1", output], 120_000);
+    await deliver(output);
   });
 }
