@@ -18,6 +18,21 @@
     <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Idea Stream" />
+    <script>
+      // Apply the saved theme before anything is drawn (no light flash in dark mode). See src/lib/theme.ts.
+      (() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("idea-stream-theme") || "null") || {};
+          const dark = saved.mode === "dark" || (saved.mode !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+          if (saved.palette) document.documentElement.dataset.palette = saved.palette;
+        } catch {}
+      })();
+    </script>
+    <style>
+      html.dark, html.dark body { background: #0e1311; color-scheme: dark; }
+      html.dark #startup-status { background: #0e1311 !important; color: #e8e3d6 !important; }
+    </style>
   </head>
   <body>
     <div id="root">

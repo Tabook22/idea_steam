@@ -20,6 +20,7 @@ import LibraryPage from "@/pages/library";
 import { RecorderProvider } from "@/components/recorder-provider";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
+import { ThemePicker } from "@/components/theme-picker";
 import { BottomNav } from "@/components/bottom-nav";
 import { CaptureSheet } from "@/components/capture-sheet";
 import { UpdateNotice } from "@/components/update-notice";
@@ -70,6 +71,7 @@ function TopNav() {
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
       <WorkspaceSearch />
       <LanguageToggle />
+      <ThemePicker />
       {data?.signOut && (
         <form method="post" action={appPath("/logout", import.meta.env.BASE_URL)}>
           <button
@@ -93,7 +95,7 @@ function ServiceNotice() {
   if (data?.ai !== false) return null;
   return (
     <p
-      className="border-b bg-amber-50 px-4 py-3 text-center text-xs text-amber-950"
+      className="border-b bg-amber-50 px-4 py-3 text-center text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
       role="status"
     >
       {isArabic
@@ -136,7 +138,7 @@ function AppContent() {
           <RecorderProvider>
             <ServiceNotice />
             {import.meta.env.VITE_DESIGN_PREVIEW === "true" && (
-              <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+              <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
                 Design preview · AI is simulated · Server data resets on restart
                 · Device recordings stay in this browser
               </div>

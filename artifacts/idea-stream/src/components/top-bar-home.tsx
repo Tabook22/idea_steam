@@ -46,9 +46,9 @@ export function TopBarHome() {
         // On the desktop home page the sidebar already shows the brand.
         className={`flex min-w-0 items-center gap-2 rounded-full pe-2 text-foreground transition-opacity hover:opacity-80 ${home ? "md:hidden" : ""}`}
       >
-        <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#346b53] to-[#1d4231] text-[#f6f1e4] shadow-sm">
+        <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand to-brand-deep text-white shadow-sm">
           <Feather size={19} />
-          <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#24513d]" aria-hidden="true" />
+          <span className="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-brand-deep" aria-hidden="true" />
         </span>
         <span className="hidden truncate text-[17px] font-semibold tracking-tight min-[420px]:inline">
           idea<span className="font-normal">stream</span>

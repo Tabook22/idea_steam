@@ -591,7 +591,7 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           </div>
         ) : (
           <div>
-            <div className={`prose prose-sm max-w-none text-foreground font-serif leading-relaxed text-[1.05rem] ${isContentExpanded ? "" : "line-clamp-4"}`}>
+            <div className={`prose prose-sm dark:prose-invert max-w-none text-foreground font-serif leading-relaxed text-[1.05rem] ${isContentExpanded ? "" : "line-clamp-4"}`}>
               {idea.content.split('\n').map((paragraph, i) => (
                 paragraph ? <p key={i} className="mb-2 last:mb-0">{paragraph}</p> : <br key={i} />
               ))}

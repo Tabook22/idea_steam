@@ -9,6 +9,7 @@ import "@fontsource-variable/dm-sans/wght-italic.css";
 import "@fontsource-variable/playfair-display";
 import "@fontsource-variable/playfair-display/wght-italic.css";
 import "./index.css";
+import "@/lib/theme";
 
 setBaseUrl(import.meta.env.BASE_URL.replace(/\/$/, ""));
 

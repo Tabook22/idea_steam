@@ -36,10 +36,10 @@ export function UpdateNotice() {
   // Never interrupt a recording; the notice waits until it is saved.
   if (!ready || stage !== "idle") return null;
   return (
-    <div className="fixed inset-x-3 top-3 z-[70] mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-[hsl(158_38%_14%)] p-2.5 ps-4 text-sm text-white shadow-2xl" role="status">
+    <div className="fixed inset-x-3 top-3 z-[70] mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-ink p-2.5 ps-4 text-sm text-ink-foreground shadow-2xl" role="status">
       <RefreshCw size={16} className="shrink-0 text-emerald-300" />
       <span className="min-w-0 flex-1">{isArabic ? "يتوفر إصدار جديد من التطبيق." : "A new version of the app is ready."}</span>
-      <button type="button" onClick={() => window.location.reload()} className="h-9 shrink-0 rounded-full bg-white px-4 font-semibold text-[hsl(158_38%_14%)]">
+      <button type="button" onClick={() => window.location.reload()} className="h-9 shrink-0 rounded-full bg-white px-4 font-semibold text-ink">
         {isArabic ? "تحديث" : "Reload"}
       </button>
     </div>

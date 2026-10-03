@@ -37,6 +37,11 @@
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-accent-border: var(--accent-border);
 
+  --color-ink: hsl(var(--ink));
+  --color-ink-foreground: hsl(var(--ink-foreground));
+  --color-brand: hsl(var(--brand));
+  --color-brand-deep: hsl(var(--brand-deep));
+
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-destructive-border: var(--destructive-border);
@@ -61,43 +66,56 @@
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
 
-  /* Deep Botanical Theme */
-  --background: 43 20% 96%;
-  --foreground: 160 40% 12%;
+  /*
+   * Colour themes. Each palette sets a few numbers; every colour below is derived from them,
+   * once for light mode here and once for dark mode under .dark.
+   *   --h/--s/--l  brand hue, saturation and lightness (light mode)
+   *   --sd/--ld    brand saturation and lightness in dark mode
+   *   --t/--ts     tint of the paper-like neutrals
+   *   --a          accent hue
+   */
+  --h: 157; --s: 27%; --l: 29%; --sd: 38%; --ld: 60%; --t: 42; --ts: 33%; --a: 20;
 
-  --border: 43 15% 85%;
+  --background: var(--t) var(--ts) 97%;
+  --foreground: var(--h) 19% 18%;
+  --border: var(--t) 15% 87%;
+  --card: var(--t) 40% 99%;
+  --card-foreground: var(--h) 19% 18%;
+  --card-border: var(--t) 18% 89%;
+  --popover: var(--t) 40% 99%;
+  --popover-foreground: var(--h) 19% 18%;
+  --popover-border: var(--t) 18% 89%;
+  --primary: var(--h) var(--s) var(--l);
+  --primary-foreground: var(--t) 30% 97%;
+  --secondary: var(--h) 14% 90%;
+  --secondary-foreground: var(--h) 30% 14%;
+  --muted: var(--h) 12% 92%;
+  --muted-foreground: var(--h) 8% 42%;
+  --accent: var(--a) 55% 55%;
+  --accent-foreground: var(--t) 30% 97%;
+  --destructive: 0 60% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --input: var(--t) var(--ts) 84%;
+  --ring: var(--h) var(--s) var(--l);
+  /* Deep panels (mini player, notices, the recording screen) and the logo tile. */
+  --ink: var(--h) 38% 14%;
+  --ink-foreground: var(--t) 30% 96%;
+  --brand: var(--h) var(--s) 34%;
+  --brand-deep: var(--h) 40% 17%;
+  --glow: var(--h) var(--s) var(--l);
+  /* Decorative tones for notebook stripes and studio icons, derived from the palette. */
+  --deco-1: var(--h) 22% 62%;
+  --deco-2: var(--a) 45% 66%;
+  --deco-3: calc(var(--h) + 110) 22% 70%;
+  --deco-4: calc(var(--a) + 25) 45% 62%;
+  --tone-3: calc(var(--h) + 110) 22% 48%;
+  --tone-4: calc(var(--a) + 25) 50% 40%;
 
-  --card: 43 30% 98%;
-  --card-foreground: 160 40% 12%;
-  --card-border: 43 20% 90%;
-
-  --popover: 43 30% 98%;
-  --popover-foreground: 160 40% 12%;
-  --popover-border: 43 20% 90%;
-
-  --primary: 155 35% 25%;
-  --primary-foreground: 43 20% 96%;
-
-  --secondary: 155 10% 90%;
-  --secondary-foreground: 160 40% 12%;
-
-  --muted: 155 10% 92%;
-  --muted-foreground: 160 15% 45%;
-
-  --accent: 20 50% 55%;
-  --accent-foreground: 43 20% 96%;
-
-  --destructive: 0 50% 50%;
-  --destructive-foreground: 43 20% 96%;
-
-  --input: 43 15% 85%;
-  --ring: 155 35% 25%;
-
-  --chart-1: 155 35% 25%;
-  --chart-2: 20 50% 55%;
-  --chart-3: 160 40% 12%;
-  --chart-4: 43 20% 80%;
-  --chart-5: 155 10% 40%;
+  --chart-1: var(--h) var(--s) var(--l);
+  --chart-2: var(--a) 55% 55%;
+  --chart-3: var(--h) 30% 12%;
+  --chart-4: var(--t) var(--ts) 80%;
+  --chart-5: var(--h) 12% 40%;
 
   --app-font-sans: "DM Sans Variable", system-ui, sans-serif;
   --app-font-serif: "Playfair Display Variable", Georgia, serif;
@@ -142,37 +160,68 @@
 }
 
 .dark {
-  /* Minimal dark mode support if forced, but keeping it elegant */
-  --background: 160 40% 10%;
-  --foreground: 43 20% 96%;
+  color-scheme: dark;
+  --background: var(--h) 22% 7%;
+  --foreground: var(--t) 25% 93%;
+  --border: var(--h) 14% 19%;
+  --card: var(--h) 20% 10.5%;
+  --card-foreground: var(--t) 25% 93%;
+  --card-border: var(--h) 14% 17%;
+  --popover: var(--h) 20% 11%;
+  --popover-foreground: var(--t) 25% 93%;
+  --popover-border: var(--h) 14% 20%;
+  --primary: var(--h) var(--sd) var(--ld);
+  --primary-foreground: var(--h) 40% 8%;
+  --secondary: var(--h) 16% 17%;
+  --secondary-foreground: var(--t) 25% 93%;
+  --muted: var(--h) 15% 14%;
+  --muted-foreground: var(--h) 10% 64%;
+  --accent: var(--a) 60% 62%;
+  --accent-foreground: var(--h) 40% 8%;
+  --destructive: 0 65% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --input: var(--h) 14% 22%;
+  --ring: var(--h) var(--sd) var(--ld);
+  --ink: var(--h) 24% 15%;
+  --ink-foreground: var(--t) 25% 95%;
+  --glow: var(--h) var(--sd) var(--ld);
+  --deco-1: var(--h) 30% 45%;
+  --deco-2: var(--a) 45% 50%;
+  --deco-3: calc(var(--h) + 110) 25% 52%;
+  --deco-4: calc(var(--a) + 25) 45% 48%;
+  --tone-3: calc(var(--h) + 110) 35% 74%;
+  --tone-4: calc(var(--a) + 25) 55% 66%;
 
-  --border: 160 20% 25%;
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.06);
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.09);
+  --opaque-button-border-intensity: 9;
+  --shadow-sm: 0px 4px 8px -2px rgba(0, 0, 0, 0.35), 0px 2px 4px -2px rgba(0, 0, 0, 0.25);
+  --shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.4), 0px 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0px 14px 20px -4px rgba(0, 0, 0, 0.45), 0px 6px 8px -6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0px 20px 25px -5px rgba(0, 0, 0, 0.5), 0px 8px 10px -6px rgba(0, 0, 0, 0.35);
 
-  --card: 160 35% 12%;
-  --card-foreground: 43 20% 96%;
-  --card-border: 160 20% 25%;
+  --chart-3: var(--t) 25% 93%;
+  --chart-4: var(--h) 14% 30%;
+  --chart-5: var(--h) 10% 64%;
+}
 
-  --popover: 160 35% 12%;
-  --popover-foreground: 43 20% 96%;
-  --popover-border: 160 20% 25%;
+/* Palettes. "forest" is the default above. */
+[data-palette="ocean"]    { --h: 208; --s: 62%; --l: 34%; --sd: 75%; --ld: 66%; --t: 205; --ts: 28%; --a: 172; }
+[data-palette="royal"]    { --h: 255; --s: 48%; --l: 44%; --sd: 80%; --ld: 74%; --t: 250; --ts: 22%; --a: 322; }
+[data-palette="sunset"]   { --h: 16;  --s: 62%; --l: 45%; --sd: 78%; --ld: 64%; --t: 32;  --ts: 38%; --a: 42; }
+[data-palette="rose"]     { --h: 338; --s: 52%; --l: 42%; --sd: 72%; --ld: 70%; --t: 345; --ts: 26%; --a: 20; }
+[data-palette="desert"]   { --h: 36;  --s: 62%; --l: 34%; --sd: 70%; --ld: 60%; --t: 40;  --ts: 34%; --a: 190; }
+[data-palette="lagoon"]   { --h: 176; --s: 58%; --l: 27%; --sd: 62%; --ld: 55%; --t: 170; --ts: 22%; --a: 30; }
+[data-palette="graphite"] { --h: 220; --s: 16%; --l: 24%; --sd: 18%; --ld: 82%; --t: 220; --ts: 12%; --a: 205; }
 
-  --primary: 43 30% 90%;
-  --primary-foreground: 160 40% 12%;
-
-  --secondary: 160 20% 20%;
-  --secondary-foreground: 43 20% 96%;
-
-  --muted: 160 20% 15%;
-  --muted-foreground: 160 15% 65%;
-
-  --accent: 20 50% 60%;
-  --accent-foreground: 160 40% 12%;
-
-  --destructive: 0 50% 50%;
-  --destructive-foreground: 43 20% 96%;
-
-  --input: 160 20% 25%;
-  --ring: 43 30% 90%;
+/* Switching themes fades colours instead of snapping. */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease, fill 0.35s ease !important;
 }
 
 @layer base {
@@ -182,8 +231,9 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground selection:bg-primary/20;
-    /* Soft noise texture */
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
+    /* A soft glow of the theme colour at the top, over a fine paper-like noise. */
+    background-attachment: fixed;
+    background-image: radial-gradient(1100px 520px at 50% -260px, hsl(var(--glow) / 0.1), transparent 70%), url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
   }
 
   html.app-rtl,
@@ -319,14 +369,6 @@
 }
 
 /* The notebook workspace: warm paper, quiet structure, generous breathing room. */
-:root {
-  --background: 42 33% 97%;
-  --foreground: 155 19% 18%;
-  --card: 45 40% 99%;
-  --muted-foreground: 150 6% 43%;
-  --border: 40 15% 87%;
-  --primary: 157 27% 29%;
-}
 button,
 a,
 input,
@@ -354,7 +396,7 @@ a {
   flex-shrink: 0;
   padding: 34px 22px 20px;
   border-inline-end: 1px solid hsl(var(--border));
-  background: #f0f1eb;
+  background: hsl(var(--muted) / 0.6);
   position: sticky;
   top: 0;
   height: 100dvh;
@@ -377,7 +419,7 @@ a {
   height: 42px;
   color: white;
   border-radius: 12px 12px 12px 3px;
-  background: #365d4f;
+  background: hsl(var(--brand));
 }
 .brand-lockup small {
   display: block;
@@ -385,13 +427,13 @@ a {
   letter-spacing: 0.15px;
   font-weight: 400;
   margin-top: 1px;
-  color: #6e7a70;
+  color: hsl(var(--muted-foreground));
 }
 .sidebar-label {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 1.7px;
-  color: #80887c;
+  color: hsl(var(--muted-foreground));
   margin: 0 10px 13px;
 }
 .sidebar-link {
@@ -402,21 +444,21 @@ a {
   padding: 12px;
   border-radius: 8px;
   font-size: 13px;
-  color: #626f63;
+  color: hsl(var(--muted-foreground));
   text-align: start;
 }
 .sidebar-link.active {
-  background: #e1e7dc;
-  color: #365d4f;
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
   font-weight: 600;
 }
 .sidebar-link:hover {
-  background: #e6eae1;
+  background: hsl(var(--primary) / 0.06);
 }
 .sidebar-link b {
   margin-inline-start: auto;
   font-size: 10px;
-  background: #d2dccb;
+  background: hsl(var(--primary) / 0.14);
   padding: 1px 6px;
   border-radius: 4px;
 }
@@ -425,32 +467,32 @@ a {
   height: 7px;
   border-radius: 2px;
   flex-shrink: 0;
-  background: #9cae8d;
+  background: hsl(var(--deco-1));
 }
 .dot-1 {
-  background: #d3a082;
+  background: hsl(var(--deco-2));
 }
 .dot-2 {
-  background: #aaa0bd;
+  background: hsl(var(--deco-3));
 }
 .dot-3 {
-  background: #c7b46f;
+  background: hsl(var(--deco-4));
 }
 .sidebar-note {
-  background: #e9eddf;
-  border: 1px solid #dce3cd;
+  background: hsl(var(--primary) / 0.07);
+  border: 1px solid hsl(var(--primary) / 0.15);
   padding: 18px;
   border-radius: 12px;
   margin-top: auto;
   position: relative;
-  color: #6a7856;
+  color: hsl(var(--muted-foreground));
   margin-bottom: 25px;
 }
 .sidebar-note p {
   font-family: var(--app-font-serif);
   font-size: 17px;
   margin: 11px 0 7px;
-  color: #4e6047;
+  color: hsl(var(--foreground) / 0.85);
 }
 .sidebar-note small {
   font-size: 11px;
@@ -463,19 +505,19 @@ a {
   top: 12px;
   inset-inline-end: 14px;
   font-size: 29px;
-  color: #a0b187;
+  color: hsl(var(--primary) / 0.5);
 }
 .sidebar-footer {
   display: flex;
   gap: 10px;
   align-items: center;
   padding-top: 18px;
-  border-top: 1px solid #dce1d7;
+  border-top: 1px solid hsl(var(--border));
   font-size: 11px;
 }
 .sidebar-footer small {
   display: block;
-  color: #899080;
+  color: hsl(var(--muted-foreground));
   font-size: 9px;
   margin-top: 3px;
 }
@@ -491,7 +533,7 @@ a {
   justify-content: space-between;
   padding: 0 44px;
   font-size: 11px;
-  color: #7c857a;
+  color: hsl(var(--muted-foreground));
 }
 .workspace-content {
   max-width: 1320px;
@@ -512,13 +554,13 @@ a {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 1.9px;
-  color: #7c896d;
+  color: hsl(var(--primary) / 0.8);
   margin-bottom: 18px;
 }
 .eyebrow > span {
   width: 5px;
   height: 5px;
-  background: #8d9f76;
+  background: hsl(var(--primary) / 0.6);
   border-radius: 50%;
 }
 .workspace-welcome h1 {
@@ -528,14 +570,14 @@ a {
   letter-spacing: -1.9px;
 }
 .workspace-welcome h1 em {
-  color: #748760;
+  color: hsl(var(--primary));
   font-weight: 400;
 }
 .welcome-description {
   white-space: pre-line;
   font-size: 12px;
   line-height: 1.95;
-  color: #85877c;
+  color: hsl(var(--muted-foreground));
   margin-top: 19px;
 }
 .idea-illustration {
@@ -546,7 +588,7 @@ a {
 }
 .orbit {
   position: absolute;
-  border: 1px dashed #d6d7c8;
+  border: 1px dashed hsl(var(--border));
   border-radius: 50%;
   width: 255px;
   height: 165px;
@@ -568,39 +610,39 @@ a {
   height: 156px;
   border-radius: 9px;
   padding: 19px;
-  box-shadow: 0 12px 25px #5d68400f;
+  box-shadow: var(--shadow-md);
 }
 .paper span {
   height: 3px;
   border-radius: 2px;
   display: block;
-  background: #dbdecf;
+  background: hsl(var(--border));
   margin-top: 9px;
 }
 .paper span:last-of-type {
   width: 58%;
 }
 .paper-back {
-  background: #e4eadc;
-  border: 1px solid #cfd9c4;
+  background: hsl(var(--primary) / 0.1);
+  border: 1px solid hsl(var(--primary) / 0.22);
   left: 54px;
   top: 26px;
   transform: rotate(-17deg);
-  color: #7f946e;
+  color: hsl(var(--primary) / 0.75);
 }
 .paper-front {
-  background: #fffdf6;
-  border: 1px solid #e5dfc9;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   left: 115px;
   top: 53px;
   transform: rotate(12deg);
-  color: #ba9e62;
+  color: hsl(var(--accent));
 }
 .paper-front i {
   display: block;
   width: 26px;
   height: 4px;
-  background: #dbbe7e;
+  background: hsl(var(--accent) / 0.6);
   margin: 14px 0 12px;
 }
 .paper small {
@@ -609,14 +651,14 @@ a {
   display: block;
   margin-top: 15px;
   font-style: italic;
-  color: #8b8e75;
+  color: hsl(var(--muted-foreground));
 }
 .floating-spark {
   position: absolute;
   top: 0;
   right: 25px;
   font-size: 43px;
-  color: #bba374;
+  color: hsl(var(--accent) / 0.8);
 }
 .illustration-badge {
   display: flex;
@@ -625,24 +667,24 @@ a {
   position: absolute;
   bottom: 1px;
   left: 29px;
-  background: #fcfbf7;
-  border: 1px solid #e5e5d8;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
   border-radius: 20px;
   padding: 9px 14px;
   font-size: 9px;
-  color: #7b896b;
-  box-shadow: 0 4px 10px #00000004;
+  color: hsl(var(--muted-foreground));
+  box-shadow: var(--shadow-xs);
 }
 .capture-bar {
-  background: #fffefb;
-  border: 1px solid #e6e5da;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--card-border));
   border-radius: 13px;
   padding: 20px 23px;
   display: flex;
   gap: 20px;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 4px 12px #29382103;
+  box-shadow: var(--shadow-xs);
 }
 .capture-intro {
   display: flex;
@@ -652,11 +694,11 @@ a {
 .capture-icon {
   width: 37px;
   height: 37px;
-  border: 1px dashed #c8d1bc;
+  border: 1px dashed hsl(var(--primary) / 0.3);
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: #89987c;
+  color: hsl(var(--primary) / 0.75);
 }
 .capture-intro strong {
   font-size: 13px;
@@ -665,7 +707,7 @@ a {
 .capture-intro p {
   font-size: 10px;
   margin-top: 4px;
-  color: #8b8d81;
+  color: hsl(var(--muted-foreground));
 }
 .capture-actions {
   display: flex;
@@ -678,8 +720,8 @@ a {
   padding: 11px 13px;
   border-radius: 7px;
   font-size: 11px;
-  background: #edf0e7;
-  color: #526849;
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
   transition: transform 0.15s;
 }
 .capture-action:hover {
@@ -690,12 +732,12 @@ a {
   cursor: wait;
 }
 .capture-voice {
-  background: #f5ebe3;
-  color: #9c785e;
+  background: hsl(var(--accent) / 0.12);
+  color: hsl(var(--accent));
 }
 .capture-link {
-  background: #efedf4;
-  color: #8b7a9b;
+  background: hsl(var(--tone-3) / 0.12);
+  color: hsl(var(--tone-3));
 }
 .section-heading {
   display: flex;
@@ -711,20 +753,20 @@ a {
 }
 .section-heading p:not(.eyebrow) {
   font-size: 11px;
-  color: #8c8e83;
+  color: hsl(var(--muted-foreground));
   margin-top: 6px;
 }
 .count-pill {
   font-size: 10px;
-  background: #e9ecdf;
+  background: hsl(var(--primary) / 0.1);
   padding: 2px 8px;
   border-radius: 6px;
-  color: #7e896f;
+  color: hsl(var(--primary));
 }
 .notebook-card {
-  background: #fffefb;
-  border-color: #e6e5da;
-  box-shadow: 0 3px 7px #252c1603;
+  background: hsl(var(--card));
+  border-color: hsl(var(--card-border));
+  box-shadow: var(--shadow-xs);
   border-radius: 12px;
   transition:
     transform 0.2s,
@@ -732,7 +774,7 @@ a {
 }
 .notebook-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px #25351c0b;
+  box-shadow: var(--shadow-md);
 }
 .notebook-card::before {
   content: "";
@@ -740,16 +782,16 @@ a {
   inset-inline: 0;
   top: 0;
   height: 3px;
-  background: #b9c5a5;
+  background: hsl(var(--deco-1));
 }
 .notebook-card:nth-child(4n + 2)::before {
-  background: #d8b299;
+  background: hsl(var(--deco-2));
 }
 .notebook-card:nth-child(4n + 3)::before {
-  background: #bbb0cf;
+  background: hsl(var(--deco-3));
 }
 .notebook-card:nth-child(4n + 4)::before {
-  background: #dacb9e;
+  background: hsl(var(--deco-4));
 }
 .studio-section {
   margin-top: 44px;
@@ -763,17 +805,17 @@ a {
 }
 .output-card {
   position: relative;
-  border: 1px solid #e6e5dc;
+  border: 1px solid hsl(var(--card-border));
   border-radius: 10px;
   padding: 18px;
-  background: #fbfaf6;
+  background: hsl(var(--card) / 0.7);
   text-align: start;
   transition:
     background 0.2s,
     transform 0.2s;
 }
 .output-card:hover {
-  background: #fff;
+  background: hsl(var(--card));
   transform: translateY(-3px);
 }
 .output-icon {
@@ -785,20 +827,20 @@ a {
   margin-bottom: 17px;
 }
 .peach {
-  color: #b0886c;
-  background: #f3e8dd;
+  color: hsl(var(--accent));
+  background: hsl(var(--accent) / 0.12);
 }
 .sage {
-  color: #81936d;
-  background: #e9edde;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
 }
 .lavender {
-  color: #9989aa;
-  background: #eee8f2;
+  color: hsl(var(--tone-3));
+  background: hsl(var(--tone-3) / 0.12);
 }
 .sand {
-  color: #b09965;
-  background: #f1ecdc;
+  color: hsl(var(--tone-4));
+  background: hsl(var(--tone-4) / 0.14);
 }
 .output-card strong {
   font-size: 12px;
@@ -806,7 +848,7 @@ a {
 }
 .output-card p {
   font-size: 10px;
-  color: #919084;
+  color: hsl(var(--muted-foreground));
   line-height: 1.7;
   margin-top: 6px;
 }
@@ -817,8 +859,8 @@ a {
   gap: 15px;
   margin-top: 35px;
   padding: 20px 0;
-  border-top: 1px solid #e9e8de;
-  color: #a1a394;
+  border-top: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
   font-size: 9px;
 }
 .workspace-bottom > span {
@@ -950,9 +992,9 @@ html.app-rtl .workspace-welcome h1 {
 .welcome-description,
 .section-heading p:not(.eyebrow),
 .output-card p {
-  color: #6f7568;
+  color: hsl(var(--muted-foreground));
 }
 .capture-intro p,
 .workspace-bottom {
-  color: #747b6c;
+  color: hsl(var(--muted-foreground));
 }

@@ -578,7 +578,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       {children}
       {rescue && stage === "idle" && (
         <div
-          className="fixed bottom-4 inset-x-4 z-50 mx-auto max-w-lg rounded-2xl border border-red-300 bg-red-50 p-4 text-red-950 shadow-xl"
+          className="fixed bottom-4 inset-x-4 z-50 mx-auto max-w-lg rounded-2xl border border-red-300 bg-red-50 p-4 text-red-950 shadow-xl dark:border-red-900 dark:bg-red-950/90 dark:text-red-50"
           role="alert"
         >
           <Link href="/record" className="text-sm underline">

@@ -428,7 +428,7 @@ export default function LibraryPage() {
           disabled={!ready || !!rescue || stage !== "idle"}
           aria-label={copy("Record into the library: tap, or hold to talk", "سجّل في المكتبة: انقر أو اضغط مطولًا وتحدث")}
           title={copy("Tap to record, or hold to talk", "انقر للتسجيل أو اضغط مطولًا وتحدث")}
-          className="inline-flex h-10 shrink-0 touch-none select-none items-center gap-1.5 rounded-full bg-gradient-to-br from-rose-500 to-red-600 ps-3 pe-4 text-sm font-semibold text-white shadow-md shadow-red-500/25 transition active:scale-95 disabled:opacity-50 [-webkit-touch-callout:none]"
+          className="inline-flex h-10 shrink-0 touch-none select-none items-center gap-1.5 rounded-full bg-gradient-to-br from-rose-500 to-red-600 ps-3 pe-4 text-sm font-semibold text-ink-foreground shadow-md shadow-red-500/25 transition active:scale-95 disabled:opacity-50 [-webkit-touch-callout:none]"
         >
           <Mic size={16} />{copy("Record", "سجّل")}
         </button>
@@ -787,18 +787,18 @@ export default function LibraryPage() {
       )}
 
       {active && (
-        <div className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-[hsl(158_38%_14%)] p-2.5 pe-4 text-white shadow-2xl md:bottom-6">
+        <div className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-ink p-2.5 pe-4 text-ink-foreground shadow-2xl md:bottom-6">
           <button
             type="button"
             onClick={() => play(active)}
             aria-label={playing ? copy("Pause", "إيقاف مؤقت") : copy("Play", "تشغيل")}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[hsl(158_38%_14%)]"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-ink"
           >
             {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ms-0.5 rtl:-scale-x-100" />}
           </button>
           <div className="min-w-0 flex-1">
             <p dir="auto" className="truncate text-sm font-semibold">{displayTitle(active, fallbackTitle)}</p>
-            <p className="text-xs tabular-nums text-white/60">{clock(position)} / {clock(length ?? active.durationSeconds)}{playAll && ` · ${copy("playing all", "تشغيل الكل")}`}</p>
+            <p className="text-xs tabular-nums text-ink-foreground/60">{clock(position)} / {clock(length ?? active.durationSeconds)}{playAll && ` · ${copy("playing all", "تشغيل الكل")}`}</p>
           </div>
           <button
             type="button"
@@ -817,19 +817,19 @@ export default function LibraryPage() {
               <SkipForward size={15} className="rtl:-scale-x-100" />
             </button>
           )}
-          <button type="button" aria-label={copy("Close player", "إغلاق المشغل")} onClick={() => { audio.current?.pause(); setActiveId(null); setPlayAll(false); }} className="grid h-8 w-8 place-items-center rounded-full text-white/70 hover:bg-white/10">
+          <button type="button" aria-label={copy("Close player", "إغلاق المشغل")} onClick={() => { audio.current?.pause(); setActiveId(null); setPlayAll(false); }} className="grid h-8 w-8 place-items-center rounded-full text-ink-foreground/70 hover:bg-white/10">
             <X size={16} />
           </button>
         </div>
       )}
 
       {selecting && (
-        <div className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-[hsl(158_38%_14%)] p-2.5 ps-4 text-white shadow-2xl md:bottom-6">
+        <div className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-xl items-center gap-3 rounded-2xl bg-ink p-2.5 ps-4 text-ink-foreground shadow-2xl md:bottom-6">
           <p className="min-w-0 flex-1 text-sm">
             {picked.length < 2 ? copy("Select 2 or more recordings", "حدد تسجيلين أو أكثر") : copy(`${picked.length} selected`, `${picked.length} محددة`)}
           </p>
-          <Button variant="ghost" className="h-10 rounded-full text-white hover:bg-white/10 hover:text-white" onClick={endSelecting}>{copy("Cancel", "إلغاء")}</Button>
-          <Button className="h-10 rounded-full bg-white px-4 text-[hsl(158_38%_14%)] hover:bg-white/90" disabled={picked.length < 2} onClick={() => setJoinOpen(true)}>
+          <Button variant="ghost" className="h-10 rounded-full text-ink-foreground hover:bg-white/10 hover:text-ink-foreground" onClick={endSelecting}>{copy("Cancel", "إلغاء")}</Button>
+          <Button className="h-10 rounded-full bg-white px-4 text-ink hover:bg-white/90" disabled={picked.length < 2} onClick={() => setJoinOpen(true)}>
             <Merge size={16} className="me-1.5" />{copy("Join", "دمج")}
           </Button>
         </div>

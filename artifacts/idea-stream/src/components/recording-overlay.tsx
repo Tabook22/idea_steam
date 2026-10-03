@@ -63,7 +63,7 @@ export function DrivingMode() {
       role="dialog"
       aria-modal="true"
       aria-label={copy("Recording in progress", "التسجيل جارٍ")}
-      className="fixed inset-0 z-[60] flex flex-col bg-[hsl(158_38%_11%)] text-[hsl(43_30%_95%)]"
+      className="fixed inset-0 z-[60] flex flex-col bg-ink text-ink-foreground"
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="flex items-center justify-between gap-3 px-5 pt-5 sm:px-8">
