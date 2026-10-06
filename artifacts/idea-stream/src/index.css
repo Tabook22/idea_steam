@@ -117,8 +117,8 @@
   --chart-4: var(--t) var(--ts) 80%;
   --chart-5: var(--h) 12% 40%;
 
-  --app-font-sans: "DM Sans Variable", system-ui, sans-serif;
-  --app-font-serif: "Playfair Display Variable", Georgia, serif;
+  --app-font-sans: "DM Sans Variable", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --app-font-serif: "Playfair Display Variable", "Noto Naskh Arabic", Georgia, serif;
   --app-font-mono: ui-monospace, monospace;
 
   --radius: 0.75rem;

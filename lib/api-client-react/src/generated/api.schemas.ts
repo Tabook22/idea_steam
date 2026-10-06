@@ -125,6 +125,83 @@ export interface SearchDraftHit {
   updatedAt: string;
 }
 
+export interface DashboardDay {
+  date: string;
+  recordings: number;
+  ideas: number;
+}
+
+export type DashboardContinueKind = typeof DashboardContinueKind[keyof typeof DashboardContinueKind];
+
+
+export const DashboardContinueKind = {
+  recording: 'recording',
+  idea: 'idea',
+  draft: 'draft',
+} as const;
+
+export interface DashboardContinue {
+  kind: DashboardContinueKind;
+  id: number;
+  /** @nullable */
+  title: string | null;
+  /** @nullable */
+  subjectId: number | null;
+  /** @nullable */
+  subjectTitle: string | null;
+  date: string;
+  /** @nullable */
+  url: string | null;
+}
+
+export type DashboardResurfacedKind = typeof DashboardResurfacedKind[keyof typeof DashboardResurfacedKind];
+
+
+export const DashboardResurfacedKind = {
+  recording: 'recording',
+  idea: 'idea',
+} as const;
+
+export interface DashboardResurfaced {
+  kind: DashboardResurfacedKind;
+  id: number;
+  text: string;
+  /** @nullable */
+  subjectId: number | null;
+  /** @nullable */
+  subjectTitle: string | null;
+  date: string;
+  /** @nullable */
+  url: string | null;
+  /** @nullable */
+  durationSeconds: number | null;
+  daysAgo: number;
+  /** How many older ideas there are to choose from. */
+  choices: number;
+}
+
+export type DashboardWeek = {
+  recordings: number;
+  ideas: number;
+  minutes: number;
+};
+
+export type DashboardTotals = {
+  recordings: number;
+  ideas: number;
+  notebooks: number;
+};
+
+export interface Dashboard {
+  /** The last 35 days, oldest first. */
+  days: DashboardDay[];
+  streak: number;
+  week: DashboardWeek;
+  totals: DashboardTotals;
+  continueWith: DashboardContinue | null;
+  resurfaced: DashboardResurfaced | null;
+}
+
 export interface AudioPeaks {
   peaks: number[];
 }
@@ -884,6 +961,21 @@ export const CompilationDownloadInputFormat = {
 export interface CompilationDownloadInput {
   format: CompilationDownloadInputFormat;
 }
+
+export type GetDashboardParams = {
+/**
+ * Minutes the person's time zone is ahead of UTC (e.g. 240 for UTC+4).
+ * @minimum -840
+ * @maximum 840
+ */
+offset?: number;
+/**
+ * Show a different older idea than today's.
+ * @minimum 0
+ * @maximum 10000
+ */
+shuffle?: number;
+};
 
 export type SearchWorkspaceParams = {
 /**

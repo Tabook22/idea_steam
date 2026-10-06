@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { useLanguage } from "@/lib/i18n";
 import { QuickRecord, useStartRecording } from "@/components/quick-record";
+import { HomeGreeting, HomeMoments } from "@/components/home-dashboard";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
@@ -268,7 +269,9 @@ export default function HomePage() {
           </span>
         </header>
         <main id="main-content" className="workspace-content">
+          <HomeGreeting />
           <QuickRecord />
+          <HomeMoments />
           <section className="workspace-welcome">
             <div>
               <p className="eyebrow">

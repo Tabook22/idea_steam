@@ -540,6 +540,63 @@ export const ExtractYoutubeTranscriptResponse = zod.object({
 
 
 /**
+ * @summary Home dashboard - activity, streak, where you left off, and an older idea brought back
+ */
+export const getDashboardQueryOffsetMin = -840;
+export const getDashboardQueryOffsetMax = 840;
+
+export const getDashboardQueryShuffleMin = 0;
+export const getDashboardQueryShuffleMax = 10000;
+
+
+
+export const GetDashboardQueryParams = zod.object({
+  "offset": zod.coerce.number().int().min(getDashboardQueryOffsetMin).max(getDashboardQueryOffsetMax).optional().describe('Minutes the person\'s time zone is ahead of UTC (e.g. 240 for UTC+4).'),
+  "shuffle": zod.coerce.number().int().min(getDashboardQueryShuffleMin).max(getDashboardQueryShuffleMax).optional().describe('Show a different older idea than today\'s.')
+})
+
+export const GetDashboardResponse = zod.object({
+  "days": zod.array(zod.object({
+  "date": zod.string(),
+  "recordings": zod.number().int(),
+  "ideas": zod.number().int()
+})).describe('The last 35 days, oldest first.'),
+  "streak": zod.number().int(),
+  "week": zod.object({
+  "recordings": zod.number().int(),
+  "ideas": zod.number().int(),
+  "minutes": zod.number().int()
+}),
+  "totals": zod.object({
+  "recordings": zod.number().int(),
+  "ideas": zod.number().int(),
+  "notebooks": zod.number().int()
+}),
+  "continueWith": zod.union([zod.object({
+  "kind": zod.enum(['recording', 'idea', 'draft']),
+  "id": zod.number().int(),
+  "title": zod.string().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "date": zod.string(),
+  "url": zod.string().nullable()
+}),zod.null()]),
+  "resurfaced": zod.union([zod.object({
+  "kind": zod.enum(['recording', 'idea']),
+  "id": zod.number().int(),
+  "text": zod.string(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "date": zod.string(),
+  "url": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "daysAgo": zod.number().int(),
+  "choices": zod.number().int().describe('How many older ideas there are to choose from.')
+}),zod.null()])
+})
+
+
+/**
  * Answers from your own content with numbered sources; recordings link to the moment they were said.
  * @summary Ask a question about your recordings, ideas and drafts
  */

@@ -375,6 +375,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/YoutubeTranscript"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [search]
+      summary: Home dashboard - activity, streak, where you left off, and an older idea brought back
+      parameters:
+        - name: offset
+          in: query
+          required: false
+          description: Minutes the person's time zone is ahead of UTC (e.g. 240 for UTC+4).
+          schema:
+            type: integer
+            minimum: -840
+            maximum: 840
+        - name: shuffle
+          in: query
+          required: false
+          description: Show a different older idea than today's.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 10000
+      responses:
+        "200":
+          description: The dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
   /ask:
     post:
       operationId: askLibrary
@@ -1034,6 +1063,100 @@ components:
         updatedAt:
           type: string
           format: date-time
+    DashboardDay:
+      type: object
+      required: [date, recordings, ideas]
+      properties:
+        date:
+          type: string
+        recordings:
+          type: integer
+        ideas:
+          type: integer
+    DashboardContinue:
+      type: object
+      required: [kind, id, title, subjectId, subjectTitle, date, url]
+      properties:
+        kind:
+          type: string
+          enum: [recording, idea, draft]
+        id:
+          type: integer
+        title:
+          type: ["string", "null"]
+        subjectId:
+          type: ["integer", "null"]
+        subjectTitle:
+          type: ["string", "null"]
+        date:
+          type: string
+        url:
+          type: ["string", "null"]
+    DashboardResurfaced:
+      type: object
+      required: [kind, id, text, subjectId, subjectTitle, date, url, durationSeconds, daysAgo, choices]
+      properties:
+        kind:
+          type: string
+          enum: [recording, idea]
+        id:
+          type: integer
+        text:
+          type: string
+        subjectId:
+          type: ["integer", "null"]
+        subjectTitle:
+          type: ["string", "null"]
+        date:
+          type: string
+        url:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["integer", "null"]
+        daysAgo:
+          type: integer
+        choices:
+          type: integer
+          description: How many older ideas there are to choose from.
+    Dashboard:
+      type: object
+      required: [days, streak, week, totals, continueWith, resurfaced]
+      properties:
+        days:
+          type: array
+          description: The last 35 days, oldest first.
+          items:
+            $ref: "#/components/schemas/DashboardDay"
+        streak:
+          type: integer
+        week:
+          type: object
+          required: [recordings, ideas, minutes]
+          properties:
+            recordings:
+              type: integer
+            ideas:
+              type: integer
+            minutes:
+              type: integer
+        totals:
+          type: object
+          required: [recordings, ideas, notebooks]
+          properties:
+            recordings:
+              type: integer
+            ideas:
+              type: integer
+            notebooks:
+              type: integer
+        continueWith:
+          oneOf:
+            - $ref: "#/components/schemas/DashboardContinue"
+            - type: "null"
+        resurfaced:
+          oneOf:
+            - $ref: "#/components/schemas/DashboardResurfaced"
+            - type: "null"
     AudioPeaks:
       type: object
       required: [peaks]
