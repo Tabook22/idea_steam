@@ -22,3 +22,4 @@ export * from "./ideas";
 export * from "./idea-chat-messages";
 export * from "./subject-compilations";
 export * from "./compilation-images";export * from "./audio-library";
+export * from "./ask-passages";

@@ -78,7 +78,7 @@ type SubjectLink = { subjectId: number; subjectTitle: string; ideaId: number };
  * The subjects each recording is in: ideas whose audio came from it (by library link), plays
  * the same file, or is the idea it was first saved from.
  */
-async function subjectLinks(items: AudioLibraryRecord[]) {
+export async function subjectLinks(items: AudioLibraryRecord[]) {
   const links = new Map<number, SubjectLink[]>();
   if (!items.length) return links;
   const ideas = await db

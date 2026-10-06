@@ -125,6 +125,94 @@ export interface SearchDraftHit {
   updatedAt: string;
 }
 
+export interface AskTurn {
+  /** @maxLength 500 */
+  question: string;
+  /** @maxLength 4000 */
+  answer: string;
+}
+
+export interface AskInput {
+  /**
+     * @minLength 2
+     * @maxLength 500
+     */
+  question: string;
+  /**
+     * Only this subject's recordings, ideas and drafts.
+     * @nullable
+     */
+  subjectId?: number | null;
+  /**
+     * Earlier questions and answers, for follow-up questions.
+     * @maxItems 6
+     */
+  history?: AskTurn[];
+}
+
+export type AskSourceKind = typeof AskSourceKind[keyof typeof AskSourceKind];
+
+
+export const AskSourceKind = {
+  recording: 'recording',
+  idea: 'idea',
+  draft: 'draft',
+} as const;
+
+export interface AskSource {
+  /** The number the answer cites, e.g. [2]. */
+  n: number;
+  kind: AskSourceKind;
+  id: number;
+  title: string;
+  excerpt: string;
+  /**
+     * Seconds into the recording where this was said.
+     * @nullable
+     */
+  start: number | null;
+  /** @nullable */
+  url: string | null;
+  /** @nullable */
+  durationSeconds: number | null;
+  /** @nullable */
+  subjectId: number | null;
+  /** @nullable */
+  subjectTitle: string | null;
+  date: string;
+}
+
+export interface AskSearched {
+  recordings: number;
+  ideas: number;
+  drafts: number;
+}
+
+/**
+ * smart = matched by meaning and words; words = by words only.
+ */
+export type AskAnswerMode = typeof AskAnswerMode[keyof typeof AskAnswerMode];
+
+
+export const AskAnswerMode = {
+  smart: 'smart',
+  words: 'words',
+} as const;
+
+export interface AskAnswer {
+  /**
+     * Null when AI is not available; the sources are then the best matches.
+     * @nullable
+     */
+  answer: string | null;
+  sources: AskSource[];
+  searched: AskSearched;
+  /** smart = matched by meaning and words; words = by words only. */
+  mode: AskAnswerMode;
+  aiAnswer: boolean;
+  notice?: string;
+}
+
 export interface SearchResults {
   query: string;
   ideas: SearchIdeaHit[];

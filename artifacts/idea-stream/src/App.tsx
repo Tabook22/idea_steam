@@ -25,6 +25,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { CaptureSheet } from "@/components/capture-sheet";
 import { UpdateNotice } from "@/components/update-notice";
 import { WorkspaceSearch } from "@/components/workspace-search";
+import { AskLibrary } from "@/components/ask-library";
 import { TopBarHome } from "@/components/top-bar-home";
 import {
   Route,
@@ -69,6 +70,7 @@ function TopNav() {
     <div className="flex items-center justify-between gap-2 px-4 py-3">
       <TopBarHome />
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <AskLibrary />
       <WorkspaceSearch />
       <LanguageToggle />
       <ThemePicker />

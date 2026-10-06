@@ -6,6 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './askAnswer';
+export * from './askAnswerMode';
+export * from './askInput';
+export * from './askSearched';
+export * from './askSource';
+export * from './askSourceKind';
+export * from './askTurn';
 export * from './audioChapter';
 export * from './audioEditInput';
 export * from './audioEnhanceInput';

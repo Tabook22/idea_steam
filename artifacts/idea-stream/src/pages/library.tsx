@@ -32,6 +32,7 @@ import {
   Trash2,
   VolumeX,
   X,
+  Type,
 } from "lucide-react";
 import {
   deleteAudioLibraryItem,
@@ -166,6 +167,23 @@ export default function LibraryPage() {
   const pendingHere = records.filter((record) => record.destination === "library" && record.status === "saved").length;
 
   useEffect(() => { try { localStorage.setItem(SORT_KEY, sort); } catch { /* optional */ } }, [sort]);
+
+  // "Open in library" (e.g. from Ask): #item-12 shows and opens that recording.
+  const loaded = items.length > 0;
+  useEffect(() => {
+    if (!loaded) return;
+    const show = () => {
+      const id = Number(window.location.hash.match(/^#item-(\d+)$/)?.[1]);
+      if (!id) return;
+      setFilter("");
+      setQuick("all");
+      setExpanded(id);
+      setTimeout(() => document.getElementById(`item-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 120);
+    };
+    show();
+    window.addEventListener("hashchange", show);
+    return () => window.removeEventListener("hashchange", show);
+  }, [loaded]);
 
   const visible = useMemo(() => {
     const needle = filter.trim().toLocaleLowerCase();
@@ -402,9 +420,11 @@ export default function LibraryPage() {
     if (done) toast({ title: copy(`Converted ${done} recording${done > 1 ? "s" : ""} to text`, `حُوّل ${done} تسجيل إلى نص`) });
   }
 
-  const openTool = (item: AudioLibraryItem, tool: "edit" | "lab") => {
+  const [editByText, setEditByText] = useState(false);
+  const openTool = (item: AudioLibraryItem, tool: "edit" | "lab" | "text") => {
     if (activeId === item.id) audio.current?.pause();
-    if (tool === "edit") setEditing(item); else setImproving(item);
+    setEditByText(tool === "text");
+    if (tool === "lab") setImproving(item); else setEditing(item);
   };
   async function removeMusic(item: AudioLibraryItem, then?: "edit" | "lab") {
     try {
@@ -645,7 +665,7 @@ export default function LibraryPage() {
                   const snippet = item.title && item.transcript ? item.transcript.replace(/\s+/g, " ").trim() : null;
                   const picks = picked.indexOf(item.id);
                   return (
-                    <li key={item.id} className={`transition-colors ${current ? "bg-primary/[0.05]" : open ? "bg-muted/30" : ""}`}>
+                    <li key={item.id} id={`item-${item.id}`} className={`transition-colors ${current ? "bg-primary/[0.05]" : open ? "bg-muted/30" : ""}`}>
                       <div className="flex items-start gap-3 py-3 ps-3 pe-1.5">
                         {selecting ? (
                           <button
@@ -747,6 +767,7 @@ export default function LibraryPage() {
                               {needsText(item) && <DropdownMenuItem disabled={converting.has(item.id)} onSelect={() => void convertToText(item)}><Captions size={15} />{copy("Convert to text", "حوّل إلى نص")}</DropdownMenuItem>}
                               <DropdownMenuItem onSelect={() => setExporting(item)}><Download size={15} />{copy("Download as MP3, WAV…", "تنزيل MP3، WAV…")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => openTool(item, "edit")}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
+                              {item.kind !== "music" && <DropdownMenuItem onSelect={() => openTool(item, "text")}><Type size={15} />{copy("Edit by text", "التحرير بالنص")}</DropdownMenuItem>}
                               {(item.mix || item.bakedMusic) && (
                                 <DropdownMenuItem onSelect={() => setUnmixing(item)} className="font-medium text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-400 dark:focus:bg-red-950/40">
                                   <VolumeX size={15} />{copy("Remove background music", "أزل الموسيقى الخلفية")}
@@ -805,6 +826,7 @@ export default function LibraryPage() {
                           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                             {([
                               [Scissors, copy("Edit audio", "تحرير الصوت"), () => openTool(item, "edit")],
+                              ...(item.kind === "music" ? [] : [[Type, copy("Edit by text", "التحرير بالنص"), () => openTool(item, "text")] as const]),
                               [Wand2, copy("Sound lab", "مختبر الصوت"), () => openTool(item, "lab")],
                               ...(item.bakedMusic ? [] : [[Music2, item.mix ? copy("Edit music", "عدّل الموسيقى") : copy("Add music", "أضف موسيقى"), () => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }] as const]),
                               [Download, copy("Download as…", "تنزيل بصيغة…"), () => setExporting(item)],
@@ -975,7 +997,7 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {editing && <AudioEditor item={items.find((other) => other.id === editing.id) ?? editing} title={displayTitle(editing, fallbackTitle)} onClose={() => setEditing(null)}
+      {editing && <AudioEditor item={items.find((other) => other.id === editing.id) ?? editing} title={displayTitle(editing, fallbackTitle)} onClose={() => setEditing(null)} initialTab={editByText ? "text" : undefined}
         onEditMusic={() => { const target = items.find((other) => other.id === editing.id) ?? editing; setEditing(null); setMixing(target); }} />}
 
       <AlertDialog open={!!restoring} onOpenChange={(open) => { if (!open) setRestoring(null); }}>

@@ -375,6 +375,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/YoutubeTranscript"
+  /ask:
+    post:
+      operationId: askLibrary
+      tags: [search]
+      summary: Ask a question about your recordings, ideas and drafts
+      description: Answers from your own content with numbered sources; recordings link to the moment they were said.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskInput"
+      responses:
+        "200":
+          description: The answer and its sources
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AskAnswer"
+        "400":
+          description: No question
   /search:
     get:
       operationId: searchWorkspace
@@ -999,6 +1020,93 @@ components:
         updatedAt:
           type: string
           format: date-time
+    AskTurn:
+      type: object
+      required: [question, answer]
+      properties:
+        question:
+          type: string
+          maxLength: 500
+        answer:
+          type: string
+          maxLength: 4000
+    AskInput:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 2
+          maxLength: 500
+        subjectId:
+          type: ["integer", "null"]
+          description: Only this subject's recordings, ideas and drafts.
+        history:
+          type: array
+          maxItems: 6
+          description: Earlier questions and answers, for follow-up questions.
+          items:
+            $ref: "#/components/schemas/AskTurn"
+    AskSource:
+      type: object
+      required: [n, kind, id, title, excerpt, start, url, durationSeconds, subjectId, subjectTitle, date]
+      properties:
+        n:
+          type: integer
+          description: The number the answer cites, e.g. [2].
+        kind:
+          type: string
+          enum: [recording, idea, draft]
+        id:
+          type: integer
+        title:
+          type: string
+        excerpt:
+          type: string
+        start:
+          type: ["number", "null"]
+          description: Seconds into the recording where this was said.
+        url:
+          type: ["string", "null"]
+        durationSeconds:
+          type: ["integer", "null"]
+        subjectId:
+          type: ["integer", "null"]
+        subjectTitle:
+          type: ["string", "null"]
+        date:
+          type: string
+    AskSearched:
+      type: object
+      required: [recordings, ideas, drafts]
+      properties:
+        recordings:
+          type: integer
+        ideas:
+          type: integer
+        drafts:
+          type: integer
+    AskAnswer:
+      type: object
+      required: [answer, sources, searched, mode, aiAnswer]
+      properties:
+        answer:
+          type: ["string", "null"]
+          description: Null when AI is not available; the sources are then the best matches.
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/AskSource"
+        searched:
+          $ref: "#/components/schemas/AskSearched"
+        mode:
+          type: string
+          enum: [smart, words]
+          description: smart = matched by meaning and words; words = by words only.
+        aiAnswer:
+          type: boolean
+        notice:
+          type: string
     SearchResults:
       type: object
       required: [query, ideas, subjects, drafts]

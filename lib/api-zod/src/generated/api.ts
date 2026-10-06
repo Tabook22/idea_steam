@@ -524,6 +524,56 @@ export const ExtractYoutubeTranscriptResponse = zod.object({
 
 
 /**
+ * Answers from your own content with numbered sources; recordings link to the moment they were said.
+ * @summary Ask a question about your recordings, ideas and drafts
+ */
+export const askLibraryBodyQuestionMin = 2;
+export const askLibraryBodyQuestionMax = 500;
+
+export const askLibraryBodyHistoryItemQuestionMax = 500;
+
+export const askLibraryBodyHistoryItemAnswerMax = 4000;
+
+export const askLibraryBodyHistoryMax = 6;
+
+
+
+export const AskLibraryBody = zod.object({
+  "question": zod.string().min(askLibraryBodyQuestionMin).max(askLibraryBodyQuestionMax),
+  "subjectId": zod.number().int().nullish().describe('Only this subject\'s recordings, ideas and drafts.'),
+  "history": zod.array(zod.object({
+  "question": zod.string().max(askLibraryBodyHistoryItemQuestionMax),
+  "answer": zod.string().max(askLibraryBodyHistoryItemAnswerMax)
+})).max(askLibraryBodyHistoryMax).optional().describe('Earlier questions and answers, for follow-up questions.')
+})
+
+export const AskLibraryResponse = zod.object({
+  "answer": zod.string().nullable().describe('Null when AI is not available; the sources are then the best matches.'),
+  "sources": zod.array(zod.object({
+  "n": zod.number().int().describe('The number the answer cites, e.g. [2].'),
+  "kind": zod.enum(['recording', 'idea', 'draft']),
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "excerpt": zod.string(),
+  "start": zod.number().nullable().describe('Seconds into the recording where this was said.'),
+  "url": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "date": zod.string()
+})),
+  "searched": zod.object({
+  "recordings": zod.number().int(),
+  "ideas": zod.number().int(),
+  "drafts": zod.number().int()
+}),
+  "mode": zod.enum(['smart', 'words']).describe('smart = matched by meaning and words; words = by words only.'),
+  "aiAnswer": zod.boolean(),
+  "notice": zod.string().optional()
+})
+
+
+/**
  * Case-insensitive; Arabic letter variants and diacritics are treated as equivalent.
  * @summary Search ideas, transcripts, notebooks, and drafts
  */

@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AskAnswer,
+  AskInput,
   AudioEditInput,
   AudioEnhanceInput,
   AudioJoinInput,
@@ -1827,6 +1829,95 @@ export const useExtractYoutubeTranscript = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getExtractYoutubeTranscriptMutationOptions(options));
+    }
+
+export const getAskLibraryUrl = () => {
+
+
+
+
+  return `/api/ask`
+}
+
+/**
+ * Answers from your own content with numbered sources; recordings link to the moment they were said.
+ * @summary Ask a question about your recordings, ideas and drafts
+ */
+export const askLibrary = async (askInput: AskInput, options?: Parameters<typeof customFetch>[1]): Promise<AskAnswer> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AskAnswer>(getAskLibraryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(askInput)
+  }
+);}
+
+
+
+
+
+export const getAskLibraryMutationKey = () => ['askLibrary'] as const;
+
+export const getAskLibraryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof askLibrary>>, TError,AskLibraryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof askLibrary>>, TError,AskLibraryMutationVariables, TContext> => {
+
+const mutationKey = getAskLibraryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof askLibrary>>, AskLibraryMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  askLibrary(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AskLibraryMutationResult = NonNullable<Awaited<ReturnType<typeof askLibrary>>>
+    export type AskLibraryMutationBody = BodyType<AskInput>
+    export type AskLibraryMutationError = ErrorType<void>
+    export type AskLibraryMutationVariables = {data: BodyType<AskInput>}
+
+    /**
+ * @summary Ask a question about your recordings, ideas and drafts
+ */
+export const useAskLibrary = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof askLibrary>>, TError,AskLibraryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof askLibrary>>,
+        TError,
+        AskLibraryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAskLibraryMutationOptions(options));
     }
 
 export const getSearchWorkspaceUrl = (params: SearchWorkspaceParams,) => {

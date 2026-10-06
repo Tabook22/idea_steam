@@ -44,6 +44,7 @@ import { clampView, panBy, rulerTicks, viewAround, zoomAt, type View } from "@/l
 import { useLanguage } from "@/lib/i18n";
 import { findSimilar, soundPrint, type Match, type Sensitivity, type SoundPrint } from "@/lib/similar-sounds";
 import { MusicTracks } from "@/components/music-track";
+import { TextEditorPanel } from "@/components/text-editor-panel";
 import { mixPlan, songTimeAt, type MixSettings } from "@/lib/mix";
 import { dbHeight, getPeaks, peakAt, type Peaks } from "@/lib/waveform-cache";
 
@@ -80,7 +81,7 @@ const Divider = () => <span className="mx-1 h-6 w-px shrink-0 bg-white/15" aria-
  * effect at once (the rest joins up). Everything is tracked against the original recording,
  * which the server keeps for "Restore original".
  */
-export function AudioEditor({ item, title, onClose, onEditMusic }: { item: AudioLibraryItem; title: string; onClose: () => void; onEditMusic?: () => void }) {
+export function AudioEditor({ item, title, onClose, onEditMusic, initialTab }: { item: AudioLibraryItem; title: string; onClose: () => void; onEditMusic?: () => void; initialTab?: "text" }) {
   // With background music, you edit your voice; the music is laid back on when you save.
   const sourceUrl = item.mix?.voiceUrl ?? item.url;
   const voiceMarks = item.mix ? (item.marks ?? []).map((mark) => mark - (item.mix?.pre ?? 0)).filter((mark) => mark >= 0) : item.marks ?? [];
@@ -116,7 +117,7 @@ export function AudioEditor({ item, title, onClose, onEditMusic }: { item: Audio
     getPeaks(item.mix.musicUrl).then((peaks) => { if (!cancelled) setMusicPeaks(peaks); }).catch(() => {});
     return () => { cancelled = true; };
   }, [item.mix?.musicUrl]);
-  const [tab, setTab] = useState<"cuts" | "cleanup" | "text" | "tracks">(item.mix ? "tracks" : "cuts");
+  const [tab, setTab] = useState<"cuts" | "cleanup" | "text" | "tracks">(initialTab ?? (item.mix ? "tracks" : "cuts"));
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
   /** "Find similar sounds": the example (original time), how strict, what was found, and which to cut. */
@@ -624,6 +625,10 @@ export function AudioEditor({ item, title, onClose, onEditMusic }: { item: Audio
       return null;
     }
   }
+  // Opening "Edit by text" shows the words straight away when they're stored (or were asked for).
+  useEffect(() => {
+    if (tab === "text" && !words && wordsState === "idle" && (item.hasWords || initialTab === "text")) void loadWords();
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
   const withCutNeighbours = (list: TimedWord[], indexes: number[]) => {
     const set = new Set(indexes);
     for (const index of indexes)
@@ -637,16 +642,6 @@ export function AudioEditor({ item, title, onClose, onEditMusic }: { item: Audio
     const fillers = fillerIndexes(list).filter((index) => !isWordRemoved(list[index], removed));
     const n = fillers.length;
     applyCleanup(n ? rangesForWords(list, withCutNeighbours(list, fillers)) : [], () => copy(`Removed ${n} filler word${n > 1 ? "s" : ""}`, `حُذفت ${n} كلمة حشو`), copy("No filler words found.", "لم تُعثر على كلمات حشو."));
-  };
-  const toggleWord = (index: number) => {
-    if (!words) return;
-    const word = words[index];
-    setNote("");
-    if (isWordRemoved(word, removed)) {
-      commit(subtractRange(cuts, { start: words[index - 1]?.end ?? 0, end: words[index + 1]?.start ?? duration }));
-      return;
-    }
-    commit([...removed, ...rangesForWords(words, withCutNeighbours(words, [index]))]);
   };
   const fillerSet = useMemo(() => new Set(words ? fillerIndexes(words) : []), [words]);
 
@@ -1098,18 +1093,17 @@ export function AudioEditor({ item, title, onClose, onEditMusic }: { item: Audio
                 )}
                 {tab === "text" && (words ? (
                   <>
-                    <p className="text-xs text-white/50">{copy("Tap words to cut them. Tap again to bring them back.", "انقر على الكلمات لقصّها. انقر مجددًا لإعادتها.")}</p>
-                    <p dir="auto" className="mt-2 max-h-56 overflow-y-auto text-[15px] leading-9">
-                      {words.map((entry, index) => {
-                        const cut = isWordRemoved(entry, removed);
-                        return (
-                          <button key={index} type="button" onClick={() => toggleWord(index)} aria-pressed={cut} title={formatTime(entry.start, true)}
-                            className={`me-1 rounded px-0.5 transition-colors ${cut ? "bg-red-500/15 text-red-300/70 line-through decoration-2" : "hover:bg-white/10"} ${fillerSet.has(index) && !cut ? "underline decoration-amber-400 decoration-wavy underline-offset-4" : ""}`}>
-                            {entry.word.trim()}
-                          </button>
-                        );
-                      })}
-                    </p>
+                    <TextEditorPanel
+                      words={words} removed={removed} cuts={cuts} duration={duration} playing={playing}
+                      originalPlayhead={timeline.toOriginal(playhead)} fillers={fillerSet} copy={copy}
+                      onCommit={(next, message) => { commit(next); setNote(message); }}
+                      onPlayOriginal={(range) => playSegments([range])}
+                      onPlayFrom={(time) => playEdited(timeline.toEdited(time), length)}
+                      onStop={stop}
+                      onSelectionChange={(range) => setSelection(range && timeline.toEdited(range.end) - timeline.toEdited(range.start) > 0.01
+                        ? { start: timeline.toEdited(range.start), end: timeline.toEdited(range.end) } : null)}
+                    />
+                    {note && <p className="mt-2 text-xs font-medium text-emerald-300" role="status">{note}</p>}
                   </>
                 ) : (
                   <>

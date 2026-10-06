@@ -14,6 +14,7 @@ import {
   Mic,
   PenLine,
   Search,
+  Sparkles,
   X,
 } from "lucide-react";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@workspace/api-client-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { highlight } from "@/lib/search-highlight";
+import { openAsk } from "@/components/ask-library";
 import { useLanguage } from "@/lib/i18n";
 
 const RECENT_KEY = "idea-stream-recent-searches";
@@ -277,6 +279,16 @@ export function WorkspaceSearch() {
           </div>
 
           <div ref={list} id="workspace-search-results" role="listbox" aria-label={copy("Results", "النتائج")} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+            {query.trim().length >= 2 && (
+              <button type="button" onClick={() => { const question = query.trim(); setOpen(false); openAsk(question); }}
+                className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start hover:bg-primary/5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Sparkles size={16} /></span>
+                <span className="min-w-0 flex-1 text-sm">
+                  <span className="font-medium text-primary">{copy("Ask your library", "اسأل مكتبتك")}</span>
+                  <span dir="auto" className="ms-1.5 text-muted-foreground">“{query.trim()}”</span>
+                </span>
+              </button>
+            )}
             {debounced.length < 2 ? (
               <div className="px-3 py-6">
                 {recent.length > 0 && (

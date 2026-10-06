@@ -8,8 +8,8 @@ test -z "$(git status --porcelain)" || { echo 'Checkout has local edits; update 
 git pull --ff-only origin main
 pnpm install --frozen-lockfile
 pnpm typecheck
-node --experimental-strip-types --test scripts/recording.test.mjs scripts/offline-recorder.test.mjs scripts/search.test.mjs scripts/share.test.mjs scripts/audio-ranges.test.mjs scripts/audio-cleanup.test.mjs scripts/audio-marks.test.mjs scripts/audio-view.test.mjs scripts/sound-analysis.test.mjs scripts/sound-lab.test.mjs scripts/mix.test.mjs scripts/similar-sounds.test.mjs
-(cd scripts && node --import tsx --test vps.test.mjs)
+node --experimental-strip-types --test scripts/recording.test.mjs scripts/offline-recorder.test.mjs scripts/search.test.mjs scripts/share.test.mjs scripts/audio-ranges.test.mjs scripts/audio-cleanup.test.mjs scripts/audio-marks.test.mjs scripts/audio-view.test.mjs scripts/sound-analysis.test.mjs scripts/sound-lab.test.mjs scripts/mix.test.mjs scripts/similar-sounds.test.mjs scripts/text-edit.test.mjs
+(cd scripts && node --import tsx --test vps.test.mjs ask.test.mjs)
 BASE_PATH=/ideas/ PORT=5185 pnpm --filter @workspace/idea-stream build
 pnpm --filter @workspace/api-server build
 set -a
@@ -30,6 +30,7 @@ previous=$(readlink "$APP_ROOT/current" || true)
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261006_audio_marks_chapters.sql
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261007_audio_kind.sql
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261008_audio_mix.sql
+/usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261009_ask_passages.sql
 ln -s "$release" "$APP_ROOT/current.next"
 mv -Tf "$APP_ROOT/current.next" "$APP_ROOT/current"
 systemctl --user enable idea-stream.service
