@@ -48,6 +48,7 @@ import {
 } from "@workspace/api-client-react";
 import { appPath } from "@/lib/app-path";
 import { useRecorder } from "@/components/recorder-provider";
+import { MiniWave } from "@/components/mini-wave";
 import { AudioEditor } from "@/components/audio-editor";
 import { ExportDialog } from "@/components/export-dialog";
 import { SoundLab } from "@/components/sound-lab";
@@ -715,9 +716,11 @@ export default function LibraryPage() {
                           >
                             <span className="flex items-start gap-2">
                               <span dir="auto" className={`min-w-0 flex-1 text-[15px] font-medium leading-5 ${open ? "" : "line-clamp-2"} ${item.title || item.transcript ? "" : "text-muted-foreground"}`}>{title}</span>
-                              <span className="mt-px shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground" dir="ltr">
-                                {current ? `${clock(position)} / ${clock(total)}` : clock(total)}
-                              </span>
+                              {(current || total != null) && (
+                                <span className="mt-px shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground" dir="ltr">
+                                  {current ? (total != null ? `${clock(position)} / ${clock(total)}` : clock(position)) : clock(total)}
+                                </span>
+                              )}
                             </span>
                             {snippet && !open && <span dir="auto" className="mt-0.5 block truncate text-xs leading-5 text-muted-foreground">{snippet}</span>}
                             <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-4">
@@ -751,6 +754,7 @@ export default function LibraryPage() {
                                 <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900 dark:bg-violet-900/40 dark:text-violet-100"><Sparkles size={11} />{copy(`${item.chapters.length} chapters`, `${item.chapters.length} فصول`)}</span>
                               )}
                             </span>
+                            {!current && <MiniWave id={item.id} url={item.url} peaks={item.peaks} tone={item.kind === "music" ? "music" : "primary"} className="mt-2 h-5 max-w-[18rem]" />}
                           </button>
                         )}
 
@@ -807,15 +811,14 @@ export default function LibraryPage() {
                               if (event.key === "ArrowRight") audio.current.currentTime += 5;
                               if (event.key === "ArrowLeft") audio.current.currentTime -= 5;
                             }}
-                            className="relative h-5 flex-1 cursor-pointer touch-none"
+                            className="relative h-9 flex-1 cursor-pointer touch-none"
                           >
-                            <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-primary/15">
-                              <div className="h-full rounded-full bg-primary transition-[width] duration-200" style={{ width: `${progress}%` }} />
-                            </div>
+                            {/* The recording's own waveform; the played part fills in. */}
+                            <MiniWave id={item.id} url={item.url} peaks={item.peaks} progress={progress / 100} tone={item.kind === "music" ? "music" : "primary"} className="absolute inset-0" />
                             {total ? item.marks.map((mark) => (
-                              <span key={mark} className="pointer-events-none absolute top-1/2 h-3 w-1 -translate-y-1/2 rounded-full bg-amber-500" style={{ left: `${Math.min(100, (mark / total) * 100)}%` }} />
+                              <span key={mark} className="pointer-events-none absolute -bottom-0.5 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-amber-500" style={{ left: `${Math.min(100, (mark / total) * 100)}%` }} />
                             )) : null}
-                            <span className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-primary shadow" style={{ left: `${progress}%` }} />
+                            <span className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-foreground/70" style={{ left: `${progress}%` }} />
                           </div>
                           <span>{clock(total)}</span>
                         </div>

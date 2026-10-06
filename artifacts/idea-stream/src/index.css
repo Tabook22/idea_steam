@@ -998,3 +998,13 @@ html.app-rtl .workspace-welcome h1 {
 .workspace-bottom {
   color: hsl(var(--muted-foreground));
 }
+
+/* The REC button breathes softly while it waits. */
+@keyframes rec-breathe {
+  0%, 100% { transform: scale(0.88); opacity: 0.45; }
+  50% { transform: scale(1.12); opacity: 0.9; }
+}
+@keyframes rec-ripple {
+  0% { transform: scale(1); opacity: 0.7; }
+  70%, 100% { transform: scale(1.45); opacity: 0; }
+}

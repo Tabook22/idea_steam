@@ -13,7 +13,7 @@ import { RecordingStore, type LocalRecording } from "@/lib/recording-store";
 import { maxTranscriptionAttempts, syncRecording, transcribeRecording } from "@/lib/recording-sync";
 import { useLanguage } from "@/lib/i18n";
 import { readRecorderPrefs } from "@/lib/recorder-prefs";
-import { DrivingMode } from "@/components/recording-overlay";
+import { DrivingMode, SavedBurst } from "@/components/recording-overlay";
 
 const preview = import.meta.env.VITE_DESIGN_PREVIEW === "true";
 export const recordingStore = new RecordingStore(
@@ -98,6 +98,8 @@ async function microphoneLock(): Promise<() => void> {
 export function RecorderProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState<LocalRecording[]>([]);
   const [stage, setStage] = useState<Stage>("idle");
+  /** When the last recording was saved (shows the "Saved" animation once). */
+  const [savedAt, setSavedAt] = useState<number | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [markCount, setMarkCount] = useState(0);
   const [target, setTarget] = useState<RecordingTarget | null>(null);
@@ -389,6 +391,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
                 ),
                 marks: current.marks,
               });
+              setSavedAt(Date.now());
+              navigator.vibrate?.([18, 60, 28]);
               if ("speechSynthesis" in window) {
                 const cue = new SpeechSynthesisUtterance(
                   isArabic ? "تم الحفظ على الجهاز" : "Saved on device",
@@ -421,6 +425,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           })();
         };
         recorder.start(1000);
+        navigator.vibrate?.(25);
         setActiveId(id);
         setSeconds(0);
         setStage("recording");
@@ -610,6 +615,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         </div>
       )}
       {stage !== "idle" && <DrivingMode />}
+      {savedAt && stage === "idle" && <SavedBurst key={savedAt} onDone={() => setSavedAt(null)} />}
     </RecorderContext.Provider>
   );
 }

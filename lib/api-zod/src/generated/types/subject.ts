@@ -10,6 +10,21 @@ export interface Subject {
   id: number;
   title: string;
   intro: string;
+  /**
+     * Cover colour name; null means chosen automatically.
+     * @nullable
+     */
+  color: string | null;
+  /**
+     * Cover emoji; null means the default notebook icon.
+     * @nullable
+     */
+  icon: string | null;
+  /**
+     * The start of the newest idea, for the cover.
+     * @nullable
+     */
+  latest: string | null;
   createdAt: Date;
   updatedAt: Date;
   ideaCount: number;

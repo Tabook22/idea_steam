@@ -7,6 +7,9 @@ export const subjectsTable = pgTable("idea_subjects", {
   title: text("title").notNull(),
   intro: text("intro").notNull().default(""),
   draft: text("draft"),
+  /** Notebook cover: a colour name (e.g. "ocean") and an emoji. Null = chosen automatically. */
+  color: text("color"),
+  icon: text("icon"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

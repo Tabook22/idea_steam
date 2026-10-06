@@ -116,3 +116,16 @@ test("excerpts are taken around the question's words", () => {
   assert.ok(piece.includes("projector"));
   assert.ok(piece.startsWith("…") && piece.endsWith("…"));
 });
+
+test("mini waveforms: 64 slices, loudest is 1, silence is 0", async () => {
+  const { barsFromSamples } = await import("../artifacts/api-server/src/lib/audio-edit.ts");
+  const samples = new Int16Array(6400);
+  for (let i = 0; i < 3200; i++) samples[i] = i % 2 ? 8000 : -8000;
+  for (let i = 3200; i < 3300; i++) samples[i] = i % 2 ? 32000 : -32000;
+  const bars = barsFromSamples(samples, 64);
+  assert.equal(bars.length, 64);
+  assert.equal(bars[32], 1);
+  assert.equal(bars[63], 0);
+  assert.ok(bars[0] > 0.4 && bars[0] < 0.6, `quiet speech stays visible (${bars[0]})`);
+  assert.deepEqual(barsFromSamples(new Int16Array(0), 4), [0, 0, 0, 0]);
+});

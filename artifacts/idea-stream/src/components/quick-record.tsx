@@ -47,7 +47,11 @@ function RecButton({ size = "lg", disabled, onClick, label }: {
       }`}
     >
       {!disabled && (
-        <span className="absolute inset-0 animate-[ping_2.4s_cubic-bezier(0,0,0.2,1)_infinite] rounded-full bg-red-500/25 motion-reduce:animate-none" aria-hidden="true" />
+        <>
+          {/* A slow, soft "breath" of light behind the button, and a gentle ripple. */}
+          <span className="absolute -inset-4 animate-[rec-breathe_3.6s_ease-in-out_infinite] rounded-full bg-red-500/35 blur-2xl motion-reduce:animate-none" aria-hidden="true" />
+          <span className="absolute inset-0 animate-[rec-ripple_3.6s_ease-out_infinite] rounded-full border-2 border-red-400/60 motion-reduce:hidden" aria-hidden="true" />
+        </>
       )}
       <span className="absolute inset-0 rounded-full bg-gradient-to-br from-rose-400 via-red-500 to-red-700 shadow-[0_12px_32px_-8px_rgba(220,38,38,0.65)] transition-transform group-hover:scale-105" aria-hidden="true" />
       <span className={`absolute rounded-full border-2 border-white/30 ${large ? "inset-2.5" : "inset-1.5"}`} aria-hidden="true" />
@@ -182,10 +186,12 @@ export function QuickRecord() {
             {copy("Voice note", "ملاحظة صوتية")}
           </p>
           <h2 className="mt-2 text-2xl font-medium leading-tight sm:text-3xl">
-            {copy("Speak it. We'll write it down.", "تحدّث، ونحن نكتب.")}
+            {copy("Speak it. Keep it forever.", "تحدّث، وفكرتك محفوظة.")}
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {copy("Tap REC and talk. Your words are turned into text and saved in the subject you choose.", "اضغط REC وتحدّث. تتحول كلماتك إلى نص وتُحفظ في الموضوع الذي تختاره.")}
+            {prefs.autoTranscribe
+              ? copy("Tap REC and talk. It's saved in your audio library right away, and turned into text in the subject you choose.", "اضغط REC وتحدّث. يُحفظ فورًا في مكتبة الصوت، ويتحول إلى نص في الموضوع الذي تختاره.")
+              : copy("Tap REC and talk. It's saved in your audio library in seconds. Turn it into text whenever you need the words.", "اضغط REC وتحدّث. يُحفظ في مكتبة الصوت خلال ثوانٍ، وحوّله إلى نص متى احتجت الكلمات.")}
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
             <OptionPill

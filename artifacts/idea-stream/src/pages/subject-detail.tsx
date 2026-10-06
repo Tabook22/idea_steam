@@ -9,6 +9,7 @@ import {
   Trash2,
   Feather,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 
 import {
@@ -35,6 +36,8 @@ import {
 } from "@/components/ui/dialog";
 
 import { IdeaList } from "@/components/idea-list";
+import { CoverPicker } from "@/components/cover-picker";
+import { coverStyle } from "@/lib/covers";
 import { CreateIdeaForm } from "@/components/create-idea-form";
 const CompilationView = lazy(() =>
   import("@/components/compilation-view").then((module) => ({
@@ -69,6 +72,7 @@ export default function SubjectDetailPage() {
   const deleteSubject = useDeleteSubject();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [covering, setCovering] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [isEditingIntro, setIsEditingIntro] = useState(false);
   const [editIntro, setEditIntro] = useState("");
@@ -279,6 +283,18 @@ export default function SubjectDetailPage() {
           </div>
 
           <div className="max-w-3xl">
+            <button type="button" onClick={() => setCovering(true)}
+              title={isArabic ? "غيّر غلاف الدفتر" : "Change the notebook cover"}
+              aria-label={isArabic ? "غيّر غلاف الدفتر" : "Change the notebook cover"}
+              className="group/cover mb-3 inline-flex items-center gap-2.5 rounded-2xl text-start">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl text-2xl text-white shadow-sm transition group-hover/cover:scale-105" style={coverStyle(subjectDetail)}>
+                {subjectDetail.icon ?? <BookOpen className="h-5 w-5" />}
+              </span>
+              <span className="text-xs font-medium text-muted-foreground opacity-100 transition-opacity sm:opacity-0 sm:group-hover/cover:opacity-100">
+                {isArabic ? "غيّر الغلاف" : "Change cover"}
+              </span>
+            </button>
+            {covering && <CoverPicker subject={subjectDetail} onClose={() => setCovering(false)} />}
             {isEditingTitle ? (
               <div className="flex items-center gap-2 mb-3 md:mb-4">
                 <Input

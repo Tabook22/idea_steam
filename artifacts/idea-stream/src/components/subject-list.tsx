@@ -15,6 +15,7 @@ import {
   CalendarClock,
   Grid2X2,
   List,
+  Palette,
   Search,
   Trash2,
   Plus,
@@ -40,6 +41,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { CoverPicker } from "@/components/cover-picker";
+import { coverStyle } from "@/lib/covers";
 
 type ViewMode = "cards" | "list";
 type SortMode = "newest" | "oldest" | "title" | "ideas";
@@ -54,6 +57,7 @@ export function SubjectList({ subjects, onCreate }: SubjectListProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null);
+  const [covering, setCovering] = useState<Subject | null>(null);
   const { language, isArabic, t } = useLanguage();
   const queryClient = useQueryClient();
   const deleteSubject = useDeleteSubject();
@@ -203,79 +207,71 @@ export function SubjectList({ subjects, onCreate }: SubjectListProps) {
               : "flex flex-col gap-3"
           }
         >
-          {filteredSubjects.map((subject) => (
-            <Card
-              key={subject.id}
-              className="notebook-card relative h-full group overflow-hidden"
-            >
-              <Link href={`/subjects/${subject.id}`} className="block h-full">
-                <CardContent
-                  className={`p-5 h-full ${viewMode === "cards" ? "flex flex-col min-h-52" : "grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center"} relative`}
-                >
-                  <div
-                    className={viewMode === "cards" ? "contents" : "min-w-0"}
-                  >
-                    <div className="flex justify-between items-start mb-2 sm:mb-3">
-                      <h3 className="font-serif font-medium text-lg line-clamp-2 leading-snug group-hover:text-primary transition-colors pe-2">
-                        {subject.title}
-                      </h3>
-                      <div className="h-8 w-8 rounded-lg bg-primary/5 flex items-center justify-center shrink-0 ms-2 me-7 group-hover:bg-primary/10 transition-colors">
-                        <BookOpen className="h-4 w-4 text-primary" />
+          {filteredSubjects.map((subject) => {
+            const count = `${new Intl.NumberFormat(language).format(subject.ideaCount)} ${subject.ideaCount === 1 ? t("fragment") : t("fragments")}`;
+            const blurb = subject.latest ?? (subject.intro || null);
+            return (
+              <Card key={subject.id} className="notebook-card group relative h-full overflow-hidden">
+                <Link href={`/subjects/${subject.id}`} className="block h-full">
+                  {viewMode === "cards" ? (
+                    <div className="flex h-full flex-col">
+                      <div className="relative h-28 p-4 text-white transition-[filter] group-hover:brightness-110" style={coverStyle(subject)}>
+                        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-2xl shadow-inner backdrop-blur-sm">
+                          {subject.icon ?? <BookOpen className="h-5 w-5" />}
+                        </span>
+                        <span className="absolute bottom-3 end-4 rounded-full bg-black/25 px-2.5 py-1 text-xs font-semibold backdrop-blur-sm">{count}</span>
                       </div>
+                      <CardContent className="flex flex-1 flex-col p-5">
+                        <h3 dir="auto" className="line-clamp-2 font-serif text-lg font-medium leading-snug transition-colors group-hover:text-primary">{subject.title}</h3>
+                        {blurb ? (
+                          <p dir="auto" className={`mt-2 line-clamp-2 flex-1 text-sm leading-6 text-muted-foreground ${subject.latest ? "font-serif italic" : ""}`}>
+                            {subject.latest ? `“${blurb}”` : blurb}
+                          </p>
+                        ) : (
+                          <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground/70">
+                            {isArabic ? "مساحة مفتوحة لأفكارك القادمة." : "An open page for your next thought."}
+                          </p>
+                        )}
+                        <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1.5"><CalendarClock className="h-3.5 w-3.5 shrink-0" />{formatDateTime(subject.updatedAt, language)}</span>
+                          <span className="flex items-center gap-1 text-primary">
+                            {t("open")} <ArrowRight className={`h-3 w-3 ${isArabic ? "rotate-180" : ""}`} />
+                          </span>
+                        </div>
+                      </CardContent>
                     </div>
-
-                    {subject.intro ? (
-                      <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2 mb-4 flex-1">
-                        {subject.intro}
-                      </p>
-                    ) : (
-                      <p className="text-xs leading-relaxed text-muted-foreground/70 mb-4 flex-1">
-                        {isArabic
-                          ? "مساحة مفتوحة لأفكارك القادمة."
-                          : "An open page for your next thought."}
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-                      <CalendarClock className="h-3.5 w-3.5 shrink-0" />
-                      <span>{formatDateTime(subject.updatedAt, language)}</span>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`flex items-center justify-between text-xs text-muted-foreground ${viewMode === "cards" ? "mt-auto pt-4 border-t border-border/50" : "sm:min-w-40 sm:justify-end sm:gap-5"}`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent/80"></span>
-                      {new Intl.NumberFormat(language).format(
-                        subject.ideaCount,
-                      )}{" "}
-                      {subject.ideaCount === 1 ? t("fragment") : t("fragments")}
-                    </span>
-                    <span className="flex items-center gap-1 text-primary">
-                      {t("open")}{" "}
-                      <ArrowRight
-                        className={`h-3 w-3 ${isArabic ? "rotate-180" : ""}`}
-                      />
-                    </span>
-                  </div>
-                </CardContent>
-              </Link>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="absolute end-3 top-3 z-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => setSubjectToDelete(subject)}
-                aria-label={`${t("deleteSubject")}: ${subject.title}`}
-                title={t("deleteSubject")}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </Card>
-          ))}
+                  ) : (
+                    <CardContent className="flex items-center gap-4 p-3 pe-24">
+                      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-2xl text-white shadow-sm" style={coverStyle(subject)}>
+                        {subject.icon ?? <BookOpen className="h-5 w-5" />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <h3 dir="auto" className="truncate font-serif text-base font-medium transition-colors group-hover:text-primary">{subject.title}</h3>
+                        {blurb && <p dir="auto" className="mt-0.5 truncate text-sm text-muted-foreground">{blurb}</p>}
+                        <p className="mt-1 text-xs text-muted-foreground">{count} · {formatDateTime(subject.updatedAt, language)}</p>
+                      </div>
+                    </CardContent>
+                  )}
+                </Link>
+                <div className={`absolute end-2.5 top-2.5 z-10 flex gap-1 ${viewMode === "cards" ? "text-white" : "top-1/2 -translate-y-1/2 text-muted-foreground"}`}>
+                  <Button type="button" size="icon" variant="ghost"
+                    className={viewMode === "cards" ? "h-8 w-8 rounded-full bg-black/15 text-white backdrop-blur-sm hover:bg-black/30 hover:text-white" : "h-8 w-8 rounded-full"}
+                    onClick={() => setCovering(subject)} aria-label={`${isArabic ? "غلاف الدفتر" : "Notebook cover"}: ${subject.title}`} title={isArabic ? "غلاف الدفتر" : "Notebook cover"}>
+                    <Palette className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" size="icon" variant="ghost"
+                    className={viewMode === "cards" ? "h-8 w-8 rounded-full bg-black/15 text-white backdrop-blur-sm hover:bg-red-600/80 hover:text-white" : "h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"}
+                    onClick={() => setSubjectToDelete(subject)} aria-label={`${t("deleteSubject")}: ${subject.title}`} title={t("deleteSubject")}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      <CoverPicker subject={covering} onClose={() => setCovering(null)} />
 
       <AlertDialog
         open={Boolean(subjectToDelete)}

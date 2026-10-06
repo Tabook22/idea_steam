@@ -5,9 +5,17 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SubjectUpdateColor } from './subjectUpdateColor';
 
 export interface SubjectUpdate {
   /** @minLength 1 */
   title?: string;
   intro?: string;
+  /** @nullable */
+  color?: SubjectUpdateColor;
+  /**
+     * @maxLength 16
+     * @nullable
+     */
+  icon?: string | null;
 }

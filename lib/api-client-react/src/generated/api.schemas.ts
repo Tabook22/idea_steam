@@ -125,6 +125,10 @@ export interface SearchDraftHit {
   updatedAt: string;
 }
 
+export interface AudioPeaks {
+  peaks: number[];
+}
+
 export interface AskTurn {
   /** @maxLength 500 */
   question: string;
@@ -324,6 +328,11 @@ export interface AudioChapter {
 }
 
 export interface AudioLibraryItem {
+  /**
+     * The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.
+     * @nullable
+     */
+  peaks: number[] | null;
   id: number;
   url: string;
   /** music = a song uploaded to use as background music. */
@@ -639,6 +648,21 @@ export interface Subject {
   id: number;
   title: string;
   intro: string;
+  /**
+     * Cover colour name; null means chosen automatically.
+     * @nullable
+     */
+  color: string | null;
+  /**
+     * Cover emoji; null means the default notebook icon.
+     * @nullable
+     */
+  icon: string | null;
+  /**
+     * The start of the newest idea, for the cover.
+     * @nullable
+     */
+  latest: string | null;
   createdAt: string;
   updatedAt: string;
   ideaCount: number;
@@ -716,10 +740,34 @@ export interface SubjectInput {
   intro?: string;
 }
 
+/**
+ * @nullable
+ */
+export type SubjectUpdateColor = typeof SubjectUpdateColor[keyof typeof SubjectUpdateColor] | null;
+
+
+export const SubjectUpdateColor = {
+  forest: 'forest',
+  ocean: 'ocean',
+  sunset: 'sunset',
+  rose: 'rose',
+  violet: 'violet',
+  amber: 'amber',
+  slate: 'slate',
+  teal: 'teal',
+} as const;
+
 export interface SubjectUpdate {
   /** @minLength 1 */
   title?: string;
   intro?: string;
+  /** @nullable */
+  color?: SubjectUpdateColor;
+  /**
+     * @maxLength 16
+     * @nullable
+     */
+  icon?: string | null;
 }
 
 export type IdeaChatMessageRole = typeof IdeaChatMessageRole[keyof typeof IdeaChatMessageRole];

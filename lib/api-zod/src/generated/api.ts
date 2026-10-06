@@ -24,6 +24,9 @@ export const ListSubjectsResponseItem = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
   "intro": zod.string(),
+  "color": zod.string().nullable().describe('Cover colour name; null means chosen automatically.'),
+  "icon": zod.string().nullable().describe('Cover emoji; null means the default notebook icon.'),
+  "latest": zod.string().nullable().describe('The start of the newest idea, for the cover.'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "ideaCount": zod.number().int()
@@ -46,6 +49,9 @@ export const CreateSubjectResponse = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
   "intro": zod.string(),
+  "color": zod.string().nullable().describe('Cover colour name; null means chosen automatically.'),
+  "icon": zod.string().nullable().describe('Cover emoji; null means the default notebook icon.'),
+  "latest": zod.string().nullable().describe('The start of the newest idea, for the cover.'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "ideaCount": zod.number().int()
@@ -73,6 +79,9 @@ export const GetSubjectResponse = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
   "intro": zod.string(),
+  "color": zod.string().nullable().describe('Cover colour name; null means chosen automatically.'),
+  "icon": zod.string().nullable().describe('Cover emoji; null means the default notebook icon.'),
+  "latest": zod.string().nullable().describe('The start of the newest idea, for the cover.'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "ideaCount": zod.number().int()
@@ -108,17 +117,24 @@ export const UpdateSubjectParams = zod.object({
 })
 
 
+export const updateSubjectBodyIconMax = 16;
+
 
 
 export const UpdateSubjectBody = zod.object({
   "title": zod.string().min(1).optional(),
-  "intro": zod.string().optional()
+  "intro": zod.string().optional(),
+  "color": zod.union([zod.literal('forest'),zod.literal('ocean'),zod.literal('sunset'),zod.literal('rose'),zod.literal('violet'),zod.literal('amber'),zod.literal('slate'),zod.literal('teal'),zod.literal(null)]).nullish(),
+  "icon": zod.string().max(updateSubjectBodyIconMax).nullish()
 })
 
 export const UpdateSubjectResponse = zod.object({
   "id": zod.number().int(),
   "title": zod.string(),
   "intro": zod.string(),
+  "color": zod.string().nullable().describe('Cover colour name; null means chosen automatically.'),
+  "icon": zod.string().nullable().describe('Cover emoji; null means the default notebook icon.'),
+  "latest": zod.string().nullable().describe('The start of the newest idea, for the cover.'),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "ideaCount": zod.number().int()
@@ -643,6 +659,7 @@ export const listAudioLibraryResponseMixTwoSettingsDuckMax = 3;
 
 
 export const ListAudioLibraryResponseItem = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -732,6 +749,7 @@ export const addToAudioLibraryResponseMixTwoSettingsDuckMax = 3;
 
 
 export const AddToAudioLibraryResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -833,6 +851,7 @@ export const createLibraryRecordingResponseMixTwoSettingsDuckMax = 3;
 
 
 export const CreateLibraryRecordingResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -921,6 +940,7 @@ export const transcribeLibraryItemResponseMixTwoSettingsDuckMax = 3;
 
 
 export const TranscribeLibraryItemResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1011,6 +1031,7 @@ export const joinAudioLibraryItemsResponseMixTwoSettingsDuckMax = 3;
 
 
 export const JoinAudioLibraryItemsResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1108,6 +1129,7 @@ export const editAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
 
 
 export const EditAudioLibraryItemResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1221,6 +1243,7 @@ export const enhanceAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
 
 
 export const EnhanceAudioLibraryItemResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1375,6 +1398,7 @@ export const soundLabAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
 
 
 export const SoundLabAudioLibraryItemResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1595,6 +1619,7 @@ export const mixAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
 
 
 export const MixAudioLibraryItemResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1681,6 +1706,7 @@ export const addAudioLibraryItemToSubjectResponseMixTwoSettingsDuckMax = 3;
 
 
 export const AddAudioLibraryItemToSubjectResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1764,6 +1790,7 @@ export const removeAudioLibraryItemFromSubjectResponseMixTwoSettingsDuckMax = 3;
 
 
 export const RemoveAudioLibraryItemFromSubjectResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1846,6 +1873,7 @@ export const removeAudioLibraryMixResponseMixTwoSettingsDuckMax = 3;
 
 
 export const RemoveAudioLibraryMixResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -1987,6 +2015,7 @@ export const makeAudioLibraryChaptersResponseMixTwoSettingsDuckMax = 3;
 
 
 export const MakeAudioLibraryChaptersResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -2033,6 +2062,18 @@ export const MakeAudioLibraryChaptersResponse = zod.object({
   "summary": zod.string().nullable(),
   "capturedAt": zod.coerce.date(),
   "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary The mini waveform of a recording (made once, then stored)
+ */
+export const GetAudioLibraryPeaksParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const GetAudioLibraryPeaksResponse = zod.object({
+  "peaks": zod.array(zod.number())
 })
 
 
@@ -2086,6 +2127,7 @@ export const restoreAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
 
 
 export const RestoreAudioLibraryItemResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
@@ -2180,6 +2222,7 @@ export const updateAudioLibraryItemResponseMixTwoSettingsDuckMax = 3;
 
 
 export const UpdateAudioLibraryItemResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
   "id": zod.number().int(),
   "url": zod.string(),
   "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),

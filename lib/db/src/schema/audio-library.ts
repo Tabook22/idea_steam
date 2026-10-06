@@ -50,6 +50,8 @@ export const audioLibraryTable = pgTable(
         musicVolume: number; voiceVolume: number; fadeIn: number; fadeOut: number; duck: number; makeRoom: boolean;
       };
     }>(),
+    /** Mini waveform for the list (loudness of 64 slices, 0–1), for the audio file at `url`. */
+    peaks: jsonb("peaks").$type<{ url: string; values: number[] }>(),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

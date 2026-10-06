@@ -737,6 +737,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AudioLibraryItem"
+  /audio-library/{itemId}/peaks:
+    get:
+      operationId: getAudioLibraryPeaks
+      tags: [audio-library]
+      summary: The mini waveform of a recording (made once, then stored)
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      responses:
+        "200":
+          description: Loudness of 64 equal slices, 0–1
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioPeaks"
   /audio-library/{itemId}/export:
     get:
       operationId: exportAudioLibraryItem
@@ -1020,6 +1034,14 @@ components:
         updatedAt:
           type: string
           format: date-time
+    AudioPeaks:
+      type: object
+      required: [peaks]
+      properties:
+        peaks:
+          type: array
+          items:
+            type: number
     AskTurn:
       type: object
       required: [question, answer]
@@ -1127,8 +1149,13 @@ components:
             $ref: "#/components/schemas/SearchDraftHit"
     AudioLibraryItem:
       type: object
-      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, kind, mix, bakedMusic, subjects, capturedAt, createdAt]
+      required: [id, url, title, mimeType, durationSeconds, transcript, sourceIdeaId, sourceSubjectId, sourceSubjectTitle, edited, hasWords, marks, chapters, summary, kind, mix, bakedMusic, subjects, peaks, capturedAt, createdAt]
       properties:
+        peaks:
+          type: ["array", "null"]
+          description: The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.
+          items:
+            type: number
         id:
           type: integer
         url:
@@ -1481,7 +1508,7 @@ components:
         - status
     Subject:
       type: object
-      required: [id, title, intro, createdAt, updatedAt, ideaCount]
+      required: [id, title, intro, createdAt, updatedAt, ideaCount, color, icon, latest]
       properties:
         id:
           type: integer
@@ -1489,6 +1516,15 @@ components:
           type: string
         intro:
           type: string
+        color:
+          type: ["string", "null"]
+          description: Cover colour name; null means chosen automatically.
+        icon:
+          type: ["string", "null"]
+          description: Cover emoji; null means the default notebook icon.
+        latest:
+          type: ["string", "null"]
+          description: The start of the newest idea, for the cover.
         createdAt:
           type: string
           format: date-time
@@ -1525,6 +1561,12 @@ components:
           minLength: 1
         intro:
           type: string
+        color:
+          type: ["string", "null"]
+          enum: [forest, ocean, sunset, rose, violet, amber, slate, teal, null]
+        icon:
+          type: ["string", "null"]
+          maxLength: 16
     IdeaAttachment:
       type: object
       required: [type, url, name]

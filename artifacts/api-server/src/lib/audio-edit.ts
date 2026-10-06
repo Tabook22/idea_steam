@@ -287,3 +287,39 @@ export async function duplicateStored(url: string) {
   await writeFile(join(root, `${id}.json`), meta, { mode: 0o600 });
   return `${source.prefix}/api/storage/objects/${id}`;
 }
+
+/** Loudness of each of `bars` equal slices, 0–1 (the loudest slice is 1): the list's mini waveform. */
+export function barsFromSamples(samples: Int16Array, bars: number): number[] {
+  if (!samples.length) return new Array(bars).fill(0);
+  const size = samples.length / bars;
+  const levels: number[] = [];
+  for (let bar = 0; bar < bars; bar++) {
+    const from = Math.floor(bar * size);
+    const to = Math.max(from + 1, Math.floor((bar + 1) * size));
+    let sum = 0;
+    for (let i = from; i < to && i < samples.length; i++) sum += samples[i] * samples[i];
+    levels.push(Math.sqrt(sum / Math.max(1, to - from)));
+  }
+  const loudest = Math.max(...levels, 1);
+  // A gentle curve so quiet speech still shows.
+  return levels.map((level) => Math.round(Math.sqrt(level / loudest) * 100) / 100);
+}
+
+export async function storedPeaks(url: string, bars = 64): Promise<number[]> {
+  const source = await storedFile(url);
+  const samples = await new Promise<Int16Array>((resolve, reject) => {
+    const child = spawn("ffmpeg", ["-hide_banner", "-nostdin", "-i", source.path, "-ac", "1", "-ar", "1000", "-f", "s16le", "pipe:1"], { stdio: ["ignore", "pipe", "ignore"] });
+    const chunks: Buffer[] = [];
+    child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
+    const timer = setTimeout(() => { child.kill("SIGKILL"); reject(new AudioEditError(504, "Reading the audio took too long.")); }, 60_000);
+    child.on("error", (error) => { clearTimeout(timer); reject(error); });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0) { reject(new AudioEditError(422, "This audio couldn't be read.")); return; }
+      const all = Buffer.concat(chunks);
+      // Copied so the samples start on an even byte (pooled buffers may not).
+      resolve(new Int16Array(all.buffer.slice(all.byteOffset, all.byteOffset + (all.length & ~1))));
+    });
+  });
+  return barsFromSamples(samples, bars);
+}

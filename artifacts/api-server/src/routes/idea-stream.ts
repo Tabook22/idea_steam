@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import htmlToDocx from "html-to-docx";
-import { and, asc, count, desc, eq, isNotNull, isNull, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, isNull, inArray, sql } from "drizzle-orm";
 import {
   audioLibraryTable,
   compilationImagesTable,
@@ -517,13 +517,23 @@ router.post("/youtube-transcripts", async (req, res): Promise<void> => {
   }
 });
 
+/** The start of an idea as plain text, for a notebook cover. */
+const coverSnippet = (content: string | null | undefined) => {
+  const text = content?.replace(/<!--[\s\S]*?-->/g, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").replace(/\s+([,.;:!?،؛؟])/g, "$1").trim();
+  return text ? (text.length > 110 ? `${text.slice(0, 110).trim()}…` : text) : null;
+};
+
 const serializeSubject = (
   subject: typeof subjectsTable.$inferSelect,
   ideaCount: number,
+  latest: string | null = null,
 ) => ({
   id: subject.id,
   title: subject.title,
   intro: subject.intro,
+  color: subject.color,
+  icon: subject.icon,
+  latest: coverSnippet(latest),
   createdAt: subject.createdAt.toISOString(),
   updatedAt: subject.updatedAt.toISOString(),
   ideaCount,
@@ -548,11 +558,16 @@ router.get("/subjects", async (_req, res): Promise<void> => {
     .leftJoin(ideasTable, eq(ideasTable.subjectId, subjectsTable.id))
     .groupBy(subjectsTable.id)
     .orderBy(desc(subjectsTable.updatedAt));
+  // The newest idea of each notebook, shown on its cover.
+  const latest = await db.execute<{ subject_id: number; content: string }>(
+    sql`select distinct on (subject_id) subject_id, content from ideas order by subject_id, created_at desc, id desc`,
+  );
+  const latestBySubject = new Map(latest.rows.map((row) => [Number(row.subject_id), row.content]));
 
   res.json(
     ListSubjectsResponse.parse(
       rows.map(({ subject, ideaCount }) =>
-        serializeSubject(subject, Number(ideaCount)),
+        serializeSubject(subject, Number(ideaCount), latestBySubject.get(subject.id) ?? null),
       ),
     ),
   );
@@ -598,7 +613,7 @@ router.get("/subjects/:subjectId", async (req, res): Promise<void> => {
 
   res.json(
     GetSubjectResponse.parse({
-      ...serializeSubject(subject, ideas.length),
+      ...serializeSubject(subject, ideas.length, ideas[0]?.content ?? null),
       ideas: ideas.map(serializeIdea),
       draft: subject.draft,
     }),
@@ -618,9 +633,11 @@ router.patch("/subjects/:subjectId", async (req, res): Promise<void> => {
     return;
   }
 
+  const changes = { ...body.data };
+  if (changes.icon !== undefined) changes.icon = changes.icon?.trim() || null;
   const [subject] = await db
     .update(subjectsTable)
-    .set({ ...body.data, updatedAt: new Date() })
+    .set({ ...changes, updatedAt: new Date() })
     .where(eq(subjectsTable.id, params.data.subjectId))
     .returning();
 

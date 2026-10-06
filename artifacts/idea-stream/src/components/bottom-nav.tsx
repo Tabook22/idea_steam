@@ -70,6 +70,9 @@ export function BottomNav() {
           <Tab href="/app" label={copy("Home", "الرئيسية")} icon={<Home size={22} />} active={location === "/app" || location === "/"} />
           <Tab href="/library" label={copy("Library", "المكتبة")} icon={<Headphones size={22} />} active={location.startsWith("/library")} />
           <div className="relative flex justify-center">
+            {ready && !rescue && stage === "idle" && (
+              <span aria-hidden="true" className="pointer-events-none absolute -top-6 h-[4.25rem] w-[4.25rem] animate-[rec-breathe_3.6s_ease-in-out_infinite] rounded-full bg-red-500/40 blur-xl motion-reduce:animate-none" />
+            )}
             <button
               type="button"
               {...talk}

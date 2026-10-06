@@ -11,6 +11,11 @@ import type { AudioLibrarySubjectLink } from './audioLibrarySubjectLink';
 import type { AudioMixLayer } from './audioMixLayer';
 
 export interface AudioLibraryItem {
+  /**
+     * The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.
+     * @nullable
+     */
+  peaks: number[] | null;
   id: number;
   url: string;
   /** music = a song uploaded to use as background music. */

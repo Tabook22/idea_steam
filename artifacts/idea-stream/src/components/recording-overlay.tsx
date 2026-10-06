@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Bookmark, FolderCheck, Loader2, Square } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import { Bookmark, Check, FolderCheck, Loader2, Square } from "lucide-react";
 import { useListSubjects } from "@workspace/api-client-react";
 import { useRecorder } from "@/components/recorder-provider";
 import { useLanguage } from "@/lib/i18n";
@@ -34,6 +35,87 @@ export function LevelBars({ readLevel, bars = 28, className = "" }: { readLevel:
         />
       ))}
     </div>
+  );
+}
+
+/**
+ * A ring of bars around the timer that moves with your voice: the newest sound enters at the
+ * top and travels clockwise, so a sentence draws itself around the circle.
+ */
+export function VoiceRing({ readLevel, active, children }: { readLevel: () => number; active: boolean; children: React.ReactNode }) {
+  const BARS = 72;
+  const refs = useRef<Array<SVGLineElement | null>>([]);
+  const glow = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const history = new Array(BARS).fill(0);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let smooth = 0;
+    const timer = window.setInterval(() => {
+      const level = active ? Math.min(1, readLevel() * 1.8) : 0;
+      smooth = smooth * 0.7 + level * 0.3;
+      history.pop();
+      history.unshift(level);
+      history.forEach((value, index) => {
+        const line = refs.current[index];
+        if (line) line.setAttribute("y1", String(-118 - Math.max(0.04, value) * 34));
+      });
+      if (glow.current) glow.current.style.transform = `scale(${1 + smooth * 0.18})`;
+    }, reduce ? 300 : 60);
+    return () => clearInterval(timer);
+  }, [readLevel, active]);
+  return (
+    <div className="relative grid h-[17rem] w-[17rem] place-items-center sm:h-[19rem] sm:w-[19rem]">
+      <div ref={glow} aria-hidden="true" className="absolute inset-10 rounded-full bg-emerald-400/15 blur-2xl transition-transform duration-100" />
+      <svg viewBox="-160 -160 320 320" className="absolute inset-0 h-full w-full text-emerald-300" aria-hidden="true">
+        <circle r="112" fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="1.5" />
+        {Array.from({ length: BARS }, (_, index) => (
+          <line key={index} ref={(element) => { refs.current[index] = element; }}
+            x1="0" x2="0" y1="-120" y2="-116" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"
+            strokeOpacity={0.35 + 0.65 * (1 - index / BARS)}
+            transform={`rotate(${(index * 360) / BARS})`} />
+        ))}
+      </svg>
+      <div className="relative text-center">{children}</div>
+    </div>
+  );
+}
+
+/** After saving: a "Saved" badge that flies into the Library tab (or fades, on a computer). */
+export function SavedBurst({ onDone }: { onDone: () => void }) {
+  const { isArabic } = useLanguage();
+  const badge = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = badge.current;
+    if (!element) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const tab = [...document.querySelectorAll<HTMLElement>("nav a")].find((link) => /\/library$/.test(link.getAttribute("href") ?? "") && link.offsetParent !== null);
+    const from = element.getBoundingClientRect();
+    const to = tab?.getBoundingClientRect();
+    const fly = to
+      ? `translate(${to.left + to.width / 2 - (from.left + from.width / 2)}px, ${to.top + to.height / 2 - (from.top + from.height / 2)}px) scale(0.2)`
+      : "translateY(-24px) scale(0.9)";
+    const animation = element.animate([
+      { transform: "translateY(16px) scale(0.6)", opacity: 0 },
+      { transform: "translateY(0) scale(1.06)", opacity: 1, offset: 0.14 },
+      { transform: "translateY(0) scale(1)", opacity: 1, offset: 0.2 },
+      { transform: "translateY(0) scale(1)", opacity: 1, offset: 0.68 },
+      { transform: fly, opacity: to ? 0.9 : 0, offset: 0.97 },
+      { transform: fly, opacity: 0 },
+    ], { duration: reduce ? 1600 : 2300, easing: "cubic-bezier(.45,.05,.3,1)", fill: "forwards" });
+    animation.onfinish = () => {
+      tab?.animate([{ transform: "scale(1)" }, { transform: "scale(1.25)" }, { transform: "scale(1)" }], { duration: 420, easing: "ease-out" });
+      onDone();
+    };
+    return () => animation.cancel();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return createPortal(
+    <div className="pointer-events-none fixed inset-x-0 bottom-[28%] z-[70] flex justify-center" role="status" aria-live="polite">
+      <div ref={badge} className="flex items-center gap-2.5 rounded-full bg-primary px-5 py-3 text-primary-foreground shadow-2xl shadow-primary/40" style={{ opacity: 0 }}>
+        <span className="grid h-7 w-7 place-items-center rounded-full bg-white/20"><Check size={17} strokeWidth={3} /></span>
+        <span className="text-sm font-semibold">{isArabic ? "حُفظ في المكتبة" : "Saved to your library"}</span>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -80,11 +162,15 @@ export function DrivingMode() {
         </span>
       </div>
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="font-mono text-7xl font-light tabular-nums tracking-wider sm:text-8xl" role="timer" aria-live="off">
-          {clock(seconds)}
-        </p>
-        <LevelBars readLevel={readLevel} className="mt-8 w-full max-w-md text-emerald-300" />
-        <p className="mt-4 text-base text-white/70" role="status">
+        <VoiceRing readLevel={readLevel} active={stage === "recording"}>
+          <p className="font-mono text-5xl font-light tabular-nums tracking-wider sm:text-6xl" role="timer" aria-live="off">
+            {clock(seconds)}
+          </p>
+          {markCount > 0 && (
+            <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-200"><Bookmark size={12} />{markCount}</p>
+          )}
+        </VoiceRing>
+        <p className="mt-2 text-base text-white/70" role="status">
           {saving
             ? copy("Keeping your idea safe on this device…", "نحفظ فكرتك على هذا الجهاز…")
             : starting

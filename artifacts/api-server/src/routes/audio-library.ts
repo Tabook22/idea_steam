@@ -31,7 +31,7 @@ import {
   transcriptionFailure,
   wordsForStoredAudio,
 } from "../lib/stored-transcription";
-import { AudioEditError, convertRecording, duplicateStored, enhanceRecording, joinRecordings, keepRanges, mixPreview, mixRecording, soundLabPreview, soundLabRecording, storedDuration } from "../lib/audio-edit";
+import { AudioEditError, convertRecording, duplicateStored, enhanceRecording, joinRecordings, keepRanges, mixPreview, mixRecording, soundLabPreview, soundLabRecording, storedDuration, storedPeaks } from "../lib/audio-edit";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
 import { LEGACY_SUFFIX, findLegacySource, snippet } from "../lib/legacy-mix";
@@ -152,10 +152,14 @@ function serialize({ item, ideaId, subjectId }: { item: AudioLibraryRecord; idea
     summary: item.summary,
     kind: item.kind,
     mix: item.mix ? { voiceUrl: item.mix.voiceUrl, voiceDuration: item.mix.voiceDuration, musicItemId: item.mix.musicItemId, musicUrl: item.mix.musicUrl, musicTitle: item.mix.musicTitle, pre: item.mix.pre, settings: item.mix.settings } : null,
+    peaks: item.peaks && item.peaks.url === item.url ? item.peaks.values : null,
     capturedAt: item.capturedAt.toISOString(),
     createdAt: item.createdAt.toISOString(),
   };
 }
+
+/** Mini waveforms being made now, so a second request waits for the same work. */
+const makingPeaks = new Map<number, Promise<number[]>>();
 
 router.get("/audio-library", async (_req, res): Promise<void> => {
   const rows = await select().orderBy(desc(audioLibraryTable.capturedAt), desc(audioLibraryTable.id));
@@ -731,6 +735,29 @@ function exportName(item: AudioLibraryRecord, ext: string) {
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Voice note";
   return `${base}.${ext}`;
 }
+
+router.get("/audio-library/:itemId/peaks", async (req, res): Promise<void> => {
+  const params = UpdateAudioLibraryItemParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Unknown recording" }); return; }
+  const [current] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, params.data.itemId));
+  if (!current) { res.status(404).json({ error: "Not in the library" }); return; }
+  if (current.peaks?.url === current.url) { res.json({ peaks: current.peaks.values }); return; }
+  try {
+    let work = makingPeaks.get(current.id);
+    if (!work) {
+      work = storedPeaks(current.url).finally(() => makingPeaks.delete(current.id));
+      makingPeaks.set(current.id, work);
+    }
+    const values = await work;
+    // Stored with the file it describes; an edit (new url) makes it out of date by itself.
+    await db.update(audioLibraryTable).set({ peaks: { url: current.url, values } })
+      .where(and(eq(audioLibraryTable.id, current.id), eq(audioLibraryTable.url, current.url)));
+    res.set("Cache-Control", "private, max-age=3600").json({ peaks: values });
+  } catch (error) {
+    const status = error instanceof AudioEditError ? error.status : 500;
+    res.status(status).json({ error: "The waveform couldn't be made." });
+  }
+});
 
 router.get("/audio-library/:itemId/export", async (req, res): Promise<void> => {
   const params = UpdateAudioLibraryItemParams.safeParse(req.params);

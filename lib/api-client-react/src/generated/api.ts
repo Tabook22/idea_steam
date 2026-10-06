@@ -30,6 +30,7 @@ import type {
   AudioLibrarySubjectInput,
   AudioLibraryUpdate,
   AudioLibraryWords,
+  AudioPeaks,
   Compilation,
   CompilationDownloadInput,
   CompilationInput,
@@ -3370,6 +3371,83 @@ export const useMakeAudioLibraryChapters = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getMakeAudioLibraryChaptersMutationOptions(options));
     }
+
+export const getGetAudioLibraryPeaksUrl = (itemId: number,) => {
+
+
+
+
+  return `/api/audio-library/${itemId}/peaks`
+}
+
+/**
+ * @summary The mini waveform of a recording (made once, then stored)
+ */
+export const getAudioLibraryPeaks = async (itemId: number, options?: Parameters<typeof customFetch>[1]): Promise<AudioPeaks> => {
+
+  return customFetch<AudioPeaks>(getGetAudioLibraryPeaksUrl(itemId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAudioLibraryPeaksQueryKey = (itemId: number,) => {
+    return [
+    `/api/audio-library/${itemId}/peaks`
+    ] as const;
+    }
+
+
+export const getGetAudioLibraryPeaksQueryOptions = <TData = Awaited<ReturnType<typeof getAudioLibraryPeaks>>, TError = ErrorType<unknown>>(itemId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAudioLibraryPeaks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAudioLibraryPeaksQueryKey(itemId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAudioLibraryPeaks>>> = ({ signal }) => getAudioLibraryPeaks(itemId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: itemId !== null && itemId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAudioLibraryPeaks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAudioLibraryPeaksQueryResult = NonNullable<Awaited<ReturnType<typeof getAudioLibraryPeaks>>>
+export type GetAudioLibraryPeaksQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The mini waveform of a recording (made once, then stored)
+ */
+
+export function useGetAudioLibraryPeaks<TData = Awaited<ReturnType<typeof getAudioLibraryPeaks>>, TError = ErrorType<unknown>>(
+ itemId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAudioLibraryPeaks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAudioLibraryPeaksQueryOptions(itemId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getExportAudioLibraryItemUrl = (itemId: number,
     params: ExportAudioLibraryItemParams,) => {
