@@ -473,6 +473,81 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Task"
+  /related:
+    get:
+      operationId: getRelated
+      tags: [search]
+      summary: Recordings, ideas and drafts closest in meaning to one
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [recording, idea]
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Related items, closest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RelatedItem"
+  /connections:
+    get:
+      operationId: getConnections
+      tags: [search]
+      summary: Suggested notebooks for recordings that aren't in one yet
+      responses:
+        "200":
+          description: Groups to make into notebooks, and recordings that fit an existing notebook
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connections"
+  /digest:
+    get:
+      operationId: getDigest
+      tags: [search]
+      summary: This week's digest, if it has been made
+      parameters:
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: -840
+            maximum: 840
+      responses:
+        "200":
+          description: The digest (or null)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigestResponse"
+    post:
+      operationId: makeDigest
+      tags: [search]
+      summary: Make (or remake) this week's digest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DigestInput"
+      responses:
+        "200":
+          description: The digest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DigestResponse"
   /dashboard:
     get:
       operationId: getDashboard
@@ -1161,6 +1236,140 @@ components:
         updatedAt:
           type: string
           format: date-time
+    RelatedItem:
+      type: object
+      required: [kind, id, title, subjectId, subjectTitle, url, score]
+      properties:
+        kind:
+          type: string
+          enum: [recording, idea, draft]
+        id:
+          type: integer
+        title:
+          type: string
+        subjectId:
+          type: ["integer", "null"]
+        subjectTitle:
+          type: ["string", "null"]
+        url:
+          type: ["string", "null"]
+        score:
+          type: number
+    ConnectionItem:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+    ConnectionGroup:
+      type: object
+      required: [key, title, icon, items]
+      properties:
+        key:
+          type: string
+          description: Stays the same for the same recordings (for "not now").
+        title:
+          type: string
+        icon:
+          type: ["string", "null"]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectionItem"
+    ConnectionFiling:
+      type: object
+      required: [itemId, itemTitle, subjectId, subjectTitle, subjectIcon]
+      properties:
+        itemId:
+          type: integer
+        itemTitle:
+          type: string
+        subjectId:
+          type: integer
+        subjectTitle:
+          type: string
+        subjectIcon:
+          type: ["string", "null"]
+    Connections:
+      type: object
+      required: [groups, filings, ready]
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectionGroup"
+        filings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectionFiling"
+        ready:
+          type: boolean
+          description: False while the meaning index is still being built (or AI is off).
+    DigestTheme:
+      type: object
+      required: [title, summary]
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+    DigestReady:
+      type: object
+      required: [subjectId, subjectTitle, reason]
+      properties:
+        subjectId:
+          type: integer
+        subjectTitle:
+          type: string
+        reason:
+          type: string
+    Digest:
+      type: object
+      required: [headline, themes, questions, ready, nudge]
+      properties:
+        headline:
+          type: string
+        themes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DigestTheme"
+        questions:
+          type: array
+          items:
+            type: string
+        ready:
+          type: array
+          items:
+            $ref: "#/components/schemas/DigestReady"
+        nudge:
+          type: ["string", "null"]
+    DigestResponse:
+      type: object
+      required: [week, digest, createdAt, items]
+      properties:
+        week:
+          type: string
+        digest:
+          oneOf:
+            - $ref: "#/components/schemas/Digest"
+            - type: "null"
+        createdAt:
+          type: ["string", "null"]
+        items:
+          type: integer
+          description: How many recordings and ideas this week (a digest needs a few).
+    DigestInput:
+      type: object
+      properties:
+        offset:
+          type: integer
+          minimum: -840
+          maximum: 840
+        language:
+          type: string
+          enum: [en, ar]
     Task:
       type: object
       required: [id, text, due, time, person, done, doneAt, source, sourceId, sourceTitle, sourceUrl, at, createdAt]

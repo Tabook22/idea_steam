@@ -15,7 +15,7 @@ import {
   useExtractYoutubeTranscript,
 } from "@workspace/api-client-react";
 import { formatDateTime, formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock } from "lucide-react";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock, Waypoints } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
 import { IdeaChatDialog } from "@/components/idea-chat-dialog";
+import { RelatedIdeas } from "@/components/related-ideas";
 import { MoveIdeaDialog } from "@/components/move-idea-dialog";
 
 interface IdeaListProps {
@@ -431,6 +432,7 @@ export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
 
 function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [showRelated, setShowRelated] = useState(false);
   const [editContent, setEditContent] = useState(idea.content);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -532,6 +534,11 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           {!isEditing && (
             <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1 sm:mt-0">
               <IdeaChatDialog ideaId={idea.id} />
+              <Button variant="ghost" size="icon" aria-pressed={showRelated} onClick={() => setShowRelated((value) => !value)}
+                className={`h-9 w-9 sm:h-8 sm:w-8 ${showRelated ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                title={language === "ar" ? "أفكار مترابطة" : "Connected ideas"} aria-label={language === "ar" ? "أفكار مترابطة" : "Connected ideas"}>
+                <Waypoints className="h-4 w-4" />
+              </Button>
               <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 text-muted-foreground hover:text-foreground" onClick={handleStartEditing} title={t("editNote")}>
                 <Edit3 className="h-4 w-4" />
               </Button>
@@ -561,6 +568,7 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           )}
         </div>
         
+        {showRelated && !isEditing && <RelatedIdeas kind="idea" id={idea.id} className="mb-4 rounded-xl bg-muted/30 p-3" />}
         {idea.attachments.length > 0 && !isEditing && (
           <div className="mb-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("attachedUploads")} ({idea.attachments.length})</p>

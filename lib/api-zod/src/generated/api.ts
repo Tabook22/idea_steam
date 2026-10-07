@@ -675,6 +675,117 @@ export const FindRecordingTasksResponse = zod.array(FindRecordingTasksResponseIt
 
 
 /**
+ * @summary Recordings, ideas and drafts closest in meaning to one
+ */
+export const GetRelatedQueryParams = zod.object({
+  "kind": zod.enum(['recording', 'idea']),
+  "id": zod.coerce.number().int()
+})
+
+export const GetRelatedResponseItem = zod.object({
+  "kind": zod.enum(['recording', 'idea', 'draft']),
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "url": zod.string().nullable(),
+  "score": zod.number()
+})
+export const GetRelatedResponse = zod.array(GetRelatedResponseItem)
+
+
+/**
+ * @summary Suggested notebooks for recordings that aren't in one yet
+ */
+export const GetConnectionsResponse = zod.object({
+  "groups": zod.array(zod.object({
+  "key": zod.string().describe('Stays the same for the same recordings (for "not now").'),
+  "title": zod.string(),
+  "icon": zod.string().nullable(),
+  "items": zod.array(zod.object({
+  "id": zod.number().int(),
+  "title": zod.string()
+}))
+})),
+  "filings": zod.array(zod.object({
+  "itemId": zod.number().int(),
+  "itemTitle": zod.string(),
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "subjectIcon": zod.string().nullable()
+})),
+  "ready": zod.boolean().describe('False while the meaning index is still being built (or AI is off).')
+})
+
+
+/**
+ * @summary This week's digest, if it has been made
+ */
+export const getDigestQueryOffsetMin = -840;
+export const getDigestQueryOffsetMax = 840;
+
+
+
+export const GetDigestQueryParams = zod.object({
+  "offset": zod.coerce.number().int().min(getDigestQueryOffsetMin).max(getDigestQueryOffsetMax).optional()
+})
+
+export const GetDigestResponse = zod.object({
+  "week": zod.string(),
+  "digest": zod.union([zod.object({
+  "headline": zod.string(),
+  "themes": zod.array(zod.object({
+  "title": zod.string(),
+  "summary": zod.string()
+})),
+  "questions": zod.array(zod.string()),
+  "ready": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "reason": zod.string()
+})),
+  "nudge": zod.string().nullable()
+}),zod.null()]),
+  "createdAt": zod.string().nullable(),
+  "items": zod.number().int().describe('How many recordings and ideas this week (a digest needs a few).')
+})
+
+
+/**
+ * @summary Make (or remake) this week's digest
+ */
+export const makeDigestBodyOffsetMin = -840;
+export const makeDigestBodyOffsetMax = 840;
+
+
+
+export const MakeDigestBody = zod.object({
+  "offset": zod.number().int().min(makeDigestBodyOffsetMin).max(makeDigestBodyOffsetMax).optional(),
+  "language": zod.enum(['en', 'ar']).optional()
+})
+
+export const MakeDigestResponse = zod.object({
+  "week": zod.string(),
+  "digest": zod.union([zod.object({
+  "headline": zod.string(),
+  "themes": zod.array(zod.object({
+  "title": zod.string(),
+  "summary": zod.string()
+})),
+  "questions": zod.array(zod.string()),
+  "ready": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "reason": zod.string()
+})),
+  "nudge": zod.string().nullable()
+}),zod.null()]),
+  "createdAt": zod.string().nullable(),
+  "items": zod.number().int().describe('How many recordings and ideas this week (a digest needs a few).')
+})
+
+
+/**
  * @summary Home dashboard - activity, streak, where you left off, and an older idea brought back
  */
 export const getDashboardQueryOffsetMin = -840;

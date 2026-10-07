@@ -43,6 +43,7 @@ import { useLanguage } from "@/lib/i18n";
 import { QuickRecord, useStartRecording } from "@/components/quick-record";
 import { HomeGreeting, HomeMoments } from "@/components/home-dashboard";
 import { HomeTasks } from "@/components/home-tasks";
+import { ConnectionsCard, WeeklyDigest } from "@/components/connections-card";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
@@ -276,6 +277,8 @@ export default function HomePage() {
           <HomeTasks />
           <QuickRecord />
           <HomeMoments />
+          <ConnectionsCard />
+          <WeeklyDigest />
           <section className="workspace-welcome">
             <div>
               <p className="eyebrow">

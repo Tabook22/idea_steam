@@ -35,9 +35,14 @@ import type {
   CompilationDownloadInput,
   CompilationInput,
   CompilationUpdate,
+  Connections,
   Dashboard,
+  DigestInput,
+  DigestResponse,
   ExportAudioLibraryItemParams,
   GetDashboardParams,
+  GetDigestParams,
+  GetRelatedParams,
   HealthStatus,
   Idea,
   IdeaChatExchange,
@@ -51,6 +56,7 @@ import type {
   MixPreviewInput,
   NoteTranslation,
   NoteTranslationInput,
+  RelatedItem,
   SearchResults,
   SearchWorkspaceParams,
   SoundLabPreviewInput,
@@ -2312,6 +2318,339 @@ export const useFindRecordingTasks = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getFindRecordingTasksMutationOptions(options));
+    }
+
+export const getGetRelatedUrl = (params: GetRelatedParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/related?${stringifiedParams}` : `/api/related`
+}
+
+/**
+ * @summary Recordings, ideas and drafts closest in meaning to one
+ */
+export const getRelated = async (params: GetRelatedParams, options?: Parameters<typeof customFetch>[1]): Promise<RelatedItem[]> => {
+
+  return customFetch<RelatedItem[]>(getGetRelatedUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRelatedQueryKey = (params?: GetRelatedParams,) => {
+    return [
+    `/api/related`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetRelatedQueryOptions = <TData = Awaited<ReturnType<typeof getRelated>>, TError = ErrorType<unknown>>(params: GetRelatedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRelated>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRelatedQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRelated>>> = ({ signal }) => getRelated(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRelated>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRelatedQueryResult = NonNullable<Awaited<ReturnType<typeof getRelated>>>
+export type GetRelatedQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Recordings, ideas and drafts closest in meaning to one
+ */
+
+export function useGetRelated<TData = Awaited<ReturnType<typeof getRelated>>, TError = ErrorType<unknown>>(
+ params: GetRelatedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRelated>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRelatedQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetConnectionsUrl = () => {
+
+
+
+
+  return `/api/connections`
+}
+
+/**
+ * @summary Suggested notebooks for recordings that aren't in one yet
+ */
+export const getConnections = async ( options?: Parameters<typeof customFetch>[1]): Promise<Connections> => {
+
+  return customFetch<Connections>(getGetConnectionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConnectionsQueryKey = () => {
+    return [
+    `/api/connections`
+    ] as const;
+    }
+
+
+export const getGetConnectionsQueryOptions = <TData = Awaited<ReturnType<typeof getConnections>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConnections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConnectionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConnections>>> = ({ signal }) => getConnections({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConnections>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConnectionsQueryResult = NonNullable<Awaited<ReturnType<typeof getConnections>>>
+export type GetConnectionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Suggested notebooks for recordings that aren't in one yet
+ */
+
+export function useGetConnections<TData = Awaited<ReturnType<typeof getConnections>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConnections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConnectionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDigestUrl = (params?: GetDigestParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/digest?${stringifiedParams}` : `/api/digest`
+}
+
+/**
+ * @summary This week's digest, if it has been made
+ */
+export const getDigest = async (params?: GetDigestParams, options?: Parameters<typeof customFetch>[1]): Promise<DigestResponse> => {
+
+  return customFetch<DigestResponse>(getGetDigestUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDigestQueryKey = (params?: GetDigestParams,) => {
+    return [
+    `/api/digest`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetDigestQueryOptions = <TData = Awaited<ReturnType<typeof getDigest>>, TError = ErrorType<unknown>>(params?: GetDigestParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDigest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDigestQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDigest>>> = ({ signal }) => getDigest(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDigest>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDigestQueryResult = NonNullable<Awaited<ReturnType<typeof getDigest>>>
+export type GetDigestQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary This week's digest, if it has been made
+ */
+
+export function useGetDigest<TData = Awaited<ReturnType<typeof getDigest>>, TError = ErrorType<unknown>>(
+ params?: GetDigestParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDigest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDigestQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMakeDigestUrl = () => {
+
+
+
+
+  return `/api/digest`
+}
+
+/**
+ * @summary Make (or remake) this week's digest
+ */
+export const makeDigest = async (digestInput: DigestInput, options?: Parameters<typeof customFetch>[1]): Promise<DigestResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<DigestResponse>(getMakeDigestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(digestInput)
+  }
+);}
+
+
+
+
+
+export const getMakeDigestMutationKey = () => ['makeDigest'] as const;
+
+export const getMakeDigestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof makeDigest>>, TError,MakeDigestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof makeDigest>>, TError,MakeDigestMutationVariables, TContext> => {
+
+const mutationKey = getMakeDigestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof makeDigest>>, MakeDigestMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  makeDigest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MakeDigestMutationResult = NonNullable<Awaited<ReturnType<typeof makeDigest>>>
+    export type MakeDigestMutationBody = BodyType<DigestInput>
+    export type MakeDigestMutationError = ErrorType<unknown>
+    export type MakeDigestMutationVariables = {data: BodyType<DigestInput>}
+
+    /**
+ * @summary Make (or remake) this week's digest
+ */
+export const useMakeDigest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof makeDigest>>, TError,MakeDigestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof makeDigest>>,
+        TError,
+        MakeDigestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMakeDigestMutationOptions(options));
     }
 
 export const getGetDashboardUrl = (params?: GetDashboardParams,) => {

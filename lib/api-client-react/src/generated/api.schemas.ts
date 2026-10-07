@@ -125,6 +125,104 @@ export interface SearchDraftHit {
   updatedAt: string;
 }
 
+export type RelatedItemKind = typeof RelatedItemKind[keyof typeof RelatedItemKind];
+
+
+export const RelatedItemKind = {
+  recording: 'recording',
+  idea: 'idea',
+  draft: 'draft',
+} as const;
+
+export interface RelatedItem {
+  kind: RelatedItemKind;
+  id: number;
+  title: string;
+  /** @nullable */
+  subjectId: number | null;
+  /** @nullable */
+  subjectTitle: string | null;
+  /** @nullable */
+  url: string | null;
+  score: number;
+}
+
+export interface ConnectionItem {
+  id: number;
+  title: string;
+}
+
+export interface ConnectionGroup {
+  /** Stays the same for the same recordings (for "not now"). */
+  key: string;
+  title: string;
+  /** @nullable */
+  icon: string | null;
+  items: ConnectionItem[];
+}
+
+export interface ConnectionFiling {
+  itemId: number;
+  itemTitle: string;
+  subjectId: number;
+  subjectTitle: string;
+  /** @nullable */
+  subjectIcon: string | null;
+}
+
+export interface Connections {
+  groups: ConnectionGroup[];
+  filings: ConnectionFiling[];
+  /** False while the meaning index is still being built (or AI is off). */
+  ready: boolean;
+}
+
+export interface DigestTheme {
+  title: string;
+  summary: string;
+}
+
+export interface DigestReady {
+  subjectId: number;
+  subjectTitle: string;
+  reason: string;
+}
+
+export interface Digest {
+  headline: string;
+  themes: DigestTheme[];
+  questions: string[];
+  ready: DigestReady[];
+  /** @nullable */
+  nudge: string | null;
+}
+
+export interface DigestResponse {
+  week: string;
+  digest: Digest | null;
+  /** @nullable */
+  createdAt: string | null;
+  /** How many recordings and ideas this week (a digest needs a few). */
+  items: number;
+}
+
+export type DigestInputLanguage = typeof DigestInputLanguage[keyof typeof DigestInputLanguage];
+
+
+export const DigestInputLanguage = {
+  en: 'en',
+  ar: 'ar',
+} as const;
+
+export interface DigestInput {
+  /**
+     * @minimum -840
+     * @maximum 840
+     */
+  offset?: number;
+  language?: DigestInputLanguage;
+}
+
 export type TaskSource = typeof TaskSource[keyof typeof TaskSource];
 
 
@@ -1045,6 +1143,27 @@ export const CompilationDownloadInputFormat = {
 export interface CompilationDownloadInput {
   format: CompilationDownloadInputFormat;
 }
+
+export type GetRelatedParams = {
+kind: GetRelatedKind;
+id: number;
+};
+
+export type GetRelatedKind = typeof GetRelatedKind[keyof typeof GetRelatedKind];
+
+
+export const GetRelatedKind = {
+  recording: 'recording',
+  idea: 'idea',
+} as const;
+
+export type GetDigestParams = {
+/**
+ * @minimum -840
+ * @maximum 840
+ */
+offset?: number;
+};
 
 export type GetDashboardParams = {
 /**

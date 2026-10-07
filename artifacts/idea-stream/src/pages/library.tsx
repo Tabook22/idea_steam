@@ -52,6 +52,7 @@ import {
 import { appPath } from "@/lib/app-path";
 import { useRecorder } from "@/components/recorder-provider";
 import { MiniWave } from "@/components/mini-wave";
+import { RelatedIdeas } from "@/components/related-ideas";
 import { AudioEditor } from "@/components/audio-editor";
 import { ExportDialog } from "@/components/export-dialog";
 import { SoundLab } from "@/components/sound-lab";
@@ -926,6 +927,7 @@ export default function LibraryPage() {
                             </Button>
                           )}
 
+                          {item.kind !== "music" && item.transcript?.trim() && <RelatedIdeas kind="recording" id={item.id} />}
                           {needsText(item) && (
                             <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-dashed px-3 py-2.5">
                               <Captions size={16} className="shrink-0 text-primary" />
