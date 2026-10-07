@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Inbox,
   LayoutGrid,
+  ListChecks,
   Lightbulb,
   Headphones,
   Mic,
@@ -41,6 +42,7 @@ import {
 import { useLanguage } from "@/lib/i18n";
 import { QuickRecord, useStartRecording } from "@/components/quick-record";
 import { HomeGreeting, HomeMoments } from "@/components/home-dashboard";
+import { HomeTasks } from "@/components/home-tasks";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
@@ -194,6 +196,7 @@ export default function HomePage() {
           </a>
           <Link href="/record" className="sidebar-link"><Mic size={18} />{copy("Recorder & inbox", "المسجل وصندوق التسجيلات")}</Link>
           <Link href="/library" className="sidebar-link"><Headphones size={18} />{copy("Audio library", "مكتبة الصوت")}</Link>
+          <Link href="/tasks" className="sidebar-link"><ListChecks size={18} />{copy("Tasks", "المهام")}</Link>
         </nav>
         <div className="mt-10 flex justify-between items-center">
           <p className="sidebar-label mb-0">
@@ -270,6 +273,7 @@ export default function HomePage() {
         </header>
         <main id="main-content" className="workspace-content">
           <HomeGreeting />
+          <HomeTasks />
           <QuickRecord />
           <HomeMoments />
           <section className="workspace-welcome">

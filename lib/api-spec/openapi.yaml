@@ -18,6 +18,8 @@ tags:
     description: AI conversations grounded in an individual idea
   - name: compilation
     description: Turning collected ideas into drafts
+  - name: tasks
+    description: Tasks found in recordings or added by hand
   - name: search
     description: Finding ideas, notebooks, and drafts
   - name: audio-library
@@ -375,6 +377,102 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/YoutubeTranscript"
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: All tasks, found in recordings or added by hand
+      responses:
+        "200":
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Add a task by hand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "201":
+          description: The new task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+  /tasks/{taskId}:
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      summary: Change, tick off, or reschedule a task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: The task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Remove a task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+  /tasks/scan:
+    post:
+      operationId: scanTasks
+      tags: [tasks]
+      summary: Look for tasks in recordings that have text but were not searched yet (a few at a time)
+      responses:
+        "200":
+          description: How many were searched and found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskScan"
+  /audio-library/{itemId}/tasks:
+    post:
+      operationId: findRecordingTasks
+      tags: [tasks]
+      summary: Find the tasks in one recording (again)
+      parameters:
+        - $ref: "#/components/parameters/AudioLibraryItemId"
+      responses:
+        "200":
+          description: The tasks found in it
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
   /dashboard:
     get:
       operationId: getDashboard
@@ -1063,6 +1161,79 @@ components:
         updatedAt:
           type: string
           format: date-time
+    Task:
+      type: object
+      required: [id, text, due, time, person, done, doneAt, source, sourceId, sourceTitle, sourceUrl, at, createdAt]
+      properties:
+        id:
+          type: integer
+        text:
+          type: string
+        due:
+          type: ["string", "null"]
+          description: YYYY-MM-DD
+        time:
+          type: ["string", "null"]
+          description: HH:MM
+        person:
+          type: ["string", "null"]
+        done:
+          type: boolean
+        doneAt:
+          type: ["string", "null"]
+        source:
+          type: string
+          enum: [recording, manual]
+        sourceId:
+          type: ["integer", "null"]
+        sourceTitle:
+          type: ["string", "null"]
+        sourceUrl:
+          type: ["string", "null"]
+        at:
+          type: ["number", "null"]
+          description: Seconds into the recording where it was said.
+        createdAt:
+          type: string
+    TaskInput:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 200
+        due:
+          type: ["string", "null"]
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        time:
+          type: ["string", "null"]
+          pattern: '^\d{2}:\d{2}$'
+    TaskUpdate:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 200
+        due:
+          type: ["string", "null"]
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+        time:
+          type: ["string", "null"]
+          pattern: '^\d{2}:\d{2}$'
+        done:
+          type: boolean
+    TaskScan:
+      type: object
+      required: [scanned, found, remaining]
+      properties:
+        scanned:
+          type: integer
+        found:
+          type: integer
+        remaining:
+          type: integer
     DashboardDay:
       type: object
       required: [date, recordings, ideas]

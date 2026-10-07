@@ -125,6 +125,90 @@ export interface SearchDraftHit {
   updatedAt: string;
 }
 
+export type TaskSource = typeof TaskSource[keyof typeof TaskSource];
+
+
+export const TaskSource = {
+  recording: 'recording',
+  manual: 'manual',
+} as const;
+
+export interface Task {
+  id: number;
+  text: string;
+  /**
+     * YYYY-MM-DD
+     * @nullable
+     */
+  due: string | null;
+  /**
+     * HH:MM
+     * @nullable
+     */
+  time: string | null;
+  /** @nullable */
+  person: string | null;
+  done: boolean;
+  /** @nullable */
+  doneAt: string | null;
+  source: TaskSource;
+  /** @nullable */
+  sourceId: number | null;
+  /** @nullable */
+  sourceTitle: string | null;
+  /** @nullable */
+  sourceUrl: string | null;
+  /**
+     * Seconds into the recording where it was said.
+     * @nullable
+     */
+  at: number | null;
+  createdAt: string;
+}
+
+export interface TaskInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  text: string;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  due?: string | null;
+  /**
+     * @nullable
+     * @pattern ^\d{2}:\d{2}$
+     */
+  time?: string | null;
+}
+
+export interface TaskUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  text?: string;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  due?: string | null;
+  /**
+     * @nullable
+     * @pattern ^\d{2}:\d{2}$
+     */
+  time?: string | null;
+  done?: boolean;
+}
+
+export interface TaskScan {
+  scanned: number;
+  found: number;
+  remaining: number;
+}
+
 export interface DashboardDay {
   date: string;
   recordings: number;

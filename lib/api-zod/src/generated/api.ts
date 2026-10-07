@@ -540,6 +540,141 @@ export const ExtractYoutubeTranscriptResponse = zod.object({
 
 
 /**
+ * @summary All tasks, found in recordings or added by hand
+ */
+export const ListTasksResponseItem = zod.object({
+  "id": zod.number().int(),
+  "text": zod.string(),
+  "due": zod.string().nullable().describe('YYYY-MM-DD'),
+  "time": zod.string().nullable().describe('HH:MM'),
+  "person": zod.string().nullable(),
+  "done": zod.boolean(),
+  "doneAt": zod.string().nullable(),
+  "source": zod.enum(['recording', 'manual']),
+  "sourceId": zod.number().int().nullable(),
+  "sourceTitle": zod.string().nullable(),
+  "sourceUrl": zod.string().nullable(),
+  "at": zod.number().nullable().describe('Seconds into the recording where it was said.'),
+  "createdAt": zod.string()
+})
+export const ListTasksResponse = zod.array(ListTasksResponseItem)
+
+
+/**
+ * @summary Add a task by hand
+ */
+export const createTaskBodyTextMax = 200;
+
+export const createTaskBodyDueRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createTaskBodyTimeRegExp = new RegExp('^\\d{2}:\\d{2}$');
+
+
+export const CreateTaskBody = zod.object({
+  "text": zod.string().min(1).max(createTaskBodyTextMax),
+  "due": zod.string().regex(createTaskBodyDueRegExp).nullish(),
+  "time": zod.string().regex(createTaskBodyTimeRegExp).nullish()
+})
+
+export const CreateTaskResponse = zod.object({
+  "id": zod.number().int(),
+  "text": zod.string(),
+  "due": zod.string().nullable().describe('YYYY-MM-DD'),
+  "time": zod.string().nullable().describe('HH:MM'),
+  "person": zod.string().nullable(),
+  "done": zod.boolean(),
+  "doneAt": zod.string().nullable(),
+  "source": zod.enum(['recording', 'manual']),
+  "sourceId": zod.number().int().nullable(),
+  "sourceTitle": zod.string().nullable(),
+  "sourceUrl": zod.string().nullable(),
+  "at": zod.number().nullable().describe('Seconds into the recording where it was said.'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Change, tick off, or reschedule a task
+ */
+export const UpdateTaskParams = zod.object({
+  "taskId": zod.coerce.number().int()
+})
+
+export const updateTaskBodyTextMax = 200;
+
+export const updateTaskBodyDueRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateTaskBodyTimeRegExp = new RegExp('^\\d{2}:\\d{2}$');
+
+
+export const UpdateTaskBody = zod.object({
+  "text": zod.string().min(1).max(updateTaskBodyTextMax).optional(),
+  "due": zod.string().regex(updateTaskBodyDueRegExp).nullish(),
+  "time": zod.string().regex(updateTaskBodyTimeRegExp).nullish(),
+  "done": zod.boolean().optional()
+})
+
+export const UpdateTaskResponse = zod.object({
+  "id": zod.number().int(),
+  "text": zod.string(),
+  "due": zod.string().nullable().describe('YYYY-MM-DD'),
+  "time": zod.string().nullable().describe('HH:MM'),
+  "person": zod.string().nullable(),
+  "done": zod.boolean(),
+  "doneAt": zod.string().nullable(),
+  "source": zod.enum(['recording', 'manual']),
+  "sourceId": zod.number().int().nullable(),
+  "sourceTitle": zod.string().nullable(),
+  "sourceUrl": zod.string().nullable(),
+  "at": zod.number().nullable().describe('Seconds into the recording where it was said.'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a task
+ */
+export const DeleteTaskParams = zod.object({
+  "taskId": zod.coerce.number().int()
+})
+
+export const DeleteTaskResponse = zod.void()
+
+
+/**
+ * @summary Look for tasks in recordings that have text but were not searched yet (a few at a time)
+ */
+export const ScanTasksResponse = zod.object({
+  "scanned": zod.number().int(),
+  "found": zod.number().int(),
+  "remaining": zod.number().int()
+})
+
+
+/**
+ * @summary Find the tasks in one recording (again)
+ */
+export const FindRecordingTasksParams = zod.object({
+  "itemId": zod.coerce.number().int()
+})
+
+export const FindRecordingTasksResponseItem = zod.object({
+  "id": zod.number().int(),
+  "text": zod.string(),
+  "due": zod.string().nullable().describe('YYYY-MM-DD'),
+  "time": zod.string().nullable().describe('HH:MM'),
+  "person": zod.string().nullable(),
+  "done": zod.boolean(),
+  "doneAt": zod.string().nullable(),
+  "source": zod.enum(['recording', 'manual']),
+  "sourceId": zod.number().int().nullable(),
+  "sourceTitle": zod.string().nullable(),
+  "sourceUrl": zod.string().nullable(),
+  "at": zod.number().nullable().describe('Seconds into the recording where it was said.'),
+  "createdAt": zod.string()
+})
+export const FindRecordingTasksResponse = zod.array(FindRecordingTasksResponseItem)
+
+
+/**
  * @summary Home dashboard - activity, streak, where you left off, and an older idea brought back
  */
 export const getDashboardQueryOffsetMin = -840;

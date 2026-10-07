@@ -5,6 +5,7 @@ import audioLibraryRouter from "./audio-library";
 import searchRouter from "./search";
 import askRouter from "./ask";
 import dashboardRouter from "./dashboard";
+import tasksRouter from "./tasks";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -14,6 +15,7 @@ router.use(ideaStreamRouter);
 router.use(searchRouter);
 router.use(askRouter);
 router.use(dashboardRouter);
+router.use(tasksRouter);
 router.use(audioLibraryRouter);
 router.use(storageRouter);
 

@@ -35,6 +35,7 @@ import { AudioEditError, convertRecording, duplicateStored, enhanceRecording, jo
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
 import { LEGACY_SUFFIX, findLegacySource, snippet } from "../lib/legacy-mix";
+import { findTasksLater } from "../lib/task-extract";
 
 const router: IRouter = Router();
 
@@ -252,6 +253,8 @@ router.post("/audio-library/:itemId/transcription", async (req, res): Promise<vo
     if (!text) { res.status(422).json({ error: "No speech was detected. Your audio is still saved." }); return; }
     await db.update(audioLibraryTable).set({ transcript: text }).where(eq(audioLibraryTable.id, current.item.id));
     await relink(current.item.id).catch(() => {});
+    // Voice to Action: look for tasks in the new text, without making anyone wait.
+    findTasksLater(current.item.id);
     const [saved] = await select().where(eq(audioLibraryTable.id, current.item.id));
     res.json(serialize(saved ?? current));
   } catch (error) {
@@ -269,6 +272,7 @@ function retranscribe(id: number, url: string) {
       // Only if the item still plays this audio (a newer edit wins).
       .where(and(eq(audioLibraryTable.id, id), eq(audioLibraryTable.url, url)));
     await relink(id);
+    findTasksLater(id);
   })().catch(() => { /* The audio is saved; the text can be added later. */ });
 }
 

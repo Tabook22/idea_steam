@@ -52,6 +52,8 @@ export const audioLibraryTable = pgTable(
     }>(),
     /** Mini waveform for the list (loudness of 64 slices, 0–1), for the audio file at `url`. */
     peaks: jsonb("peaks").$type<{ url: string; values: number[] }>(),
+    /** The transcript (by hash) that was last searched for tasks, so each text is scanned once. */
+    tasksScannedFor: text("tasks_scanned_for"),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpDown,
@@ -33,6 +33,7 @@ import {
   VolumeX,
   X,
   Type,
+  ListChecks,
 } from "lucide-react";
 import {
   deleteAudioLibraryItem,
@@ -41,6 +42,8 @@ import {
   makeAudioLibraryChapters,
   removeAudioLibraryMix,
   transcribeLibraryItem,
+  findRecordingTasks,
+  getListTasksQueryKey,
   getListAudioLibraryQueryKey,
   updateAudioLibraryItem,
   useListAudioLibrary,
@@ -118,6 +121,7 @@ export default function LibraryPage() {
   const { isArabic, language } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const { data: items = [], isLoading, isError, refetch } = useListAudioLibrary();
   const [sort, setSort] = useState<Sort>(() => {
@@ -422,6 +426,22 @@ export default function LibraryPage() {
   }
 
   const [editByText, setEditByText] = useState(false);
+  /** Voice to Action, on request: the tasks said in this recording. */
+  async function findTasksIn(item: AudioLibraryItem) {
+    try {
+      const found = await findRecordingTasks(item.id);
+      await queryClient.invalidateQueries({ queryKey: getListTasksQueryKey() });
+      const open = found.filter((task) => !task.done).length;
+      toast({
+        title: found.length ? copy(`${found.length} task${found.length === 1 ? "" : "s"} in this recording`, `${found.length} مهمة في هذا التسجيل`) : copy("No tasks in this recording", "لا مهام في هذا التسجيل"),
+        description: found.length ? copy(`${open} still to do. See them in Tasks.`, `${open} لم تُنجز بعد. اعرضها في المهام.`) : undefined,
+        action: found.length ? <ToastAction altText={copy("Open Tasks", "افتح المهام")} onClick={() => navigate("/tasks")}>{copy("Open", "افتح")}</ToastAction> : undefined,
+      });
+    } catch (error) {
+      toast({ variant: "destructive", title: (error as { data?: { error?: string } })?.data?.error ?? copy("Couldn't look for tasks right now.", "تعذر البحث عن المهام الآن.") });
+    }
+  }
+
   const openTool = (item: AudioLibraryItem, tool: "edit" | "lab" | "text") => {
     if (activeId === item.id) audio.current?.pause();
     setEditByText(tool === "text");
@@ -769,6 +789,7 @@ export default function LibraryPage() {
                             <DropdownMenuContent align="end" className="w-56">
                               <DropdownMenuItem onSelect={() => setFiling(item)} className="font-medium"><BookPlus size={15} />{item.subjects.length ? copy("Add to / move between subjects…", "أضف إلى موضوع أو انقل…") : copy("Add to a subject…", "أضف إلى موضوع…")}</DropdownMenuItem>
                               {needsText(item) && <DropdownMenuItem disabled={converting.has(item.id)} onSelect={() => void convertToText(item)}><Captions size={15} />{copy("Convert to text", "حوّل إلى نص")}</DropdownMenuItem>}
+                              {item.transcript && item.kind !== "music" && <DropdownMenuItem onSelect={() => void findTasksIn(item)}><ListChecks size={15} />{copy("Find tasks", "ابحث عن مهام")}</DropdownMenuItem>}
                               <DropdownMenuItem onSelect={() => setExporting(item)}><Download size={15} />{copy("Download as MP3, WAV…", "تنزيل MP3، WAV…")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => openTool(item, "edit")}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
                               {item.kind !== "music" && <DropdownMenuItem onSelect={() => openTool(item, "text")}><Type size={15} />{copy("Edit by text", "التحرير بالنص")}</DropdownMenuItem>}

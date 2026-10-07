@@ -17,6 +17,8 @@ import SubjectDetailPage from "@/pages/subject-detail";
 import RecorderPage from "@/pages/recorder";
 import SharePage from "@/pages/share";
 import LibraryPage from "@/pages/library";
+import TasksPage from "@/pages/tasks";
+import { TasksButton } from "@/components/home-tasks";
 import { RecorderProvider } from "@/components/recorder-provider";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -70,6 +72,7 @@ function TopNav() {
     <div className="flex items-center justify-between gap-2 px-4 py-3">
       <TopBarHome />
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <TasksButton />
       <AskLibrary />
       <WorkspaceSearch />
       <LanguageToggle />
@@ -118,6 +121,7 @@ function Router() {
         <Route path="/record" component={RecorderPage} />
         <Route path="/share" component={SharePage} />
         <Route path="/library" component={LibraryPage} />
+        <Route path="/tasks" component={TasksPage} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
         <Route path="/sign-in/*?">{() => <Redirect to="/app" />}</Route>
         <Route path="/sign-up/*?">{() => <Redirect to="/app" />}</Route>
