@@ -1205,6 +1205,107 @@ export const CreateLibraryRecordingResponse = zod.object({
 
 
 /**
+ * @summary Script to Episode - join recorded sections into one polished recording with chapters
+ */
+export const buildEpisodeBodyTitleMax = 200;
+
+export const buildEpisodeBodyScriptMax = 60000;
+
+export const buildEpisodeBodySectionsItemTitleMax = 120;
+
+
+export const buildEpisodeBodySectionsMax = 40;
+
+
+
+export const BuildEpisodeBody = zod.object({
+  "title": zod.string().min(1).max(buildEpisodeBodyTitleMax),
+  "script": zod.string().max(buildEpisodeBodyScriptMax).optional().describe('The script that was read, for the show notes.'),
+  "sections": zod.array(zod.object({
+  "title": zod.string().max(buildEpisodeBodySectionsItemTitleMax),
+  "url": zod.string().min(1)
+})).min(1).max(buildEpisodeBodySectionsMax),
+  "clean": zod.boolean().optional().describe('Reduce noise and level the voice (default true).'),
+  "tighten": zod.boolean().optional().describe('Shorten long pauses (default true).')
+})
+
+export const buildEpisodeResponseMixTwoSettingsMusicStartMin = 0;
+
+export const buildEpisodeResponseMixTwoSettingsRegionStartMin = -60;
+export const buildEpisodeResponseMixTwoSettingsRegionStartMax = 86400;
+
+export const buildEpisodeResponseMixTwoSettingsRegionEndMin = -59;
+export const buildEpisodeResponseMixTwoSettingsRegionEndMax = 86460;
+
+export const buildEpisodeResponseMixTwoSettingsMusicVolumeMin = -40;
+export const buildEpisodeResponseMixTwoSettingsMusicVolumeMax = 6;
+
+export const buildEpisodeResponseMixTwoSettingsVoiceVolumeMin = -12;
+export const buildEpisodeResponseMixTwoSettingsVoiceVolumeMax = 12;
+
+export const buildEpisodeResponseMixTwoSettingsFadeInMin = 0;
+export const buildEpisodeResponseMixTwoSettingsFadeInMax = 15;
+
+export const buildEpisodeResponseMixTwoSettingsFadeOutMin = 0;
+export const buildEpisodeResponseMixTwoSettingsFadeOutMax = 15;
+
+export const buildEpisodeResponseMixTwoSettingsDuckMin = 0;
+export const buildEpisodeResponseMixTwoSettingsDuckMax = 3;
+
+
+
+export const BuildEpisodeResponse = zod.object({
+  "peaks": zod.array(zod.number()).nullable().describe('The mini waveform (64 values, 0–1) when already made; otherwise ask /peaks.'),
+  "id": zod.number().int(),
+  "url": zod.string(),
+  "kind": zod.enum(['recording', 'music']).describe('music = a song uploaded to use as background music.'),
+  "subjects": zod.array(zod.object({
+  "subjectId": zod.number().int(),
+  "subjectTitle": zod.string(),
+  "ideaId": zod.number().int()
+})).describe('The subjects this recording has been added to.'),
+  "bakedMusic": zod.boolean().describe('An older copy made with the music mixed in; its music can still be removed (the voice comes from the recording it was made from).'),
+  "mix": zod.union([zod.null(),zod.object({
+  "voiceUrl": zod.string().describe('The voice-only audio underneath the music.'),
+  "voiceDuration": zod.number().nullable().describe('Length of the voice-only audio (seconds).'),
+  "musicUrl": zod.string().describe('The song\'s audio (kept even if the song is later removed from the library).'),
+  "musicItemId": zod.number().int().nullable(),
+  "musicTitle": zod.string().nullable(),
+  "pre": zod.number().describe('Seconds of music before the voice starts.'),
+  "settings": zod.object({
+  "musicStart": zod.number().min(buildEpisodeResponseMixTwoSettingsMusicStartMin).describe('Where in the song to begin (seconds).'),
+  "regionStart": zod.number().min(buildEpisodeResponseMixTwoSettingsRegionStartMin).max(buildEpisodeResponseMixTwoSettingsRegionStartMax).describe('Where the music starts, on the recording\'s clock (negative = an intro before the voice).'),
+  "regionEnd": zod.number().min(buildEpisodeResponseMixTwoSettingsRegionEndMin).max(buildEpisodeResponseMixTwoSettingsRegionEndMax).describe('Where the music ends, on the recording\'s clock (past the end = an outro).'),
+  "fit": zod.enum(['loop', 'stretch', 'once']).describe('How the song fills the time between start and end.'),
+  "musicVolume": zod.number().min(buildEpisodeResponseMixTwoSettingsMusicVolumeMin).max(buildEpisodeResponseMixTwoSettingsMusicVolumeMax),
+  "voiceVolume": zod.number().min(buildEpisodeResponseMixTwoSettingsVoiceVolumeMin).max(buildEpisodeResponseMixTwoSettingsVoiceVolumeMax),
+  "fadeIn": zod.number().min(buildEpisodeResponseMixTwoSettingsFadeInMin).max(buildEpisodeResponseMixTwoSettingsFadeInMax),
+  "fadeOut": zod.number().min(buildEpisodeResponseMixTwoSettingsFadeOutMin).max(buildEpisodeResponseMixTwoSettingsFadeOutMax),
+  "duck": zod.number().int().min(buildEpisodeResponseMixTwoSettingsDuckMin).max(buildEpisodeResponseMixTwoSettingsDuckMax).describe('Lower the music while the voice speaks, 0 (off) to 3 (strong).'),
+  "makeRoom": zod.boolean().describe('Dip the music\'s middle frequencies so words stay clear.')
+})
+})]).describe('Background music added as a removable layer (null when there is none).'),
+  "title": zod.string().nullable().describe('Set when renamed; otherwise null.'),
+  "mimeType": zod.string().nullable(),
+  "durationSeconds": zod.number().int().nullable(),
+  "transcript": zod.string().nullable(),
+  "sourceIdeaId": zod.number().int().nullable().describe('The idea it came from, if that idea still exists.'),
+  "sourceSubjectId": zod.number().int().nullable().describe('The idea\'s current subject, if the idea still exists.'),
+  "sourceSubjectTitle": zod.string().nullable().describe('The subject it was first saved in.'),
+  "edited": zod.boolean().describe('True after cutting; the original can be restored.'),
+  "hasWords": zod.boolean().describe('Word timings are already stored, so "Edit by text" opens instantly.'),
+  "marks": zod.array(zod.number()).describe('Seconds where "Mark" was tapped while recording.'),
+  "chapters": zod.array(zod.object({
+  "start": zod.number(),
+  "title": zod.string()
+})).nullable(),
+  "summary": zod.string().nullable(),
+  "capturedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Convert a library recording to text, keeping the spoken language
  */
 export const TranscribeLibraryItemParams = zod.object({

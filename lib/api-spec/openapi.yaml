@@ -686,6 +686,24 @@ paths:
                 $ref: "#/components/schemas/AudioLibraryItem"
         "400":
           description: Not a recording stored in this app
+  /audio-library/episodes:
+    post:
+      operationId: buildEpisode
+      tags: [audio-library]
+      summary: Script to Episode - join recorded sections into one polished recording with chapters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EpisodeInput"
+      responses:
+        "201":
+          description: The episode, saved in the audio library
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioLibraryItem"
   /audio-library/{itemId}/transcription:
     post:
       operationId: transcribeLibraryItem
@@ -1370,6 +1388,40 @@ components:
         language:
           type: string
           enum: [en, ar]
+    EpisodeSection:
+      type: object
+      required: [title, url]
+      properties:
+        title:
+          type: string
+          maxLength: 120
+        url:
+          type: string
+          minLength: 1
+    EpisodeInput:
+      type: object
+      required: [title, sections]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        script:
+          type: string
+          maxLength: 60000
+          description: The script that was read, for the show notes.
+        sections:
+          type: array
+          minItems: 1
+          maxItems: 40
+          items:
+            $ref: "#/components/schemas/EpisodeSection"
+        clean:
+          type: boolean
+          description: Reduce noise and level the voice (default true).
+        tighten:
+          type: boolean
+          description: Shorten long pauses (default true).
     Task:
       type: object
       required: [id, text, due, time, person, done, doneAt, source, sourceId, sourceTitle, sourceUrl, at, createdAt]

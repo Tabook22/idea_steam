@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import {
   AddToAudioLibraryBody,
+  BuildEpisodeBody,
   CreateLibraryRecordingBody,
   EditAudioLibraryItemBody,
   ExportAudioLibraryItemQueryParams,
@@ -31,7 +32,7 @@ import {
   transcriptionFailure,
   wordsForStoredAudio,
 } from "../lib/stored-transcription";
-import { AudioEditError, convertRecording, duplicateStored, enhanceRecording, joinRecordings, keepRanges, mixPreview, mixRecording, soundLabPreview, soundLabRecording, storedDuration, storedPeaks } from "../lib/audio-edit";
+import { AudioEditError, convertRecording, duplicateStored, enhanceRecording, joinRecordings, keepRanges, mixPreview, mixRecording, soundLabPreview, soundLabRecording, storedDuration, storedPeaks, buildEpisode } from "../lib/audio-edit";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
 import { LEGACY_SUFFIX, findLegacySource, snippet } from "../lib/legacy-mix";
@@ -202,6 +203,50 @@ router.post("/audio-library", async (req, res): Promise<void> => {
 });
 
 // A recording made straight into the library: no idea, no subject.
+/** Short show notes for an episode, from the script that was read (in its language). */
+async function showNotes(title: string, script: string, chapters: string[]) {
+  if (!aiConfigured || !script.trim()) return null;
+  try {
+    const response = await openai.chat.completions.create({
+      model: process.env.OPENAI_TEXT_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "gpt-5.6-luna" : "gpt-4.1-mini"),
+      messages: [
+        { role: "system", content: "Write short show notes for a podcast or video episode, from its script: 2-3 inviting sentences on what the listener will get. Use the SAME language as the script. No headings, no lists, no invented facts." },
+        { role: "user", content: [`Title: ${title}`, `Sections: ${chapters.join(" | ")}`, "", "Script:", script.slice(0, 20_000)].join("\n") },
+      ],
+    }, { timeout: 45_000, maxRetries: 1 });
+    return response.choices[0]?.message?.content?.trim().slice(0, 800) || null;
+  } catch {
+    return null;
+  }
+}
+
+router.post("/audio-library/episodes", async (req, res): Promise<void> => {
+  const body = BuildEpisodeBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "Record at least one section first." }); return; }
+  if (!body.data.sections.every((section) => isStoredAudioUrl(section.url))) {
+    res.status(400).json({ error: "Only recordings saved in this app can be used." });
+    return;
+  }
+  try {
+    const built = await buildEpisode(body.data.sections.map((section) => section.url), {
+      clean: body.data.clean ?? true, tighten: body.data.tighten ?? true, gap: 0.6,
+    });
+    const titles = body.data.sections.map((section, index) => section.title.trim() || `Part ${index + 1}`);
+    const chapters = titles.length > 1 ? titles.map((title, index) => ({ start: built.starts[index], title: title.slice(0, 80) })) : null;
+    const summary = await showNotes(body.data.title, body.data.script ?? "", titles);
+    const [inserted] = await db.insert(audioLibraryTable).values({
+      url: built.url, mimeType: built.mimeType, durationSeconds: built.durationSeconds, title: body.data.title.trim(),
+      kind: "recording", chapters, summary,
+    }).returning({ id: audioLibraryTable.id });
+    const [saved] = await select().where(eq(audioLibraryTable.id, inserted.id));
+    res.status(201).json(serialize(saved));
+  } catch (error) {
+    if (error instanceof AudioEditError) { res.status(error.status).json({ error: error.message }); return; }
+    req.log?.error({ err: error }, "Episode failed");
+    res.status(500).json({ error: "The episode couldn't be made. Your recorded sections are safe; please try again." });
+  }
+});
+
 router.post("/audio-library/recordings", async (req, res): Promise<void> => {
   const body = CreateLibraryRecordingBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid recording" }); return; }

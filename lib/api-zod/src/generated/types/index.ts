@@ -51,6 +51,8 @@ export * from './digestInputLanguage';
 export * from './digestReady';
 export * from './digestResponse';
 export * from './digestTheme';
+export * from './episodeInput';
+export * from './episodeSection';
 export * from './exportAudioLibraryItemFormat';
 export * from './exportAudioLibraryItemParams';
 export * from './exportAudioLibraryItemQuality';

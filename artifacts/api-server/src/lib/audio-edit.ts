@@ -323,3 +323,59 @@ export async function storedPeaks(url: string, bars = 64): Promise<number[]> {
   });
   return barsFromSamples(samples, bars);
 }
+
+/** A clear, podcast-ready voice: gentle noise reduction, less rumble, a little presence, even loudness. */
+export const EPISODE_VOICE: SoundLabSettings = {
+  noise: 2, noiseSample: null, noiseFloor: null, hum: null,
+  bands: { rumble: -10, warmth: 0, voice: 1, presence: 2, air: 1 },
+  edits: [], volume: 0, level: true, deess: true,
+};
+
+export type EpisodeOptions = { clean: boolean; tighten: boolean; gap: number };
+
+/**
+ * Silence at the start and end of a take is trimmed; with `tighten`, any pause longer than 0.7 s
+ * becomes 0.7 s (ffmpeg keeps the detection time plus the kept silence: 0.3 + 0.4), and shorter,
+ * natural pauses are left alone.
+ */
+export function takeFilters(tighten: boolean) {
+  const trim = "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-45dB:start_silence=0.15";
+  return tighten
+    ? [NORMALIZE, trim, "silenceremove=stop_periods=-1:stop_duration=0.3:stop_threshold=-45dB:stop_silence=0.4"]
+    : [NORMALIZE, trim, "areverse", trim, "areverse"];
+}
+
+/**
+ * Script to Episode: the takes of each section, in order, become one recording. Each take is
+ * trimmed (and tightened), short gaps separate sections, then the whole voice is polished.
+ * Returns where each section starts, for chapters.
+ */
+export async function buildEpisode(urls: string[], options: EpisodeOptions) {
+  if (urls.length < 1 || urls.length > 40) throw new AudioEditError(400, "An episode needs 1 to 40 recorded sections.");
+  const sources = await Promise.all(urls.map(storedFile));
+  return withWorkspace(async (dir) => {
+    const takes: string[] = [];
+    const lengths: number[] = [];
+    for (const [index, source] of sources.entries()) {
+      const take = join(dir, `take${index}.wav`);
+      await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-af", takeFilters(options.tighten).join(","), "-c:a", "pcm_s16le", take], 300_000);
+      takes.push(take);
+      lengths.push(await audioDuration(take));
+    }
+    const gap = Math.max(0, Math.min(3, options.gap));
+    const joined = join(dir, "joined.wav");
+    const pieces = takes.flatMap((_, index) => (index && gap ? [`[g${index}]`, `[${index}:a]`] : [`[${index}:a]`]));
+    const graph = [
+      ...takes.slice(1).map((_, index) => (gap ? `anullsrc=r=48000:cl=mono,atrim=duration=${gap}[g${index + 1}]` : "")).filter(Boolean),
+      `${pieces.join("")}concat=n=${pieces.length}:v=0:a=1[out]`,
+    ].join(";");
+    await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", ...takes.flatMap((take) => ["-i", take]), "-filter_complex", graph, "-map", "[out]", "-c:a", "pcm_s16le", joined], 600_000);
+    const chain = options.clean ? await soundLabChain(joined, EPISODE_VOICE) : [NORMALIZE, "loudnorm=I=-16:TP=-1.5:LRA=11"].join(",");
+    const output = join(dir, "episode.webm");
+    await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", joined, "-af", chain, "-c:a", "libopus", "-b:a", "96k", "-ac", "1", "-f", "webm", output], 900_000);
+    const starts: number[] = [];
+    let at = 0;
+    for (const length of lengths) { starts.push(Math.round(at * 10) / 10); at += length + gap; }
+    return { ...(await publish(output, sources[0].prefix)), starts };
+  });
+}

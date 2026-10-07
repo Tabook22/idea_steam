@@ -223,6 +223,35 @@ export interface DigestInput {
   language?: DigestInputLanguage;
 }
 
+export interface EpisodeSection {
+  /** @maxLength 120 */
+  title: string;
+  /** @minLength 1 */
+  url: string;
+}
+
+export interface EpisodeInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title: string;
+  /**
+     * The script that was read, for the show notes.
+     * @maxLength 60000
+     */
+  script?: string;
+  /**
+     * @minItems 1
+     * @maxItems 40
+     */
+  sections: EpisodeSection[];
+  /** Reduce noise and level the voice (default true). */
+  clean?: boolean;
+  /** Shorten long pauses (default true). */
+  tighten?: boolean;
+}
+
 export type TaskSource = typeof TaskSource[keyof typeof TaskSource];
 
 

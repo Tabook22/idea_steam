@@ -19,7 +19,7 @@ export function LanguageToggle() {
       >
         <Languages className="h-4 w-4" />
         {/* Phones: a short code, so the top bar fits; wider screens: the full name. */}
-        <span className="text-xs font-semibold sm:hidden">{language === "ar" ? "ع" : "EN"}</span>
+        <div className="text-xs font-semibold sm:hidden">{language === "ar" ? "ع" : "EN"}</div>
         <div className="hidden sm:block"><SelectValue /></div>
       </SelectTrigger>
       <SelectContent>

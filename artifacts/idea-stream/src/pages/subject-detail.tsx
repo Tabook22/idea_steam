@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { useLocation, useParams } from "wouter";
+import { Link, useLocation, useParams } from "wouter";
 import { useHashFocus } from "@/lib/use-hash-focus";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,6 +9,7 @@ import {
   Trash2,
   Feather,
   Sparkles,
+  Mic,
   BookOpen,
 } from "lucide-react";
 
@@ -405,6 +406,13 @@ export default function SubjectDetailPage() {
               <Sparkles size={14} />
               {isArabic ? "٢. أنشئ مسودتك" : "02 · Create your draft"}
             </a>
+            <Link
+              href={`/subjects/${subjectDetail.id}/studio`}
+              className="flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/5 px-4 py-2 text-red-700 dark:text-red-300"
+            >
+              <Mic size={14} />
+              {isArabic ? "٣. سجّل حلقة" : "03 · Record an episode"}
+            </Link>
           </nav>
         </div>
       </header>

@@ -18,6 +18,7 @@ import RecorderPage from "@/pages/recorder";
 import SharePage from "@/pages/share";
 import LibraryPage from "@/pages/library";
 import TasksPage from "@/pages/tasks";
+import EpisodeStudio from "@/pages/episode-studio";
 import { TasksButton } from "@/components/home-tasks";
 import { RecorderProvider } from "@/components/recorder-provider";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
@@ -122,6 +123,7 @@ function Router() {
         <Route path="/share" component={SharePage} />
         <Route path="/library" component={LibraryPage} />
         <Route path="/tasks" component={TasksPage} />
+        <Route path="/subjects/:id/studio" component={EpisodeStudio} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
         <Route path="/sign-in/*?">{() => <Redirect to="/app" />}</Route>
         <Route path="/sign-up/*?">{() => <Redirect to="/app" />}</Route>
