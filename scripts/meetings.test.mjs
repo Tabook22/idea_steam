@@ -78,3 +78,19 @@ test("the AI's minutes are checked: times inside the meeting, valid dates, topic
   assert.match(plain, /📌 المهام/);
   assert.match(plain, /• Book the room — Speaker 2/);
 });
+
+test("one person split into two speakers is merged by giving both the same name", async () => {
+  const { mergeNamedSpeakers } = await import("../artifacts/api-server/src/lib/meeting-minutes.ts");
+  const segments = [
+    { start: 0, end: 5, speaker: "S1", text: "Good morning." },
+    { start: 5.5, end: 8, speaker: "S2", text: "Hello." },
+    { start: 600, end: 604, speaker: "S3", text: "Back again." },
+    { start: 604.5, end: 606, speaker: "S1", text: "Still me." },
+  ];
+  const result = mergeNamedSpeakers(segments, { S1: "Sara", S3: " sara ", S2: "Ali" });
+  assert.equal(result.merged, 1);
+  assert.deepEqual(result.names, { S1: "Sara", S2: "Ali" });
+  assert.deepEqual(result.segments.map((s) => [s.speaker, s.text]), [["S1", "Good morning."], ["S2", "Hello."], ["S1", "Back again. Still me."]]);
+  assert.equal(result.rename.get("S3"), "S1");
+  assert.equal(mergeNamedSpeakers(segments, { S1: "Sara" }).merged, 0);
+});

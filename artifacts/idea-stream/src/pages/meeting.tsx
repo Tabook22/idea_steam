@@ -329,6 +329,9 @@ function Speakers({ meeting, seek, copy, onRename }: { meeting: Meeting; seek: (
   return (
     <div className="mt-5 space-y-3">
       <p className="text-sm text-muted-foreground">{copy("Give each voice a name: it's used in the transcript, the minutes and your tasks. Tap ▶ to hear them.", "سمِّ كل صوت: يُستخدم الاسم في النص والمحضر ومهامك. اضغط ▶ لتسمعه.")}</p>
+      <p className="rounded-xl bg-sky-500/10 px-3 py-2 text-xs text-sky-900 dark:text-sky-100">
+        {copy("Same person shown twice? Give both the same name and they're merged into one.", "الشخص نفسه ظهر مرتين؟ أعطِهما الاسم نفسه فيُدمجان في متحدث واحد.")}
+      </p>
       {meeting.speakers.map((speaker) => {
         const color = speakerColor(speaker.id);
         const sample = meeting.segments.find((segment) => segment.speaker === speaker.id && segment.end - segment.start >= 3) ?? meeting.segments.find((segment) => segment.speaker === speaker.id);

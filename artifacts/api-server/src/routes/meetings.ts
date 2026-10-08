@@ -3,7 +3,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { audioLibraryTable, db, meetingsTable, subjectsTable, tasksTable, type MeetingRecord } from "@workspace/db";
 import { AskMeetingBody, AskMeetingParams, GetMeetingParams, ProcessMeetingBody, UpdateMeetingBody } from "@workspace/api-zod";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
-import { MEETING_ASK, minutesText, plainTranscript, speakerName, talkTime, transcriptLines } from "../lib/meeting-minutes";
+import { MEETING_ASK, mergeNamedSpeakers, minutesText, plainTranscript, speakerName, talkTime, transcriptLines } from "../lib/meeting-minutes";
 import { isProcessing, processMeetingLater, resumeMeetings } from "../lib/meeting-process";
 import { textHash } from "../lib/tasks";
 
@@ -100,10 +100,17 @@ router.patch("/meetings/:meetingId", async (req, res): Promise<void> => {
       if (!/^S\d+$/.test(id)) continue;
       if (name.trim()) names[id] = name.trim().slice(0, 60); else delete names[id];
     }
-    changes.speakers = names;
+    // The same name on two speakers means one person: merge them.
+    const merged = mergeNamedSpeakers(meeting.segments ?? [], names);
+    changes.speakers = merged.names;
+    if (merged.merged) {
+      changes.segments = merged.segments;
+      if (meeting.minutes)
+        changes.minutes = { ...meeting.minutes, actions: meeting.minutes.actions.map((action) => ({ ...action, owner: action.owner ? merged.rename.get(action.owner) ?? action.owner : null })) };
+    }
     // Names flow into the recording's text and the tasks found in this meeting.
-    if (meeting.segments?.length) {
-      const transcript = plainTranscript(meeting.segments, names);
+    if (merged.segments.length) {
+      const transcript = plainTranscript(merged.segments, merged.names);
       await db.update(audioLibraryTable).set({ transcript, tasksScannedFor: textHash(transcript.trim()) }).where(eq(audioLibraryTable.id, meeting.libraryItemId));
     }
     for (const id of Object.keys(body.data.speakers)) {

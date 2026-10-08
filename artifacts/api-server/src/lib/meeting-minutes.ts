@@ -150,3 +150,24 @@ export const MEETING_ASK = [
   "After each fact, cite the moment it was said as [m:ss] (or [h:mm:ss]) copied from the transcript.",
   "Name speakers as the transcript does. If the meeting doesn't say, say so plainly.",
 ].join(" ");
+
+/**
+ * One person split into two speakers (e.g. across parts of a long meeting): speakers given the
+ * same name become one, under the first id; their consecutive pieces join up again.
+ */
+export function mergeNamedSpeakers(segments: MeetingSegment[], names: Record<string, string>) {
+  const keep = new Map<string, string>();
+  const rename = new Map<string, string>();
+  const order = [...new Set(segments.map((segment) => segment.speaker))].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+  for (const id of order) {
+    const name = names[id]?.trim().toLocaleLowerCase();
+    if (!name) continue;
+    const first = keep.get(name);
+    if (first) rename.set(id, first); else keep.set(name, id);
+  }
+  if (!rename.size) return { segments, names, merged: 0, rename };
+  const nextNames = { ...names };
+  for (const id of rename.keys()) delete nextNames[id];
+  const nextSegments = mergeSegments(segments.map((segment) => ({ ...segment, speaker: rename.get(segment.speaker) ?? segment.speaker })), 1.5);
+  return { segments: nextSegments, names: nextNames, merged: rename.size, rename };
+}
