@@ -11,6 +11,7 @@ import type { MeetingNote } from './meetingNote';
 import type { MeetingSegment } from './meetingSegment';
 import type { MeetingSpeaker } from './meetingSpeaker';
 import type { MeetingSummary } from './meetingSummary';
+import type { NotebookDoc } from './notebookDoc';
 
 export type Meeting = MeetingSummary & ({
   url: string;
@@ -28,4 +29,5 @@ export type Meeting = MeetingSummary & ({
      */
   minutesText: string | null;
   notes: MeetingNote[];
+  notebook: NotebookDoc | null;
 });

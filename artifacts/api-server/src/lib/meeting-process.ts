@@ -10,6 +10,7 @@ import { withMeetingAudio } from "./audio-edit";
 import { SpeakerMap, mergeSegments, minutesPrompt, minutesText, parseMinutes, plainTranscript, speakerName, transcriptLines, voiceSample } from "./meeting-minutes";
 import { sameTask, textHash } from "./tasks";
 import { noteAttachments, notesForMinutes, notesSection } from "./meeting-notes";
+import { cleanNotebook, notebookText, readHandwriting, type Notebook } from "./meeting-notebook";
 
 const DIARIZE_MODEL = process.env.OPENAI_DIARIZE_MODEL || "gpt-4o-transcribe-diarize";
 const PART_SECONDS = Number(process.env.MEETING_PART_SECONDS) || 600;
@@ -94,13 +95,17 @@ export async function processMeeting(id: number) {
       ...(item.durationSeconds ? {} : { durationSeconds: duration }),
     }).where(eq(audioLibraryTable.id, item.id));
 
-    // 2. Minutes.
+    // 2. Minutes (with your notes, and the handwriting in your notebook read as text).
     await stage(id, "writing");
+    const notebook = cleanNotebook(meeting.notebook);
+    if (notebook && await readHandwriting(notebook))
+      await db.update(meetingsTable).set({ notebook: notebook as unknown as Record<string, unknown> }).where(eq(meetingsTable.id, id));
+    const written = [notesForMinutes(meeting.notes ?? []), notebookText(notebook)].filter(Boolean).join("\n");
     const response = await openai.chat.completions.create({
       model: textModel(),
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: minutesPrompt({ title: meeting.title, agenda: meeting.agenda, participants: meeting.participants, markers: meeting.markers, recordedOn: item.capturedAt, notes: notesForMinutes(meeting.notes ?? []) }) },
+        { role: "system", content: minutesPrompt({ title: meeting.title, agenda: meeting.agenda, participants: meeting.participants, markers: meeting.markers, recordedOn: item.capturedAt, notes: written }) },
         { role: "user", content: transcriptLines(segments, names).slice(0, 150_000) },
       ],
     }, { timeout: 5 * 60_000, maxRetries: 1 });
@@ -148,10 +153,20 @@ export async function syncMeetingIdea(id: number) {
   const names = meeting.speakers ?? {};
   const notes = meeting.notes ?? [];
   const arabic = /[\u0600-\u06FF]/.test(meeting.minutes.summary);
-  const content = [minutesText(meeting.title, meeting.minutes, names, arabic, "plain"), notesSection(notes, arabic)].filter(Boolean).join("\n\n");
+  const notebook = meeting.notebook as Notebook | null;
+  const notebookWords = notebookText(notebook);
+  const content = [
+    minutesText(meeting.title, meeting.minutes, names, arabic, "plain"),
+    notesSection(notes, arabic),
+    notebookWords ? `📓 ${arabic ? "الدفتر" : "Notebook"}\n${notebookWords.replace(/^Notebook page (\d+):/gm, (_, n) => `${arabic ? "صفحة" : "Page"} ${n}:`)}` : "",
+  ].filter(Boolean).join("\n\n");
   const attachments = [
     { type: "audio" as const, url: item.url, name: meeting.title, mimeType: item.mimeType ?? "audio/webm", ...(item.durationSeconds ? { durationSeconds: item.durationSeconds } : {}), libraryItemId: item.id },
     ...noteAttachments(notes),
+    // Each written page as a picture.
+    ...(notebook?.pages ?? []).filter((page) => page.snapshot?.url).map((page, index) => ({
+      type: "image" as const, url: page.snapshot!.url, name: `${arabic ? "صفحة من الدفتر" : "Notebook page"} ${index + 1}`, mimeType: "image/png",
+    })),
   ];
   if (meeting.ideaId) {
     const [updated] = await db.update(ideasTable).set({ content, attachments }).where(eq(ideasTable.id, meeting.ideaId)).returning({ id: ideasTable.id });

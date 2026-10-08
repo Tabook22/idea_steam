@@ -11,6 +11,7 @@ import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { RecordingStore, type LocalRecording, type MarkKind, type MeetingInfo } from "@/lib/recording-store";
 import type { MeetingNote } from "@/lib/meeting-notes";
+import type { MeetingNotebookDoc } from "@/lib/notebook";
 import { maxTranscriptionAttempts, syncRecording, transcribeRecording } from "@/lib/recording-sync";
 import { useLanguage } from "@/lib/i18n";
 import { readRecorderPrefs } from "@/lib/recorder-prefs";
@@ -69,6 +70,9 @@ type RecorderContextValue = {
   /** Meetings: the notepad, kept with the recording on this device as you write. */
   meetingNotes: MeetingNote[];
   updateMeetingNotes: (notes: MeetingNote[]) => void;
+  /** Meetings: the handwriting notebook, kept with the recording on this device. */
+  meetingNotebook: MeetingNotebookDoc | null;
+  updateMeetingNotebook: (doc: MeetingNotebookDoc) => void;
   /** Seconds since the recording started (null when not recording). */
   elapsed: () => number | null;
   /** Where the current recording will be filed, for the recording screen. */
@@ -128,6 +132,14 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       const id = session.current?.id;
       if (id) void recordingStore.patch(id, { meetingNotes: notesRef.current }).catch(() => {});
     }, 400);
+  }, []);
+  const [meetingNotebook, setMeetingNotebook] = useState<MeetingNotebookDoc | null>(null);
+  const notebookRef = useRef<MeetingNotebookDoc | null>(null);
+  const updateMeetingNotebook = useCallback((doc: MeetingNotebookDoc) => {
+    notebookRef.current = doc;
+    setMeetingNotebook(doc);
+    const id = session.current?.id;
+    if (id) void recordingStore.patch(id, { meetingNotebook: doc }).catch(() => {});
   }, []);
   const elapsed = useCallback(() => {
     const current = session.current;
@@ -294,6 +306,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       setMarkKinds([]);
       notesRef.current = [];
       setMeetingNotes([]);
+      notebookRef.current = null;
+      setMeetingNotebook(null);
       setError(null);
       let release = () => {};
       let stream: MediaStream | undefined;
@@ -432,7 +446,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
                   (Date.now() - current.started) / 1000,
                 ),
                 marks: current.marks,
-                ...(options?.meeting ? { meetingNotes: notesRef.current } : {}),
+                ...(options?.meeting ? { meetingNotes: notesRef.current, ...(notebookRef.current ? { meetingNotebook: notebookRef.current } : {}) } : {}),
                 ...(current.markKinds.some((kind) => kind !== "important") || options?.meeting ? { markKinds: current.markKinds } : {}),
               });
               setSavedAt(Date.now());
@@ -631,6 +645,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         markKinds,
         meetingNotes,
         updateMeetingNotes,
+        meetingNotebook,
+        updateMeetingNotebook,
         elapsed,
         markCount,
         target,

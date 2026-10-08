@@ -1,4 +1,5 @@
 import type { MeetingNote } from "./meeting-notes.ts";
+import type { MeetingNotebookDoc } from "./notebook.ts";
 
 export type RecordingStatus = "recording" | "saved" | "synced";
 export type MarkKind = "important" | "decision" | "action" | "question";
@@ -36,6 +37,8 @@ export interface LocalRecording {
   meeting?: MeetingInfo;
   /** The meeting notepad (files marked pending wait in the meeting file store). */
   meetingNotes?: MeetingNote[];
+  /** The handwriting notebook (media and page pictures marked pending wait in the meeting file store). */
+  meetingNotebook?: MeetingNotebookDoc;
   error?: string;
   attempts: number;
   nextRetryAt: number;

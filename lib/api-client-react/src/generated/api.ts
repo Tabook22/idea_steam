@@ -55,6 +55,7 @@ import type {
   LibraryTranscriptionInput,
   Meeting,
   MeetingAnswer,
+  MeetingNotebookInput,
   MeetingNotesInput,
   MeetingProcessInput,
   MeetingSummary,
@@ -2990,6 +2991,169 @@ export const useSaveMeetingNotes = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSaveMeetingNotesMutationOptions(options));
+    }
+
+export const getSaveMeetingNotebookUrl = (meetingId: number,) => {
+
+
+
+
+  return `/api/meetings/${meetingId}/notebook`
+}
+
+/**
+ * @summary Save the meeting's handwriting notebook
+ */
+export const saveMeetingNotebook = async (meetingId: number,
+    meetingNotebookInput: MeetingNotebookInput, options?: Parameters<typeof customFetch>[1]): Promise<Meeting> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Meeting>(getSaveMeetingNotebookUrl(meetingId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(meetingNotebookInput)
+  }
+);}
+
+
+
+
+
+export const getSaveMeetingNotebookMutationKey = () => ['saveMeetingNotebook'] as const;
+
+export const getSaveMeetingNotebookMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveMeetingNotebook>>, TError,SaveMeetingNotebookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveMeetingNotebook>>, TError,SaveMeetingNotebookMutationVariables, TContext> => {
+
+const mutationKey = getSaveMeetingNotebookMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveMeetingNotebook>>, SaveMeetingNotebookMutationVariables> = (props) => {
+          const {meetingId,data} = props ?? {};
+
+          return  saveMeetingNotebook(meetingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveMeetingNotebookMutationResult = NonNullable<Awaited<ReturnType<typeof saveMeetingNotebook>>>
+    export type SaveMeetingNotebookMutationBody = BodyType<MeetingNotebookInput>
+    export type SaveMeetingNotebookMutationError = ErrorType<unknown>
+    export type SaveMeetingNotebookMutationVariables = {meetingId: number;data: BodyType<MeetingNotebookInput>}
+
+    /**
+ * @summary Save the meeting's handwriting notebook
+ */
+export const useSaveMeetingNotebook = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveMeetingNotebook>>, TError,SaveMeetingNotebookMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveMeetingNotebook>>,
+        TError,
+        SaveMeetingNotebookMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveMeetingNotebookMutationOptions(options));
+    }
+
+export const getReadMeetingHandwritingUrl = (meetingId: number,) => {
+
+
+
+
+  return `/api/meetings/${meetingId}/notebook/read`
+}
+
+/**
+ * @summary Read the handwriting on the notebook's pages as text
+ */
+export const readMeetingHandwriting = async (meetingId: number, options?: Parameters<typeof customFetch>[1]): Promise<Meeting> => {
+
+  return customFetch<Meeting>(getReadMeetingHandwritingUrl(meetingId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReadMeetingHandwritingMutationKey = () => ['readMeetingHandwriting'] as const;
+
+export const getReadMeetingHandwritingMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof readMeetingHandwriting>>, TError,ReadMeetingHandwritingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof readMeetingHandwriting>>, TError,ReadMeetingHandwritingMutationVariables, TContext> => {
+
+const mutationKey = getReadMeetingHandwritingMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof readMeetingHandwriting>>, ReadMeetingHandwritingMutationVariables> = (props) => {
+          const {meetingId} = props ?? {};
+
+          return  readMeetingHandwriting(meetingId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReadMeetingHandwritingMutationResult = NonNullable<Awaited<ReturnType<typeof readMeetingHandwriting>>>
+
+    export type ReadMeetingHandwritingMutationError = ErrorType<unknown>
+    export type ReadMeetingHandwritingMutationVariables = {meetingId: number}
+
+    /**
+ * @summary Read the handwriting on the notebook's pages as text
+ */
+export const useReadMeetingHandwriting = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof readMeetingHandwriting>>, TError,ReadMeetingHandwritingMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof readMeetingHandwriting>>,
+        TError,
+        ReadMeetingHandwritingMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReadMeetingHandwritingMutationOptions(options));
     }
 
 export const getProcessMeetingUrl = (meetingId: number,) => {

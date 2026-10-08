@@ -7,6 +7,7 @@
  */
 import type { MeetingMarker } from './meetingMarker';
 import type { MeetingNote } from './meetingNote';
+import type { NotebookDoc } from './notebookDoc';
 
 export interface MeetingStart {
   /**
@@ -27,4 +28,5 @@ export interface MeetingStart {
   markers?: MeetingMarker[];
   /** @maxItems 300 */
   notes?: MeetingNote[];
+  notebook?: NotebookDoc;
 }

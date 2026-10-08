@@ -4,6 +4,7 @@ import { Bookmark, Check, FolderCheck, Loader2, Square } from "lucide-react";
 import { useListSubjects } from "@workspace/api-client-react";
 import { useRecorder } from "@/components/recorder-provider";
 import { MeetingNotepad } from "@/components/meeting-notepad";
+import { NotebookCard } from "@/components/notebook-card";
 import { putMeetingFile } from "@/lib/meeting-files";
 import { useLanguage } from "@/lib/i18n";
 
@@ -141,7 +142,7 @@ export const MEETING_MARKS = [
 function MeetingRecordingView({ remaining }: { remaining: number }) {
   const { isArabic } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
-  const { stage, seconds, stop, readLevel, target, addMark, markKinds, meetingNotes, updateMeetingNotes, elapsed } = useRecorder();
+  const { stage, seconds, stop, readLevel, target, addMark, markKinds, meetingNotes, updateMeetingNotes, meetingNotebook, updateMeetingNotebook, elapsed } = useRecorder();
   const meeting = target!.meeting!;
   const [confirm, setConfirm] = useState(false);
   const level = useRef<HTMLDivElement>(null);
@@ -193,6 +194,17 @@ function MeetingRecordingView({ remaining }: { remaining: number }) {
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <div className="mb-3">
+          <NotebookCard
+            doc={meetingNotebook}
+            title={meeting.title}
+            copy={copy}
+            dark
+            storeMedia={async (item, file) => { await putMeetingFile(item.id, file); return { ...item, pending: true }; }}
+            storeSnapshot={async (page, png) => { await putMeetingFile(`snap-${page.id}`, png); return { pending: true, rev: page.rev }; }}
+            onSave={updateMeetingNotebook}
+          />
+        </div>
         <MeetingNotepad
           notes={meetingNotes}
           onChange={updateMeetingNotes}

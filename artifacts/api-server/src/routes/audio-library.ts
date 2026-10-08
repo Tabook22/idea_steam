@@ -40,6 +40,7 @@ import { LEGACY_SUFFIX, findLegacySource, snippet } from "../lib/legacy-mix";
 import { findTasksLater } from "../lib/task-extract";
 import { processMeetingLater } from "../lib/meeting-process";
 import { cleanNotes } from "../lib/meeting-notes";
+import { cleanNotebook } from "../lib/meeting-notebook";
 
 const router: IRouter = Router();
 
@@ -288,6 +289,7 @@ router.post("/audio-library/recordings", async (req, res): Promise<void> => {
       agenda: meeting.agenda ?? "",
       markers: (meeting.markers ?? []).filter((mark) => mark.at >= 0),
       notes: cleanNotes(meeting.notes ?? []),
+      notebook: cleanNotebook(meeting.notebook) as unknown as Record<string, unknown> | null,
       status: "processing",
       stage: "waiting",
     }).onConflictDoNothing().returning({ id: meetingsTable.id });

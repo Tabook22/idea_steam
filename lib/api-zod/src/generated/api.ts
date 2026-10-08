@@ -824,6 +824,8 @@ export const getMeetingResponseTwoNotesItemNameMax = 200;
 
 export const getMeetingResponseTwoNotesItemMimeTypeMax = 120;
 
+export const getMeetingResponseTwoNotebookOnePagesMax = 200;
+
 
 
 export const GetMeetingResponse = zod.object({
@@ -897,7 +899,11 @@ export const GetMeetingResponse = zod.object({
   "mimeType": zod.string().max(getMeetingResponseTwoNotesItemMimeTypeMax).optional(),
   "size": zod.number().int().optional(),
   "createdAt": zod.string()
-}))
+})),
+  "notebook": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(getMeetingResponseTwoNotebookOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
 }))
 
 
@@ -931,6 +937,8 @@ export const updateMeetingResponseTwoNotesItemUrlMax = 500;
 export const updateMeetingResponseTwoNotesItemNameMax = 200;
 
 export const updateMeetingResponseTwoNotesItemMimeTypeMax = 120;
+
+export const updateMeetingResponseTwoNotebookOnePagesMax = 200;
 
 
 
@@ -1005,7 +1013,11 @@ export const UpdateMeetingResponse = zod.object({
   "mimeType": zod.string().max(updateMeetingResponseTwoNotesItemMimeTypeMax).optional(),
   "size": zod.number().int().optional(),
   "createdAt": zod.string()
-}))
+})),
+  "notebook": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(updateMeetingResponseTwoNotebookOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
 }))
 
 
@@ -1055,6 +1067,8 @@ export const saveMeetingNotesResponseTwoNotesItemUrlMax = 500;
 export const saveMeetingNotesResponseTwoNotesItemNameMax = 200;
 
 export const saveMeetingNotesResponseTwoNotesItemMimeTypeMax = 120;
+
+export const saveMeetingNotesResponseTwoNotebookOnePagesMax = 200;
 
 
 
@@ -1129,7 +1143,226 @@ export const SaveMeetingNotesResponse = zod.object({
   "mimeType": zod.string().max(saveMeetingNotesResponseTwoNotesItemMimeTypeMax).optional(),
   "size": zod.number().int().optional(),
   "createdAt": zod.string()
+})),
+  "notebook": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(saveMeetingNotesResponseTwoNotebookOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
 }))
+
+
+/**
+ * @summary Save the meeting's handwriting notebook
+ */
+export const SaveMeetingNotebookParams = zod.object({
+  "meetingId": zod.coerce.number().int()
+})
+
+export const saveMeetingNotebookBodyNotebookPagesMax = 200;
+
+
+
+export const SaveMeetingNotebookBody = zod.object({
+  "notebook": zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(saveMeetingNotebookBodyNotebookPagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).')
+})
+
+export const saveMeetingNotebookResponseTwoMarkersItemAtMin = 0;
+
+export const saveMeetingNotebookResponseTwoNotesItemIdMax = 64;
+
+export const saveMeetingNotebookResponseTwoNotesItemHtmlMax = 100000;
+
+export const saveMeetingNotebookResponseTwoNotesItemUrlMax = 500;
+
+export const saveMeetingNotebookResponseTwoNotesItemNameMax = 200;
+
+export const saveMeetingNotebookResponseTwoNotesItemMimeTypeMax = 120;
+
+export const saveMeetingNotebookResponseTwoNotebookOnePagesMax = 200;
+
+
+
+export const SaveMeetingNotebookResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "stage": zod.string().nullable(),
+  "libraryItemId": zod.number().int(),
+  "durationSeconds": zod.number().int().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "speakerCount": zod.number().int(),
+  "actionCount": zod.number().int(),
+  "summary": zod.string().nullable(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "url": zod.string(),
+  "error": zod.string().nullable(),
+  "participants": zod.array(zod.string()),
+  "agenda": zod.string(),
+  "markers": zod.array(zod.object({
+  "at": zod.number().min(saveMeetingNotebookResponseTwoMarkersItemAtMin),
+  "kind": zod.enum(['important', 'decision', 'action', 'question'])
+})),
+  "segments": zod.array(zod.object({
+  "start": zod.number(),
+  "end": zod.number(),
+  "speaker": zod.string(),
+  "text": zod.string()
+})),
+  "speakers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "seconds": zod.number(),
+  "named": zod.boolean()
+})),
+  "minutes": zod.union([zod.object({
+  "summary": zod.string(),
+  "decisions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "actions": zod.array(zod.object({
+  "text": zod.string(),
+  "owner": zod.string().nullable(),
+  "due": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "questions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "quotes": zod.array(zod.object({
+  "text": zod.string(),
+  "speaker": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "topics": zod.array(zod.object({
+  "title": zod.string(),
+  "start": zod.number()
+}))
+}),zod.null()]),
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.'),
+  "notes": zod.array(zod.object({
+  "id": zod.string().min(1).max(saveMeetingNotebookResponseTwoNotesItemIdMax),
+  "kind": zod.enum(['text', 'photo', 'file', 'drawing']),
+  "at": zod.number().nullable().describe('Seconds into the meeting it was added; null when added afterwards.'),
+  "html": zod.string().max(saveMeetingNotebookResponseTwoNotesItemHtmlMax).optional(),
+  "url": zod.string().max(saveMeetingNotebookResponseTwoNotesItemUrlMax).optional(),
+  "name": zod.string().max(saveMeetingNotebookResponseTwoNotesItemNameMax).optional(),
+  "mimeType": zod.string().max(saveMeetingNotebookResponseTwoNotesItemMimeTypeMax).optional(),
+  "size": zod.number().int().optional(),
+  "createdAt": zod.string()
+})),
+  "notebook": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(saveMeetingNotebookResponseTwoNotebookOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
+}))
+
+
+/**
+ * @summary Read the handwriting on the notebook's pages as text
+ */
+export const ReadMeetingHandwritingParams = zod.object({
+  "meetingId": zod.coerce.number().int()
+})
+
+export const readMeetingHandwritingResponseTwoMarkersItemAtMin = 0;
+
+export const readMeetingHandwritingResponseTwoNotesItemIdMax = 64;
+
+export const readMeetingHandwritingResponseTwoNotesItemHtmlMax = 100000;
+
+export const readMeetingHandwritingResponseTwoNotesItemUrlMax = 500;
+
+export const readMeetingHandwritingResponseTwoNotesItemNameMax = 200;
+
+export const readMeetingHandwritingResponseTwoNotesItemMimeTypeMax = 120;
+
+export const readMeetingHandwritingResponseTwoNotebookOnePagesMax = 200;
+
+
+
+export const ReadMeetingHandwritingResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "stage": zod.string().nullable(),
+  "libraryItemId": zod.number().int(),
+  "durationSeconds": zod.number().int().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "speakerCount": zod.number().int(),
+  "actionCount": zod.number().int(),
+  "summary": zod.string().nullable(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "url": zod.string(),
+  "error": zod.string().nullable(),
+  "participants": zod.array(zod.string()),
+  "agenda": zod.string(),
+  "markers": zod.array(zod.object({
+  "at": zod.number().min(readMeetingHandwritingResponseTwoMarkersItemAtMin),
+  "kind": zod.enum(['important', 'decision', 'action', 'question'])
+})),
+  "segments": zod.array(zod.object({
+  "start": zod.number(),
+  "end": zod.number(),
+  "speaker": zod.string(),
+  "text": zod.string()
+})),
+  "speakers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "seconds": zod.number(),
+  "named": zod.boolean()
+})),
+  "minutes": zod.union([zod.object({
+  "summary": zod.string(),
+  "decisions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "actions": zod.array(zod.object({
+  "text": zod.string(),
+  "owner": zod.string().nullable(),
+  "due": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "questions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "quotes": zod.array(zod.object({
+  "text": zod.string(),
+  "speaker": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "topics": zod.array(zod.object({
+  "title": zod.string(),
+  "start": zod.number()
+}))
+}),zod.null()]),
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.'),
+  "notes": zod.array(zod.object({
+  "id": zod.string().min(1).max(readMeetingHandwritingResponseTwoNotesItemIdMax),
+  "kind": zod.enum(['text', 'photo', 'file', 'drawing']),
+  "at": zod.number().nullable().describe('Seconds into the meeting it was added; null when added afterwards.'),
+  "html": zod.string().max(readMeetingHandwritingResponseTwoNotesItemHtmlMax).optional(),
+  "url": zod.string().max(readMeetingHandwritingResponseTwoNotesItemUrlMax).optional(),
+  "name": zod.string().max(readMeetingHandwritingResponseTwoNotesItemNameMax).optional(),
+  "mimeType": zod.string().max(readMeetingHandwritingResponseTwoNotesItemMimeTypeMax).optional(),
+  "size": zod.number().int().optional(),
+  "createdAt": zod.string()
+})),
+  "notebook": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(readMeetingHandwritingResponseTwoNotebookOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
 }))
 
 
@@ -1155,6 +1388,8 @@ export const processMeetingResponseTwoNotesItemUrlMax = 500;
 export const processMeetingResponseTwoNotesItemNameMax = 200;
 
 export const processMeetingResponseTwoNotesItemMimeTypeMax = 120;
+
+export const processMeetingResponseTwoNotebookOnePagesMax = 200;
 
 
 
@@ -1229,7 +1464,11 @@ export const ProcessMeetingResponse = zod.object({
   "mimeType": zod.string().max(processMeetingResponseTwoNotesItemMimeTypeMax).optional(),
   "size": zod.number().int().optional(),
   "createdAt": zod.string()
-}))
+})),
+  "notebook": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(processMeetingResponseTwoNotebookOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
 }))
 
 
@@ -1620,6 +1859,8 @@ export const createLibraryRecordingBodyMeetingNotesItemMimeTypeMax = 120;
 
 export const createLibraryRecordingBodyMeetingNotesMax = 300;
 
+export const createLibraryRecordingBodyMeetingNotebookPagesMax = 200;
+
 
 
 export const CreateLibraryRecordingBody = zod.object({
@@ -1650,7 +1891,11 @@ export const CreateLibraryRecordingBody = zod.object({
   "mimeType": zod.string().max(createLibraryRecordingBodyMeetingNotesItemMimeTypeMax).optional(),
   "size": zod.number().int().optional(),
   "createdAt": zod.string()
-})).max(createLibraryRecordingBodyMeetingNotesMax).optional()
+})).max(createLibraryRecordingBodyMeetingNotesMax).optional(),
+  "notebook": zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(createLibraryRecordingBodyMeetingNotebookPagesMax)
+}).optional().describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).')
 }).optional()
 })
 

@@ -43,6 +43,8 @@ export const meetingsTable = pgTable("meetings", {
   speakers: jsonb("speakers").$type<Record<string, string>>().notNull().default({}),
   minutes: jsonb("minutes").$type<MeetingMinutes>(),
   notes: jsonb("notes").$type<MeetingNote[]>().notNull().default([]),
+  /** The handwriting notebook (pages of ink, typed text and media); checked in lib/meeting-notebook. */
+  notebook: jsonb("notebook").$type<Record<string, unknown>>(),
   ideaId: integer("idea_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

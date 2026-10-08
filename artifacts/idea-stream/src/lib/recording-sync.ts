@@ -111,6 +111,40 @@ export async function syncRecording(
       record.meetingNotes = notes;
       for (const note of notes) if (note.kind !== "text") void deleteMeetingFile(note.id).catch(() => {});
     }
+    // The handwriting notebook: its pictures, video, sound and page pictures go up first.
+    if (record.meeting && record.meetingNotebook) {
+      const doc = structuredClone(record.meetingNotebook);
+      const send = async (key: string, name: string, fallbackType: string) => {
+        const file = await getMeetingFile(key);
+        if (!file) return null;
+        const type = file.type || fallbackType;
+        const upload = await json<{ uploadURL: string; objectPath: string }>(fetcher, "/api/storage/uploads/request-url", { name, size: file.size, contentType: type });
+        await request(fetcher, upload.uploadURL, {
+          method: "PUT",
+          credentials: uploadCredentials(upload.uploadURL, typeof location === "undefined" ? undefined : location.origin),
+          headers: { "Content-Type": type },
+          body: file,
+        });
+        return `/api/storage${upload.objectPath}`;
+      };
+      let changed = false;
+      for (const page of doc.pages) {
+        for (const item of page.items) {
+          if (!item.pending) continue;
+          const url = await send(item.id, item.name || "file", item.mimeType || "application/octet-stream");
+          if (url) item.url = url;
+          delete item.pending;
+          changed = true;
+        }
+        if (page.snapshot?.pending) {
+          const url = await send(`snap-${page.id}`, "page.png", "image/png");
+          page.snapshot = url ? { url, rev: page.snapshot.rev } : undefined;
+          changed = true;
+        }
+      }
+      if (changed) await store.patch(id, { meetingNotebook: doc });
+      record.meetingNotebook = doc;
+    }
     // Every recording is saved to the audio library first; that copy is the master.
     let item = record.libraryItemId ? null : await json<AudioLibraryItem>(fetcher, "/api/audio-library/recordings", {
       url: record.uploadedAudio.url,
@@ -124,6 +158,7 @@ export async function syncRecording(
         ...record.meeting,
         markers: (record.marks ?? []).map((at, index) => ({ at, kind: record.markKinds?.[index] ?? "important" })),
         notes: (record.meetingNotes ?? []).filter((note) => !note.pending).map(({ pending: _pending, ...note }) => note),
+        ...(record.meetingNotebook ? { notebook: record.meetingNotebook } : {}),
       } } : {}),
     });
     const libraryItemId = record.libraryItemId ?? item!.id;

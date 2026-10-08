@@ -24,7 +24,9 @@ import {
   getGetMeetingQueryKey,
   getListMeetingsQueryKey,
   processMeeting,
+  readMeetingHandwriting,
   requestUploadUrl,
+  saveMeetingNotebook,
   saveMeetingNotes,
   updateMeeting,
   useGetMeeting,
@@ -32,6 +34,8 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { MeetingNotepad } from "@/components/meeting-notepad";
+import { NotebookCard } from "@/components/notebook-card";
+import type { MeetingNotebookDoc } from "@/lib/notebook";
 import type { MeetingNote } from "@/lib/meeting-notes";
 import { useToast } from "@/hooks/use-toast";
 import { appPath, uploadCredentials } from "@/lib/app-path";
@@ -292,6 +296,23 @@ function MeetingNotes({ meeting, seek, copy, arabic, onSaved }: { meeting: Meeti
       <p className="mb-3 text-xs text-muted-foreground" role="status">
         {state === "saving" ? copy("Saving…", "جارٍ الحفظ…") : state === "error" ? copy("Not saved. Check your connection.", "لم يُحفظ. تحقّق من الاتصال.") : copy("Saved. Also in the meeting's notebook.", "محفوظ. وأيضًا في دفتر الاجتماع.")}
       </p>
+      <div className="mb-4">
+        <NotebookCard
+          doc={(meeting.notebook as unknown as MeetingNotebookDoc | null) ?? null}
+          title={meeting.title}
+          copy={copy}
+          storeMedia={async (item, file) => ({ ...item, url: (await upload({ id: item.id, kind: "file", at: null, createdAt: "", name: item.name, mimeType: item.mimeType }, file)).url })}
+          storeSnapshot={async (page, png) => ({ url: (await upload({ id: page.id, kind: "photo", at: null, createdAt: "", name: "page.png", mimeType: "image/png" }, png)).url, rev: page.rev })}
+          onSave={async (doc) => {
+            try { onSaved(await saveMeetingNotebook(meeting.id, { notebook: doc as unknown as Parameters<typeof saveMeetingNotebook>[1]["notebook"] })); }
+            catch { toast({ variant: "destructive", title: copy("The notebook couldn't be saved.", "تعذر حفظ الدفتر.") }); }
+          }}
+          onRead={async () => {
+            try { onSaved(await readMeetingHandwriting(meeting.id)); }
+            catch (error) { toast({ variant: "destructive", title: (error as { data?: { error?: string } })?.data?.error ?? copy("Couldn't read the handwriting.", "تعذرت قراءة الخط.") }); }
+          }}
+        />
+      </div>
       <MeetingNotepad notes={notes} onChange={save} now={() => null} seek={(at) => seek(at)} storeFile={upload} copy={copy} arabic={arabic} />
     </div>
   );

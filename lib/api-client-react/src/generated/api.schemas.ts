@@ -302,6 +302,18 @@ export interface MeetingNote {
   createdAt: string;
 }
 
+export type NotebookDocPagesItem = { [key: string]: unknown };
+
+/**
+ * The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).
+ */
+export interface NotebookDoc {
+  version: number;
+  /** @maxItems 200 */
+  pages: NotebookDocPagesItem[];
+  [key: string]: unknown;
+ }
+
 export interface MeetingStart {
   /**
      * @minLength 1
@@ -321,6 +333,11 @@ export interface MeetingStart {
   markers?: MeetingMarker[];
   /** @maxItems 300 */
   notes?: MeetingNote[];
+  notebook?: NotebookDoc;
+}
+
+export interface MeetingNotebookInput {
+  notebook: NotebookDoc;
 }
 
 export interface MeetingNotesInput {
@@ -425,6 +442,7 @@ export type Meeting = MeetingSummary & ({
      */
   minutesText: string | null;
   notes: MeetingNote[];
+  notebook: NotebookDoc | null;
 });
 
 /**

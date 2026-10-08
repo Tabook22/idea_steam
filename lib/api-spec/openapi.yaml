@@ -617,6 +617,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Meeting"
+  /meetings/{meetingId}/notebook:
+    put:
+      operationId: saveMeetingNotebook
+      tags: [meetings]
+      summary: Save the meeting's handwriting notebook
+      parameters:
+        - $ref: "#/components/parameters/MeetingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingNotebookInput"
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+  /meetings/{meetingId}/notebook/read:
+    post:
+      operationId: readMeetingHandwriting
+      tags: [meetings]
+      summary: Read the handwriting on the notebook's pages as text
+      parameters:
+        - $ref: "#/components/parameters/MeetingId"
+      responses:
+        "200":
+          description: The meeting, with the handwriting read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
   /meetings/{meetingId}/process:
     post:
       operationId: processMeeting
@@ -1576,6 +1610,28 @@ components:
           maxItems: 300
           items:
             $ref: "#/components/schemas/MeetingNote"
+        notebook:
+          $ref: "#/components/schemas/NotebookDoc"
+    NotebookDoc:
+      type: object
+      description: The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).
+      required: [version, pages]
+      additionalProperties: true
+      properties:
+        version:
+          type: integer
+        pages:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: true
+    MeetingNotebookInput:
+      type: object
+      required: [notebook]
+      properties:
+        notebook:
+          $ref: "#/components/schemas/NotebookDoc"
     MeetingNote:
       type: object
       required: [id, kind, at, createdAt]
@@ -1736,7 +1792,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/MeetingSummary"
         - type: object
-          required: [url, error, participants, agenda, markers, segments, speakers, minutes, minutesText, notes]
+          required: [url, error, participants, agenda, markers, segments, speakers, minutes, minutesText, notes, notebook]
           properties:
             url:
               type: string
@@ -1771,6 +1827,10 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/MeetingNote"
+            notebook:
+              oneOf:
+                - $ref: "#/components/schemas/NotebookDoc"
+                - type: "null"
     MeetingUpdate:
       type: object
       properties:

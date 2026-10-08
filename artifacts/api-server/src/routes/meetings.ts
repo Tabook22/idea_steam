@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { audioLibraryTable, db, meetingsTable, subjectsTable, tasksTable, type MeetingRecord } from "@workspace/db";
-import { AskMeetingBody, AskMeetingParams, GetMeetingParams, ProcessMeetingBody, SaveMeetingNotesBody, UpdateMeetingBody } from "@workspace/api-zod";
+import { AskMeetingBody, AskMeetingParams, GetMeetingParams, ProcessMeetingBody, SaveMeetingNotebookBody, SaveMeetingNotesBody, UpdateMeetingBody } from "@workspace/api-zod";
 import { cleanNotes, notesForMinutes } from "../lib/meeting-notes";
+import { cleanNotebook, notebookText, readHandwriting, type Notebook } from "../lib/meeting-notebook";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { MEETING_ASK, mergeNamedSpeakers, minutesText, plainTranscript, speakerName, talkTime, transcriptLines } from "../lib/meeting-minutes";
 import { isProcessing, processMeetingLater, resumeMeetings, syncMeetingIdea } from "../lib/meeting-process";
@@ -58,6 +59,7 @@ function full(meeting: MeetingRecord, ctx: Awaited<ReturnType<typeof context>>) 
     minutes: meeting.minutes,
     minutesText: meeting.minutes ? minutesText(meeting.title, meeting.minutes, names, arabic) : null,
     notes: meeting.notes ?? [],
+    notebook: meeting.notebook ?? null,
   };
 }
 
@@ -139,6 +141,38 @@ router.put("/meetings/:meetingId/notes", async (req, res): Promise<void> => {
   res.json(await one(meeting.id));
 });
 
+router.put("/meetings/:meetingId/notebook", async (req, res): Promise<void> => {
+  const params = GetMeetingParams.safeParse(req.params);
+  const body = SaveMeetingNotebookBody.safeParse(req.body);
+  if (!params.success || !body.success) { res.status(400).json({ error: "The notebook couldn't be saved." }); return; }
+  const [meeting] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, params.data.meetingId));
+  if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }
+  const notebook = cleanNotebook(body.data.notebook);
+  // Handwriting already read stays, as long as the page picture hasn't changed since.
+  const before = new Map(((meeting.notebook as Notebook | null)?.pages ?? []).map((page) => [page.id, page]));
+  for (const page of notebook?.pages ?? []) {
+    const old = before.get(page.id);
+    if (old?.handwriting && page.snapshot && old.handwritingRev === page.snapshot.rev) { page.handwriting = old.handwriting; page.handwritingRev = old.handwritingRev; }
+  }
+  await db.update(meetingsTable).set({ notebook: notebook as unknown as Record<string, unknown> | null }).where(eq(meetingsTable.id, meeting.id));
+  await syncMeetingIdea(meeting.id).catch(() => {});
+  res.json(await one(meeting.id));
+});
+
+router.post("/meetings/:meetingId/notebook/read", async (req, res): Promise<void> => {
+  const params = GetMeetingParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Unknown meeting" }); return; }
+  const [meeting] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, params.data.meetingId));
+  if (!meeting?.notebook) { res.status(404).json({ error: "This meeting has no notebook yet." }); return; }
+  if (!aiConfigured) { res.status(503).json({ error: "AI is not configured yet, so handwriting can't be read." }); return; }
+  const notebook = cleanNotebook(meeting.notebook);
+  if (notebook && await readHandwriting(notebook)) {
+    await db.update(meetingsTable).set({ notebook: notebook as unknown as Record<string, unknown> }).where(eq(meetingsTable.id, meeting.id));
+    await syncMeetingIdea(meeting.id).catch(() => {});
+  }
+  res.json(await one(meeting.id));
+});
+
 router.post("/meetings/:meetingId/process", async (req, res): Promise<void> => {
   const params = GetMeetingParams.safeParse(req.params);
   const body = ProcessMeetingBody.safeParse(req.body ?? {});
@@ -171,6 +205,7 @@ router.post("/meetings/:meetingId/ask", async (req, res): Promise<void> => {
           `Meeting: ${meeting.title}`,
           meeting.minutes ? `Minutes:\n${minutesText(meeting.title, meeting.minutes, names, false)}` : "",
           meeting.notes?.length ? `Notes taken during the meeting:\n${notesForMinutes(meeting.notes)}` : "",
+          meeting.notebook ? `Notebook written during the meeting:\n${notebookText(meeting.notebook as Notebook)}` : "",
           `Transcript:\n${transcriptLines(meeting.segments, names).slice(0, 150_000)}`,
         ].filter(Boolean).join("\n\n") },
         ...(body.data.history ?? []).slice(-4).flatMap((turn) => [

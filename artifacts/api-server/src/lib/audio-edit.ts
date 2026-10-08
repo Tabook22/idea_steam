@@ -414,3 +414,9 @@ export async function withMeetingAudio<T>(url: string, partSeconds: number, work
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
+
+/** The bytes of a file stored by this app (e.g. a notebook page picture). */
+export async function readStoredFile(url: string) {
+  const source = await storedFile(url);
+  return readFile(source.path);
+}
