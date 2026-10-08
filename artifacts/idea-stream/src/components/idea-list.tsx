@@ -15,7 +15,7 @@ import {
   useExtractYoutubeTranscript,
 } from "@workspace/api-client-react";
 import { formatDateTime, formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock, Waypoints } from "lucide-react";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock, NotebookPen, Waypoints } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +33,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
 import { IdeaChatDialog } from "@/components/idea-chat-dialog";
 import { RelatedIdeas } from "@/components/related-ideas";
+import { openBook } from "@/components/books";
+import { useListBooks, type BookSummary } from "@workspace/api-client-react";
 import { MoveIdeaDialog } from "@/components/move-idea-dialog";
 
 interface IdeaListProps {
@@ -396,6 +398,9 @@ export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
   const { t } = useLanguage();
   const { data: latestIdeas, isLoading } = useListIdeas(subjectId);
   const ideas = latestIdeas || initialIdeas;
+  // Entries that are a book (or a meeting notebook) open it.
+  const { data: books = [] } = useListBooks({ subjectId });
+  const bookFor = new Map(books.filter((book) => book.ideaId !== null).map((book) => [book.ideaId!, book]));
   
   if (isLoading && !ideas.length) {
     return (
@@ -424,13 +429,13 @@ export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
   return (
     <div className="space-y-6 relative before:absolute before:inset-y-0 before:start-[1.125rem] sm:before:start-6 before:w-px before:bg-border/60 ms-0 ps-10 sm:ps-14">
       {ideas.map((idea) => (
-        <IdeaItem key={idea.id} idea={idea} subjectId={subjectId} />
+        <IdeaItem key={idea.id} idea={idea} subjectId={subjectId} book={bookFor.get(idea.id)} />
       ))}
     </div>
   );
 }
 
-function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
+function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; book?: BookSummary }) {
   const [isEditing, setIsEditing] = useState(false);
   const [showRelated, setShowRelated] = useState(false);
   const [editContent, setEditContent] = useState(idea.content);
@@ -568,6 +573,12 @@ function IdeaItem({ idea, subjectId }: { idea: Idea; subjectId: number }) {
           )}
         </div>
         
+        {book && !isEditing && (
+          <button type="button" onClick={() => openBook({ kind: book.kind === "meeting" ? "meeting" : "book", id: book.id })}
+            className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/70 bg-amber-50 px-3.5 py-2 text-sm font-semibold text-amber-900 shadow-sm transition-colors hover:bg-amber-100 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100">
+            <NotebookPen size={15} />{language === "ar" ? `افتح ${book.kind === "meeting" ? "دفتر الاجتماع" : "الكراسة"} · ${book.pageCount} صفحة` : `Open the ${book.kind === "meeting" ? "meeting notebook" : "book"} · ${book.pageCount} page${book.pageCount === 1 ? "" : "s"}`}
+          </button>
+        )}
         {showRelated && !isEditing && <RelatedIdeas kind="idea" id={idea.id} className="mb-4 rounded-xl bg-muted/30 p-3" />}
         {idea.attachments.length > 0 && !isEditing && (
           <div className="mb-4">

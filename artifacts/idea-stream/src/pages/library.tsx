@@ -16,6 +16,7 @@ import {
   MoreVertical,
   ListMusic,
   Music2,
+  NotebookPen,
   Merge,
   RotateCcw,
   Bookmark,
@@ -47,6 +48,7 @@ import {
   getListAudioLibraryQueryKey,
   updateAudioLibraryItem,
   useListAudioLibrary,
+  useListBooks,
   type AudioLibraryItem,
 } from "@workspace/api-client-react";
 import { appPath } from "@/lib/app-path";
@@ -59,7 +61,8 @@ import { SoundLab } from "@/components/sound-lab";
 import { MusicMixer } from "@/components/music-mixer";
 import { MusicTracks } from "@/components/music-track";
 import { AddToSubject } from "@/components/add-to-subject";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { BookShelf } from "@/components/books";
 import { usePressToTalk } from "@/components/press-to-talk";
 import { useRecorderPrefs } from "@/lib/recorder-prefs";
 import { useLanguage } from "@/lib/i18n";
@@ -144,6 +147,9 @@ export default function LibraryPage() {
   const [editing, setEditing] = useState<AudioLibraryItem | null>(null);
   const [restoring, setRestoring] = useState<AudioLibraryItem | null>(null);
   const [exporting, setExporting] = useState<AudioLibraryItem | null>(null);
+  const [booksFor, setBooksFor] = useState<AudioLibraryItem | null>(null);
+  const { data: allBooks = [] } = useListBooks();
+  const bookCount = useMemo(() => { const out = new Map<number, number>(); for (const book of allBooks) if (book.kind === "audio" && book.libraryItemId) out.set(book.libraryItemId, (out.get(book.libraryItemId) ?? 0) + 1); return out; }, [allBooks]);
   const [mixing, setMixing] = useState<AudioLibraryItem | null>(null);
   const [filing, setFiling] = useState<AudioLibraryItem | null>(null);
   /** Text is made here, when wanted (saving stays fast). */
@@ -791,6 +797,7 @@ export default function LibraryPage() {
                               <DropdownMenuItem onSelect={() => setFiling(item)} className="font-medium"><BookPlus size={15} />{item.subjects.length ? copy("Add to / move between subjects…", "أضف إلى موضوع أو انقل…") : copy("Add to a subject…", "أضف إلى موضوع…")}</DropdownMenuItem>
                               {needsText(item) && <DropdownMenuItem disabled={converting.has(item.id)} onSelect={() => void convertToText(item)}><Captions size={15} />{copy("Convert to text", "حوّل إلى نص")}</DropdownMenuItem>}
                               {item.transcript && item.kind !== "music" && <DropdownMenuItem onSelect={() => void findTasksIn(item)}><ListChecks size={15} />{copy("Find tasks", "ابحث عن مهام")}</DropdownMenuItem>}
+                              {item.kind !== "music" && <DropdownMenuItem onSelect={() => setBooksFor(item)}><NotebookPen size={15} />{copy("Handwritten notes (books)", "ملاحظات بخط اليد (كراسات)")}</DropdownMenuItem>}
                               <DropdownMenuItem onSelect={() => setExporting(item)}><Download size={15} />{copy("Download as MP3, WAV…", "تنزيل MP3، WAV…")}</DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => openTool(item, "edit")}><Scissors size={15} />{copy("Edit audio (cut)", "تحرير الصوت (قص)")}</DropdownMenuItem>
                               {item.kind !== "music" && <DropdownMenuItem onSelect={() => openTool(item, "text")}><Type size={15} />{copy("Edit by text", "التحرير بالنص")}</DropdownMenuItem>}
@@ -852,6 +859,7 @@ export default function LibraryPage() {
                             {([
                               [Scissors, copy("Edit audio", "تحرير الصوت"), () => openTool(item, "edit")],
                               ...(item.kind === "music" ? [] : [[Type, copy("Edit by text", "التحرير بالنص"), () => openTool(item, "text")] as const]),
+                              ...(item.kind === "music" ? [] : [[NotebookPen, bookCount.get(item.id) ? copy(`Notes · ${bookCount.get(item.id)} book${bookCount.get(item.id) === 1 ? "" : "s"}`, `ملاحظات · ${bookCount.get(item.id)} كراسة`) : copy("Handwritten notes", "ملاحظات بخط اليد"), () => setBooksFor(item)] as const]),
                               [Wand2, copy("Sound lab", "مختبر الصوت"), () => openTool(item, "lab")],
                               ...(item.bakedMusic ? [] : [[Music2, item.mix ? copy("Edit music", "عدّل الموسيقى") : copy("Add music", "أضف موسيقى"), () => { if (activeId === item.id) audio.current?.pause(); setMixing(item); }] as const]),
                               [Download, copy("Download as…", "تنزيل بصيغة…"), () => setExporting(item)],
@@ -1039,6 +1047,15 @@ export default function LibraryPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={!!booksFor} onOpenChange={(open) => { if (!open) setBooksFor(null); }}>
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-2xl">{copy("Notes on this recording", "ملاحظات على هذا التسجيل")}</DialogTitle>
+            <DialogDescription dir="auto">{booksFor ? displayTitle(booksFor, fallbackTitle) : ""}</DialogDescription>
+          </DialogHeader>
+          {booksFor && <BookShelf libraryItemId={booksFor.id} />}
+        </DialogContent>
+      </Dialog>
       <ExportDialog item={exporting} title={exporting ? displayTitle(exporting, fallbackTitle) : ""} onClose={() => setExporting(null)} />
 
       <AlertDialog open={!!unmixing} onOpenChange={(open) => { if (!open) setUnmixing(null); }}>

@@ -54,11 +54,11 @@ const PEN_SIZES = [2, 3.5, 6];
 const MAX_MEDIA = 50 * 1024 * 1024;
 
 /**
- * A notebook for meetings: pages you write on by hand (pen with pressure, highlighter, eraser)
+ * A handwriting notebook (meetings and books): pages you write on by hand (pen with pressure, highlighter, eraser)
  * or type on, with images, video and audio placed on the page. Pages in a sidebar; each page has
  * its own paper (lined, blank, dots, grid) and colour. Undo/redo, PDF.
  */
-export function NotebookEditor({ doc: initial, title, copy, storeMedia, storeSnapshot, onDone }: {
+export function NotebookEditor({ doc: initial, title, copy, storeMedia, storeSnapshot, onDone, onChange, status }: {
   doc: MeetingNotebookDoc;
   title: string;
   copy: Copy;
@@ -67,10 +67,19 @@ export function NotebookEditor({ doc: initial, title, copy, storeMedia, storeSna
   /** Keeps a picture of a page and returns where it is. */
   storeSnapshot: (page: NotebookPage, png: Blob) => Promise<NotebookPage["snapshot"]>;
   onDone: (doc: MeetingNotebookDoc) => void;
+  /** Every change while writing (books save as you go). */
+  onChange?: (doc: MeetingNotebookDoc) => void;
+  /** Shown under the title, e.g. "Saved". */
+  status?: string;
 }) {
   const [doc, setDoc] = useState<MeetingNotebookDoc>(initial);
   const docRef = useRef(doc);
   docRef.current = doc;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    onChange?.(doc);
+  }, [doc]); // eslint-disable-line react-hooks/exhaustive-deps
   const [current, setCurrent] = useState(0);
   const [tool, setTool] = useState<Tool>("pen");
   const [ink, setInk] = useState(INKS[0]);
@@ -256,7 +265,7 @@ export function NotebookEditor({ doc: initial, title, copy, storeMedia, storeSna
         </button>
         <div className="min-w-0 flex-1 px-1">
           <p dir="auto" className="truncate text-sm font-semibold">{title}</p>
-          <p className="text-[11px] text-muted-foreground">{copy(`Page ${current + 1} of ${doc.pages.length}`, `الصفحة ${current + 1} من ${doc.pages.length}`)}</p>
+          <p className="text-[11px] text-muted-foreground">{copy(`Page ${current + 1} of ${doc.pages.length}`, `الصفحة ${current + 1} من ${doc.pages.length}`)}{status ? ` · ${status}` : ""}</p>
         </div>
         <button type="button" onClick={undo} disabled={!undoStack.current.length} aria-label={copy("Undo", "تراجع")} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-secondary disabled:opacity-30"><Undo2 size={18} /></button>
         <button type="button" onClick={redo} disabled={!redoStack.current.length} aria-label={copy("Redo", "إعادة")} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-secondary disabled:opacity-30"><Redo2 size={18} /></button>

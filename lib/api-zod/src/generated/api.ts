@@ -786,6 +786,258 @@ export const MakeDigestResponse = zod.object({
 
 
 /**
+ * @summary Handwriting books (and meeting notebooks), all or those of one subject or recording
+ */
+export const ListBooksQueryParams = zod.object({
+  "subjectId": zod.coerce.number().int().optional(),
+  "libraryItemId": zod.coerce.number().int().optional()
+})
+
+export const ListBooksResponseItem = zod.object({
+  "id": zod.number().int().describe('The book\'s id (for a meeting notebook, the meeting\'s id).'),
+  "kind": zod.enum(['subject', 'audio', 'meeting', 'loose']),
+  "title": zod.string(),
+  "cover": zod.string(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "libraryItemId": zod.number().int().nullable(),
+  "audioTitle": zod.string().nullable(),
+  "meetingId": zod.number().int().nullable(),
+  "ideaId": zod.number().int().nullable().describe('The book\'s entry in its subject (or the meeting\'s).'),
+  "pageCount": zod.number().int(),
+  "writtenCount": zod.number().int(),
+  "preview": zod.string().nullable().describe('A picture of the first written page, if there is one.'),
+  "paper": zod.string(),
+  "paperColor": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListBooksResponse = zod.array(ListBooksResponseItem)
+
+
+/**
+ * @summary Start a new book
+ */
+export const createBookBodyTitleMax = 200;
+
+export const createBookBodyCoverMax = 20;
+
+
+
+export const CreateBookBody = zod.object({
+  "title": zod.string().min(1).max(createBookBodyTitleMax),
+  "cover": zod.string().max(createBookBodyCoverMax).optional(),
+  "subjectId": zod.number().int().nullish(),
+  "libraryItemId": zod.number().int().nullish()
+})
+
+export const createBookResponseTwoDocOnePagesMax = 200;
+
+
+
+export const CreateBookResponse = zod.object({
+  "id": zod.number().int().describe('The book\'s id (for a meeting notebook, the meeting\'s id).'),
+  "kind": zod.enum(['subject', 'audio', 'meeting', 'loose']),
+  "title": zod.string(),
+  "cover": zod.string(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "libraryItemId": zod.number().int().nullable(),
+  "audioTitle": zod.string().nullable(),
+  "meetingId": zod.number().int().nullable(),
+  "ideaId": zod.number().int().nullable().describe('The book\'s entry in its subject (or the meeting\'s).'),
+  "pageCount": zod.number().int(),
+  "writtenCount": zod.number().int(),
+  "preview": zod.string().nullable().describe('A picture of the first written page, if there is one.'),
+  "paper": zod.string(),
+  "paperColor": zod.string(),
+  "updatedAt": zod.string()
+}).and(zod.object({
+  "doc": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(createBookResponseTwoDocOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
+}))
+
+
+/**
+ * @summary One book with its pages
+ */
+export const GetBookParams = zod.object({
+  "bookId": zod.coerce.number().int()
+})
+
+export const getBookResponseTwoDocOnePagesMax = 200;
+
+
+
+export const GetBookResponse = zod.object({
+  "id": zod.number().int().describe('The book\'s id (for a meeting notebook, the meeting\'s id).'),
+  "kind": zod.enum(['subject', 'audio', 'meeting', 'loose']),
+  "title": zod.string(),
+  "cover": zod.string(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "libraryItemId": zod.number().int().nullable(),
+  "audioTitle": zod.string().nullable(),
+  "meetingId": zod.number().int().nullable(),
+  "ideaId": zod.number().int().nullable().describe('The book\'s entry in its subject (or the meeting\'s).'),
+  "pageCount": zod.number().int(),
+  "writtenCount": zod.number().int(),
+  "preview": zod.string().nullable().describe('A picture of the first written page, if there is one.'),
+  "paper": zod.string(),
+  "paperColor": zod.string(),
+  "updatedAt": zod.string()
+}).and(zod.object({
+  "doc": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(getBookResponseTwoDocOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
+}))
+
+
+/**
+ * @summary Rename a book, change its cover, or move it to another subject or recording
+ */
+export const UpdateBookParams = zod.object({
+  "bookId": zod.coerce.number().int()
+})
+
+export const updateBookBodyTitleMax = 200;
+
+export const updateBookBodyCoverMax = 20;
+
+
+
+export const UpdateBookBody = zod.object({
+  "title": zod.string().min(1).max(updateBookBodyTitleMax).optional(),
+  "cover": zod.string().max(updateBookBodyCoverMax).optional(),
+  "subjectId": zod.number().int().nullish(),
+  "libraryItemId": zod.number().int().nullish()
+})
+
+export const updateBookResponseTwoDocOnePagesMax = 200;
+
+
+
+export const UpdateBookResponse = zod.object({
+  "id": zod.number().int().describe('The book\'s id (for a meeting notebook, the meeting\'s id).'),
+  "kind": zod.enum(['subject', 'audio', 'meeting', 'loose']),
+  "title": zod.string(),
+  "cover": zod.string(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "libraryItemId": zod.number().int().nullable(),
+  "audioTitle": zod.string().nullable(),
+  "meetingId": zod.number().int().nullable(),
+  "ideaId": zod.number().int().nullable().describe('The book\'s entry in its subject (or the meeting\'s).'),
+  "pageCount": zod.number().int(),
+  "writtenCount": zod.number().int(),
+  "preview": zod.string().nullable().describe('A picture of the first written page, if there is one.'),
+  "paper": zod.string(),
+  "paperColor": zod.string(),
+  "updatedAt": zod.string()
+}).and(zod.object({
+  "doc": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(updateBookResponseTwoDocOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
+}))
+
+
+/**
+ * @summary Delete a book (and its entry in the subject)
+ */
+export const DeleteBookParams = zod.object({
+  "bookId": zod.coerce.number().int()
+})
+
+export const DeleteBookResponse = zod.void()
+
+
+/**
+ * @summary Save the book's pages
+ */
+export const SaveBookPagesParams = zod.object({
+  "bookId": zod.coerce.number().int()
+})
+
+export const saveBookPagesBodyNotebookPagesMax = 200;
+
+
+
+export const SaveBookPagesBody = zod.object({
+  "notebook": zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(saveBookPagesBodyNotebookPagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).')
+})
+
+export const saveBookPagesResponseTwoDocOnePagesMax = 200;
+
+
+
+export const SaveBookPagesResponse = zod.object({
+  "id": zod.number().int().describe('The book\'s id (for a meeting notebook, the meeting\'s id).'),
+  "kind": zod.enum(['subject', 'audio', 'meeting', 'loose']),
+  "title": zod.string(),
+  "cover": zod.string(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "libraryItemId": zod.number().int().nullable(),
+  "audioTitle": zod.string().nullable(),
+  "meetingId": zod.number().int().nullable(),
+  "ideaId": zod.number().int().nullable().describe('The book\'s entry in its subject (or the meeting\'s).'),
+  "pageCount": zod.number().int(),
+  "writtenCount": zod.number().int(),
+  "preview": zod.string().nullable().describe('A picture of the first written page, if there is one.'),
+  "paper": zod.string(),
+  "paperColor": zod.string(),
+  "updatedAt": zod.string()
+}).and(zod.object({
+  "doc": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(saveBookPagesResponseTwoDocOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
+}))
+
+
+/**
+ * @summary Read the handwriting on the book's pages as text
+ */
+export const ReadBookHandwritingParams = zod.object({
+  "bookId": zod.coerce.number().int()
+})
+
+export const readBookHandwritingResponseTwoDocOnePagesMax = 200;
+
+
+
+export const ReadBookHandwritingResponse = zod.object({
+  "id": zod.number().int().describe('The book\'s id (for a meeting notebook, the meeting\'s id).'),
+  "kind": zod.enum(['subject', 'audio', 'meeting', 'loose']),
+  "title": zod.string(),
+  "cover": zod.string(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "libraryItemId": zod.number().int().nullable(),
+  "audioTitle": zod.string().nullable(),
+  "meetingId": zod.number().int().nullable(),
+  "ideaId": zod.number().int().nullable().describe('The book\'s entry in its subject (or the meeting\'s).'),
+  "pageCount": zod.number().int(),
+  "writtenCount": zod.number().int(),
+  "preview": zod.string().nullable().describe('A picture of the first written page, if there is one.'),
+  "paper": zod.string(),
+  "paperColor": zod.string(),
+  "updatedAt": zod.string()
+}).and(zod.object({
+  "doc": zod.union([zod.object({
+  "version": zod.number().int(),
+  "pages": zod.array(zod.record(zod.string(), zod.unknown())).max(readBookHandwritingResponseTwoDocOnePagesMax)
+}).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).'),zod.null()])
+}))
+
+
+/**
  * @summary Recorded meetings, newest first
  */
 export const ListMeetingsResponseItem = zod.object({

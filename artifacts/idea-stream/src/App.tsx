@@ -21,6 +21,8 @@ import TasksPage from "@/pages/tasks";
 import EpisodeStudio from "@/pages/episode-studio";
 import MeetingsPage from "@/pages/meetings";
 import MeetingPage from "@/pages/meeting";
+import BooksPage from "@/pages/books";
+import { BookHost, BooksButton } from "@/components/books";
 import { MeetingStart } from "@/components/meeting-start";
 import { TasksButton } from "@/components/home-tasks";
 import { RecorderProvider } from "@/components/recorder-provider";
@@ -76,6 +78,7 @@ function TopNav() {
     <div className="flex items-center justify-between gap-2 px-4 py-3">
       <TopBarHome />
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <BooksButton />
       <TasksButton />
       <AskLibrary />
       <WorkspaceSearch />
@@ -128,6 +131,7 @@ function Router() {
         <Route path="/tasks" component={TasksPage} />
         <Route path="/meetings" component={MeetingsPage} />
         <Route path="/meetings/:id" component={MeetingPage} />
+        <Route path="/books" component={BooksPage} />
         <Route path="/subjects/:id/studio" component={EpisodeStudio} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
         <Route path="/sign-in/*?">{() => <Redirect to="/app" />}</Route>
@@ -151,6 +155,7 @@ function AppContent() {
           <RecorderProvider>
             <ServiceNotice />
             <MeetingStart />
+            <BookHost />
             {import.meta.env.VITE_DESIGN_PREVIEW === "true" && (
               <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
                 Design preview · AI is simulated · Server data resets on restart

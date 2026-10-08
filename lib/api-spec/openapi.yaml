@@ -550,6 +550,124 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DigestResponse"
+  /books:
+    get:
+      operationId: listBooks
+      tags: [books]
+      summary: Handwriting books (and meeting notebooks), all or those of one subject or recording
+      parameters:
+        - name: subjectId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: libraryItemId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Books, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookSummary"
+    post:
+      operationId: createBook
+      tags: [books]
+      summary: Start a new book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookInput"
+      responses:
+        "201":
+          description: The new book
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+  /books/{bookId}:
+    get:
+      operationId: getBook
+      tags: [books]
+      summary: One book with its pages
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      responses:
+        "200":
+          description: The book
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+    patch:
+      operationId: updateBook
+      tags: [books]
+      summary: Rename a book, change its cover, or move it to another subject or recording
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookUpdate"
+      responses:
+        "200":
+          description: The book
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+    delete:
+      operationId: deleteBook
+      tags: [books]
+      summary: Delete a book (and its entry in the subject)
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      responses:
+        "204":
+          description: Deleted
+  /books/{bookId}/pages:
+    put:
+      operationId: saveBookPages
+      tags: [books]
+      summary: Save the book's pages
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingNotebookInput"
+      responses:
+        "200":
+          description: The book
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+  /books/{bookId}/read:
+    post:
+      operationId: readBookHandwriting
+      tags: [books]
+      summary: Read the handwriting on the book's pages as text
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      responses:
+        "200":
+          description: The book, with the handwriting read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
   /meetings:
     get:
       operationId: listMeetings
@@ -1241,6 +1359,12 @@ paths:
           description: Object content
 components:
   parameters:
+    BookId:
+      name: bookId
+      in: path
+      required: true
+      schema:
+        type: integer
     MeetingId:
       name: meetingId
       in: path
@@ -1632,6 +1756,85 @@ components:
       properties:
         notebook:
           $ref: "#/components/schemas/NotebookDoc"
+    BookSummary:
+      type: object
+      required: [id, kind, title, cover, subjectId, subjectTitle, libraryItemId, audioTitle, meetingId, ideaId, pageCount, writtenCount, preview, paper, paperColor, updatedAt]
+      properties:
+        id:
+          type: integer
+          description: The book's id (for a meeting notebook, the meeting's id).
+        kind:
+          type: string
+          enum: [subject, audio, meeting, loose]
+        title:
+          type: string
+        cover:
+          type: string
+        subjectId:
+          type: ["integer", "null"]
+        subjectTitle:
+          type: ["string", "null"]
+        libraryItemId:
+          type: ["integer", "null"]
+        audioTitle:
+          type: ["string", "null"]
+        meetingId:
+          type: ["integer", "null"]
+        ideaId:
+          type: ["integer", "null"]
+          description: The book's entry in its subject (or the meeting's).
+        pageCount:
+          type: integer
+        writtenCount:
+          type: integer
+        preview:
+          type: ["string", "null"]
+          description: A picture of the first written page, if there is one.
+        paper:
+          type: string
+        paperColor:
+          type: string
+        updatedAt:
+          type: string
+    Book:
+      allOf:
+        - $ref: "#/components/schemas/BookSummary"
+        - type: object
+          required: [doc]
+          properties:
+            doc:
+              oneOf:
+                - $ref: "#/components/schemas/NotebookDoc"
+                - type: "null"
+    BookInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        cover:
+          type: string
+          maxLength: 20
+        subjectId:
+          type: ["integer", "null"]
+        libraryItemId:
+          type: ["integer", "null"]
+    BookUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        cover:
+          type: string
+          maxLength: 20
+        subjectId:
+          type: ["integer", "null"]
+        libraryItemId:
+          type: ["integer", "null"]
     MeetingNote:
       type: object
       required: [id, kind, at, createdAt]

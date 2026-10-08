@@ -16,6 +16,7 @@ import {
   ImagePlus,
   Link2,
   Mic,
+  NotebookPen,
   PenTool,
   Send,
   Upload,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { useRecorder } from "@/components/recorder-provider";
 import { VoiceCapture } from "@/components/voice-capture";
+import { BookShelf } from "@/components/books";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,7 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/lib/i18n";
 
 export type CaptureMode = "text" | "voice" | "media" | "link";
-type Tab = CaptureMode;
+type Tab = CaptureMode | "book";
 type MediaAttachment = {
   type: "image" | "video" | "audio" | "pdf" | "document";
   url: string;
@@ -329,11 +331,12 @@ export function CreateIdeaForm({
     ["voice", Mic, t("voice")],
     ["media", ImagePlus, t("media")],
     ["link", Link2, t("links")],
+    ["book", NotebookPen, copy("Books", "كراسات")],
   ];
 
   return (
     <Card className="overflow-hidden border-border bg-card/50 shadow-sm">
-      <div className="grid grid-cols-4 border-b border-border/50">
+      <div className="grid grid-cols-5 border-b border-border/50">
         {tabs.map(([tab, Icon, label]) => (
           <button
             key={tab}
@@ -350,7 +353,9 @@ export function CreateIdeaForm({
       </div>
 
       <CardContent className="space-y-4 bg-card p-4 sm:p-6">
-        {activeTab === "voice" ? (
+        {activeTab === "book" ? (
+          <BookShelf subjectId={subjectId} />
+        ) : activeTab === "voice" ? (
           <VoiceCapture subjectId={subjectId} />
         ) : activeTab === "media" ? (
           <div className="rounded-lg border border-dashed p-4 sm:p-6 text-center bg-muted/10">
@@ -486,7 +491,7 @@ export function CreateIdeaForm({
           </div>
         ) : null}
 
-        {activeTab !== "voice" && <>
+        {activeTab !== "voice" && activeTab !== "book" && <>
         <Textarea
           aria-label={t("captureFragment")}
           value={content}

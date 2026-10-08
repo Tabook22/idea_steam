@@ -340,6 +340,81 @@ export interface MeetingNotebookInput {
   notebook: NotebookDoc;
 }
 
+export type BookSummaryKind = typeof BookSummaryKind[keyof typeof BookSummaryKind];
+
+
+export const BookSummaryKind = {
+  subject: 'subject',
+  audio: 'audio',
+  meeting: 'meeting',
+  loose: 'loose',
+} as const;
+
+export interface BookSummary {
+  /** The book's id (for a meeting notebook, the meeting's id). */
+  id: number;
+  kind: BookSummaryKind;
+  title: string;
+  cover: string;
+  /** @nullable */
+  subjectId: number | null;
+  /** @nullable */
+  subjectTitle: string | null;
+  /** @nullable */
+  libraryItemId: number | null;
+  /** @nullable */
+  audioTitle: string | null;
+  /** @nullable */
+  meetingId: number | null;
+  /**
+     * The book's entry in its subject (or the meeting's).
+     * @nullable
+     */
+  ideaId: number | null;
+  pageCount: number;
+  writtenCount: number;
+  /**
+     * A picture of the first written page, if there is one.
+     * @nullable
+     */
+  preview: string | null;
+  paper: string;
+  paperColor: string;
+  updatedAt: string;
+}
+
+export type Book = BookSummary & ({
+  doc: NotebookDoc | null;
+});
+
+export interface BookInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title: string;
+  /** @maxLength 20 */
+  cover?: string;
+  /** @nullable */
+  subjectId?: number | null;
+  /** @nullable */
+  libraryItemId?: number | null;
+}
+
+export interface BookUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title?: string;
+  /** @maxLength 20 */
+  cover?: string;
+  /** @nullable */
+  subjectId?: number | null;
+  /** @nullable */
+  libraryItemId?: number | null;
+}
+
 export interface MeetingNotesInput {
   /** @maxItems 300 */
   notes: MeetingNote[];
@@ -1412,6 +1487,11 @@ export type GetDigestParams = {
  * @maximum 840
  */
 offset?: number;
+};
+
+export type ListBooksParams = {
+subjectId?: number;
+libraryItemId?: number;
 };
 
 export type GetDashboardParams = {

@@ -26,3 +26,5 @@ export * from "./ask-passages";
 export * from "./tasks";
 export * from "./weekly-digests";
 export * from "./meetings";
+
+export * from "./books";
