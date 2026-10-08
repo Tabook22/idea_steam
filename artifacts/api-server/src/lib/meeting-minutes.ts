@@ -87,13 +87,14 @@ export function talkTime(segments: MeetingSegment[]) {
 
 const MARK_NAMES: Record<MeetingMarker["kind"], string> = { important: "IMPORTANT", decision: "DECISION", action: "ACTION", question: "QUESTION" };
 
-export function minutesPrompt(meeting: { title: string; agenda: string; participants: string[]; markers: MeetingMarker[]; recordedOn: Date }) {
+export function minutesPrompt(meeting: { title: string; agenda: string; participants: string[]; markers: MeetingMarker[]; recordedOn: Date; notes?: string }) {
   return [
     "You write the minutes of a recorded meeting from its transcript (\"[m:ss] Speaker: text\").",
     "Write in the main language of the meeting (Arabic meeting → Arabic minutes, English → English).",
     `The meeting "${meeting.title}" was held on ${meeting.recordedOn.toISOString().slice(0, 10)}. Turn relative dates (\"next Thursday\") into YYYY-MM-DD on or after that day.`,
     meeting.participants.length ? `Participants: ${meeting.participants.join(", ")}.` : "",
     meeting.agenda.trim() ? `Agenda:\n${meeting.agenda.trim().slice(0, 2000)}` : "",
+    meeting.notes?.trim() ? `The person recording took these notes during the meeting ([m:ss] = when). They are reliable: use them for names, numbers, decisions and actions.\n${meeting.notes.trim()}` : "",
     meeting.markers.length ? `The person recording marked these moments: ${meeting.markers.map((mark) => `${MARK_NAMES[mark.kind]} at ${clock(mark.at)}`).join("; ")}. Pay special attention to what was said around them.` : "",
     "Return JSON: {\"summary\": 3-6 sentences, \"decisions\": [{\"text\", \"at\": seconds}], \"actions\": [{\"text\": short imperative, \"owner\": person's name as said or the speaker label, or null, \"due\": \"YYYY-MM-DD\" or null, \"at\": seconds}], \"questions\": [{\"text\": open question not yet answered, \"at\": seconds}], \"quotes\": [{\"text\": a key sentence quoted exactly, \"speaker\": as in the transcript, \"at\": seconds}], \"topics\": [{\"title\": 2-6 words, \"start\": seconds}]}.",
     "`at` and `start` are seconds taken from the [m:ss] markers. Topics follow the meeting in order; the first starts at 0. Up to 10 decisions, 15 actions, 6 questions, 5 quotes, 12 topics. Only what was actually said.",

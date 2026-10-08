@@ -1,8 +1,10 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bookmark, Check, FolderCheck, Loader2, Square } from "lucide-react";
 import { useListSubjects } from "@workspace/api-client-react";
 import { useRecorder } from "@/components/recorder-provider";
+import { MeetingNotepad } from "@/components/meeting-notepad";
+import { putMeetingFile } from "@/lib/meeting-files";
 import { useLanguage } from "@/lib/i18n";
 
 /** 05:07, or 1:05:07 past an hour (meetings). */
@@ -132,6 +134,95 @@ export const MEETING_MARKS = [
   { kind: "question", icon: "❓", en: "Question", ar: "سؤال", tone: "border-violet-300/40 bg-violet-400/15 text-violet-100" },
 ] as const;
 
+/**
+ * Recording a meeting: a compact bar (time, level, End), the four markers, and the notepad for
+ * notes, photos, documents and drawings, all saved on this device as you go.
+ */
+function MeetingRecordingView({ remaining }: { remaining: number }) {
+  const { isArabic } = useLanguage();
+  const copy = (en: string, ar: string) => (isArabic ? ar : en);
+  const { stage, seconds, stop, readLevel, target, addMark, markKinds, meetingNotes, updateMeetingNotes, elapsed } = useRecorder();
+  const meeting = target!.meeting!;
+  const [confirm, setConfirm] = useState(false);
+  const level = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const timer = window.setInterval(() => { if (level.current) level.current.style.transform = `scaleX(${Math.max(0.03, Math.min(1, readLevel() * 1.6))})`; }, 100);
+    return () => { document.body.style.overflow = previous; window.clearInterval(timer); };
+  }, [readLevel]);
+  const saving = stage === "saving";
+  const recording = stage === "recording";
+  return (
+    <div role="dialog" aria-modal="true" aria-label={copy("Meeting in progress", "اجتماع جارٍ")}
+      className="fixed inset-0 z-[60] flex flex-col bg-ink text-ink-foreground"
+      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <div className="border-b border-white/10 px-4 pb-2 pt-3">
+        <div className="flex items-center gap-3">
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            {recording && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />}
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p dir="auto" className="truncate text-sm font-semibold">{meeting.title}</p>
+            <p className="font-mono text-xs tabular-nums text-white/60" role="timer">
+              {saving ? copy("Saving…", "جارٍ الحفظ…") : stage === "starting" ? copy("Getting ready…", "جارٍ التجهيز…") : clock(seconds)}
+              <span className="ms-2 text-white/35">{copy("stops in", "يتوقف بعد")} {clock(remaining)}</span>
+            </p>
+          </div>
+          <button type="button" onClick={() => setConfirm(true)} disabled={!recording}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-red-600 px-4 text-sm font-semibold text-white shadow-lg disabled:opacity-60">
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <Square size={13} fill="currentColor" />}{copy("End", "إنهاء")}
+          </button>
+        </div>
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+          <div ref={level} className="h-full origin-left rounded-full bg-emerald-400 transition-transform duration-100 rtl:origin-right" style={{ transform: "scaleX(0.03)" }} />
+        </div>
+        <div className="mt-2.5 grid grid-cols-4 gap-1.5" role="group" aria-label={copy("Mark this moment as", "علّم هذه اللحظة كـ")}>
+          {MEETING_MARKS.map((mark) => {
+            const count = markKinds.filter((kind) => kind === mark.kind).length;
+            return (
+              <button key={mark.kind} type="button" disabled={!recording}
+                onPointerDown={() => addMark(mark.kind)} onClick={(event) => { if (event.detail === 0) addMark(mark.kind); }}
+                className={`flex h-12 flex-col items-center justify-center rounded-xl border text-[11px] font-semibold transition active:scale-95 disabled:opacity-50 ${mark.tone}`}>
+                <span className="text-base leading-none" aria-hidden="true">{mark.icon}</span>
+                <span className="mt-0.5">{copy(mark.en, mark.ar)}{count > 0 ? ` · ${count}` : ""}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <MeetingNotepad
+          notes={meetingNotes}
+          onChange={updateMeetingNotes}
+          now={elapsed}
+          dark
+          arabic={isArabic}
+          copy={copy}
+          storeFile={async (note, file) => { await putMeetingFile(note.id, file); return { ...note, pending: true }; }}
+        />
+        <p className="mt-4 text-center text-xs text-white/40">
+          {copy("Tell everyone the meeting is being recorded. Notes and photos are saved on this phone and uploaded with the recording.",
+            "أخبر الحاضرين أن الاجتماع يُسجَّل. تُحفظ الملاحظات والصور على هذا الهاتف وتُرفع مع التسجيل.")}
+        </p>
+      </div>
+      {confirm && (
+        <div className="absolute inset-0 z-10 grid place-items-center bg-black/60 p-6" role="alertdialog" aria-modal="true" aria-label={copy("End the meeting?", "إنهاء الاجتماع؟")}>
+          <div className="w-full max-w-sm rounded-3xl bg-[#10241c] p-5 text-center shadow-2xl">
+            <p className="font-serif text-xl">{copy("End the meeting and save?", "إنهاء الاجتماع وحفظه؟")}</p>
+            <p className="mt-1 text-sm text-white/60">{copy("The minutes, speakers and action items are made next.", "يُكتب المحضر والمتحدثون والمهام بعد ذلك.")}</p>
+            <div className="mt-5 grid gap-2">
+              <button type="button" onClick={() => { setConfirm(false); stop(); }} className="h-12 rounded-2xl bg-red-600 font-semibold text-white">{copy("End & save", "إنهاء وحفظ")}</button>
+              <button type="button" onClick={() => setConfirm(false)} className="h-12 rounded-2xl bg-white/10 font-medium">{copy("Keep recording", "تابع التسجيل")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Full-screen, high-contrast recording view: one huge target to stop and save. */
 export function DrivingMode() {
   const { isArabic } = useLanguage();
@@ -156,6 +247,7 @@ export function DrivingMode() {
   const starting = stage === "starting";
   const hold = !!target?.hold;
   const remaining = Math.max(0, limit - seconds);
+  if (meeting) return <MeetingRecordingView remaining={remaining} />;
   return (
     <div
       role="dialog"

@@ -35,6 +35,7 @@ previous=$(readlink "$APP_ROOT/current" || true)
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261011_tasks.sql
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261012_weekly_digests.sql
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261013_meetings.sql
+/usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261014_meeting_notes.sql
 ln -s "$release" "$APP_ROOT/current.next"
 mv -Tf "$APP_ROOT/current.next" "$APP_ROOT/current"
 systemctl --user enable idea-stream.service

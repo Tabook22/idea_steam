@@ -94,3 +94,22 @@ test("one person split into two speakers is merged by giving both the same name"
   assert.equal(result.rename.get("S3"), "S1");
   assert.equal(mergeNamedSpeakers(segments, { S1: "Sara" }).merged, 0);
 });
+
+test("meeting notes are cleaned: safe formatting only, this app's files only, in meeting order", async () => {
+  const { cleanNotes, notesForMinutes, notesSection, noteAttachments } = await import("../artifacts/api-server/src/lib/meeting-notes.ts");
+  const file = "/api/storage/objects/0f8fad5b-d9cb-469f-a165-70867728950e";
+  const notes = cleanNotes([
+    { id: "a", kind: "text", at: 65, html: "<h2>Budget</h2><ul><li>☐ Ask <mark>Sara</mark></li></ul><script>alert(1)</script><img src=x onerror=alert(1)>", createdAt: "2026-10-08T10:00:00Z" },
+    { id: "b", kind: "photo", at: 30, url: `/ideas${file}`, name: "Whiteboard.jpg", mimeType: "image/jpeg", size: 1234, createdAt: "2026-10-08T10:00:00Z" },
+    { id: "c", kind: "file", at: null, url: "https://evil.example/x.pdf", name: "x.pdf", createdAt: "2026-10-08T10:00:00Z" },
+    { id: "d", kind: "text", at: 10, html: "<p>   </p>", createdAt: "2026-10-08T10:00:00Z" },
+    { id: "b", kind: "photo", at: 31, url: file, createdAt: "2026-10-08T10:00:00Z" },
+    { id: "e", kind: "file", at: null, url: file, name: "Agenda.pdf", mimeType: "application/pdf", createdAt: "2026-10-08T11:00:00Z" },
+  ]);
+  assert.deepEqual(notes.map((note) => note.id), ["b", "a", "e"], "outside files, empty notes and repeats are dropped; ordered by time");
+  assert.equal(notes[0].url, file, "the app's base path is removed");
+  assert.equal(notes[1].html, "<h2>Budget</h2><ul><li>☐ Ask <mark>Sara</mark></li></ul>");
+  assert.equal(notesForMinutes(notes), "[0:30] (photo: Whiteboard.jpg)\n[1:05] Budget / ☐ Ask Sara\n(document: Agenda.pdf)");
+  assert.match(notesSection(notes, false), /^📝 My notes\n• Budget\n• ☐ Ask Sara$/);
+  assert.deepEqual(noteAttachments(notes).map((a) => [a.type, a.name]), [["image", "Whiteboard.jpg"], ["pdf", "Agenda.pdf"]]);
+});

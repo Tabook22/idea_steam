@@ -1,3 +1,5 @@
+import type { MeetingNote } from "./meeting-notes.ts";
+
 export type RecordingStatus = "recording" | "saved" | "synced";
 export type MarkKind = "important" | "decision" | "action" | "question";
 export type MeetingInfo = { title: string; subjectId: number | null; participants: string[]; agenda: string };
@@ -32,6 +34,8 @@ export interface LocalRecording {
   markKinds?: MarkKind[];
   /** Set when this is a meeting recording: it becomes a meeting with minutes after upload. */
   meeting?: MeetingInfo;
+  /** The meeting notepad (files marked pending wait in the meeting file store). */
+  meetingNotes?: MeetingNote[];
   error?: string;
   attempts: number;
   nextRetryAt: number;

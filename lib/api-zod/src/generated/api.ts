@@ -814,6 +814,16 @@ export const GetMeetingParams = zod.object({
 
 export const getMeetingResponseTwoMarkersItemAtMin = 0;
 
+export const getMeetingResponseTwoNotesItemIdMax = 64;
+
+export const getMeetingResponseTwoNotesItemHtmlMax = 100000;
+
+export const getMeetingResponseTwoNotesItemUrlMax = 500;
+
+export const getMeetingResponseTwoNotesItemNameMax = 200;
+
+export const getMeetingResponseTwoNotesItemMimeTypeMax = 120;
+
 
 
 export const GetMeetingResponse = zod.object({
@@ -876,7 +886,18 @@ export const GetMeetingResponse = zod.object({
   "start": zod.number()
 }))
 }),zod.null()]),
-  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.')
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.'),
+  "notes": zod.array(zod.object({
+  "id": zod.string().min(1).max(getMeetingResponseTwoNotesItemIdMax),
+  "kind": zod.enum(['text', 'photo', 'file', 'drawing']),
+  "at": zod.number().nullable().describe('Seconds into the meeting it was added; null when added afterwards.'),
+  "html": zod.string().max(getMeetingResponseTwoNotesItemHtmlMax).optional(),
+  "url": zod.string().max(getMeetingResponseTwoNotesItemUrlMax).optional(),
+  "name": zod.string().max(getMeetingResponseTwoNotesItemNameMax).optional(),
+  "mimeType": zod.string().max(getMeetingResponseTwoNotesItemMimeTypeMax).optional(),
+  "size": zod.number().int().optional(),
+  "createdAt": zod.string()
+}))
 }))
 
 
@@ -900,6 +921,16 @@ export const UpdateMeetingBody = zod.object({
 })
 
 export const updateMeetingResponseTwoMarkersItemAtMin = 0;
+
+export const updateMeetingResponseTwoNotesItemIdMax = 64;
+
+export const updateMeetingResponseTwoNotesItemHtmlMax = 100000;
+
+export const updateMeetingResponseTwoNotesItemUrlMax = 500;
+
+export const updateMeetingResponseTwoNotesItemNameMax = 200;
+
+export const updateMeetingResponseTwoNotesItemMimeTypeMax = 120;
 
 
 
@@ -963,7 +994,142 @@ export const UpdateMeetingResponse = zod.object({
   "start": zod.number()
 }))
 }),zod.null()]),
-  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.')
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.'),
+  "notes": zod.array(zod.object({
+  "id": zod.string().min(1).max(updateMeetingResponseTwoNotesItemIdMax),
+  "kind": zod.enum(['text', 'photo', 'file', 'drawing']),
+  "at": zod.number().nullable().describe('Seconds into the meeting it was added; null when added afterwards.'),
+  "html": zod.string().max(updateMeetingResponseTwoNotesItemHtmlMax).optional(),
+  "url": zod.string().max(updateMeetingResponseTwoNotesItemUrlMax).optional(),
+  "name": zod.string().max(updateMeetingResponseTwoNotesItemNameMax).optional(),
+  "mimeType": zod.string().max(updateMeetingResponseTwoNotesItemMimeTypeMax).optional(),
+  "size": zod.number().int().optional(),
+  "createdAt": zod.string()
+}))
+}))
+
+
+/**
+ * @summary Save the meeting notepad (notes, photos, documents, drawings)
+ */
+export const SaveMeetingNotesParams = zod.object({
+  "meetingId": zod.coerce.number().int()
+})
+
+export const saveMeetingNotesBodyNotesItemIdMax = 64;
+
+export const saveMeetingNotesBodyNotesItemHtmlMax = 100000;
+
+export const saveMeetingNotesBodyNotesItemUrlMax = 500;
+
+export const saveMeetingNotesBodyNotesItemNameMax = 200;
+
+export const saveMeetingNotesBodyNotesItemMimeTypeMax = 120;
+
+export const saveMeetingNotesBodyNotesMax = 300;
+
+
+
+export const SaveMeetingNotesBody = zod.object({
+  "notes": zod.array(zod.object({
+  "id": zod.string().min(1).max(saveMeetingNotesBodyNotesItemIdMax),
+  "kind": zod.enum(['text', 'photo', 'file', 'drawing']),
+  "at": zod.number().nullable().describe('Seconds into the meeting it was added; null when added afterwards.'),
+  "html": zod.string().max(saveMeetingNotesBodyNotesItemHtmlMax).optional(),
+  "url": zod.string().max(saveMeetingNotesBodyNotesItemUrlMax).optional(),
+  "name": zod.string().max(saveMeetingNotesBodyNotesItemNameMax).optional(),
+  "mimeType": zod.string().max(saveMeetingNotesBodyNotesItemMimeTypeMax).optional(),
+  "size": zod.number().int().optional(),
+  "createdAt": zod.string()
+})).max(saveMeetingNotesBodyNotesMax)
+})
+
+export const saveMeetingNotesResponseTwoMarkersItemAtMin = 0;
+
+export const saveMeetingNotesResponseTwoNotesItemIdMax = 64;
+
+export const saveMeetingNotesResponseTwoNotesItemHtmlMax = 100000;
+
+export const saveMeetingNotesResponseTwoNotesItemUrlMax = 500;
+
+export const saveMeetingNotesResponseTwoNotesItemNameMax = 200;
+
+export const saveMeetingNotesResponseTwoNotesItemMimeTypeMax = 120;
+
+
+
+export const SaveMeetingNotesResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "stage": zod.string().nullable(),
+  "libraryItemId": zod.number().int(),
+  "durationSeconds": zod.number().int().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "speakerCount": zod.number().int(),
+  "actionCount": zod.number().int(),
+  "summary": zod.string().nullable(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "url": zod.string(),
+  "error": zod.string().nullable(),
+  "participants": zod.array(zod.string()),
+  "agenda": zod.string(),
+  "markers": zod.array(zod.object({
+  "at": zod.number().min(saveMeetingNotesResponseTwoMarkersItemAtMin),
+  "kind": zod.enum(['important', 'decision', 'action', 'question'])
+})),
+  "segments": zod.array(zod.object({
+  "start": zod.number(),
+  "end": zod.number(),
+  "speaker": zod.string(),
+  "text": zod.string()
+})),
+  "speakers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "seconds": zod.number(),
+  "named": zod.boolean()
+})),
+  "minutes": zod.union([zod.object({
+  "summary": zod.string(),
+  "decisions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "actions": zod.array(zod.object({
+  "text": zod.string(),
+  "owner": zod.string().nullable(),
+  "due": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "questions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "quotes": zod.array(zod.object({
+  "text": zod.string(),
+  "speaker": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "topics": zod.array(zod.object({
+  "title": zod.string(),
+  "start": zod.number()
+}))
+}),zod.null()]),
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.'),
+  "notes": zod.array(zod.object({
+  "id": zod.string().min(1).max(saveMeetingNotesResponseTwoNotesItemIdMax),
+  "kind": zod.enum(['text', 'photo', 'file', 'drawing']),
+  "at": zod.number().nullable().describe('Seconds into the meeting it was added; null when added afterwards.'),
+  "html": zod.string().max(saveMeetingNotesResponseTwoNotesItemHtmlMax).optional(),
+  "url": zod.string().max(saveMeetingNotesResponseTwoNotesItemUrlMax).optional(),
+  "name": zod.string().max(saveMeetingNotesResponseTwoNotesItemNameMax).optional(),
+  "mimeType": zod.string().max(saveMeetingNotesResponseTwoNotesItemMimeTypeMax).optional(),
+  "size": zod.number().int().optional(),
+  "createdAt": zod.string()
+}))
 }))
 
 
@@ -979,6 +1145,16 @@ export const ProcessMeetingBody = zod.object({
 })
 
 export const processMeetingResponseTwoMarkersItemAtMin = 0;
+
+export const processMeetingResponseTwoNotesItemIdMax = 64;
+
+export const processMeetingResponseTwoNotesItemHtmlMax = 100000;
+
+export const processMeetingResponseTwoNotesItemUrlMax = 500;
+
+export const processMeetingResponseTwoNotesItemNameMax = 200;
+
+export const processMeetingResponseTwoNotesItemMimeTypeMax = 120;
 
 
 
@@ -1042,7 +1218,18 @@ export const ProcessMeetingResponse = zod.object({
   "start": zod.number()
 }))
 }),zod.null()]),
-  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.')
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.'),
+  "notes": zod.array(zod.object({
+  "id": zod.string().min(1).max(processMeetingResponseTwoNotesItemIdMax),
+  "kind": zod.enum(['text', 'photo', 'file', 'drawing']),
+  "at": zod.number().nullable().describe('Seconds into the meeting it was added; null when added afterwards.'),
+  "html": zod.string().max(processMeetingResponseTwoNotesItemHtmlMax).optional(),
+  "url": zod.string().max(processMeetingResponseTwoNotesItemUrlMax).optional(),
+  "name": zod.string().max(processMeetingResponseTwoNotesItemNameMax).optional(),
+  "mimeType": zod.string().max(processMeetingResponseTwoNotesItemMimeTypeMax).optional(),
+  "size": zod.number().int().optional(),
+  "createdAt": zod.string()
+}))
 }))
 
 
@@ -1421,6 +1608,18 @@ export const createLibraryRecordingBodyMeetingMarkersItemAtMin = 0;
 
 export const createLibraryRecordingBodyMeetingMarkersMax = 500;
 
+export const createLibraryRecordingBodyMeetingNotesItemIdMax = 64;
+
+export const createLibraryRecordingBodyMeetingNotesItemHtmlMax = 100000;
+
+export const createLibraryRecordingBodyMeetingNotesItemUrlMax = 500;
+
+export const createLibraryRecordingBodyMeetingNotesItemNameMax = 200;
+
+export const createLibraryRecordingBodyMeetingNotesItemMimeTypeMax = 120;
+
+export const createLibraryRecordingBodyMeetingNotesMax = 300;
+
 
 
 export const CreateLibraryRecordingBody = zod.object({
@@ -1440,7 +1639,18 @@ export const CreateLibraryRecordingBody = zod.object({
   "markers": zod.array(zod.object({
   "at": zod.number().min(createLibraryRecordingBodyMeetingMarkersItemAtMin),
   "kind": zod.enum(['important', 'decision', 'action', 'question'])
-})).max(createLibraryRecordingBodyMeetingMarkersMax).optional()
+})).max(createLibraryRecordingBodyMeetingMarkersMax).optional(),
+  "notes": zod.array(zod.object({
+  "id": zod.string().min(1).max(createLibraryRecordingBodyMeetingNotesItemIdMax),
+  "kind": zod.enum(['text', 'photo', 'file', 'drawing']),
+  "at": zod.number().nullable().describe('Seconds into the meeting it was added; null when added afterwards.'),
+  "html": zod.string().max(createLibraryRecordingBodyMeetingNotesItemHtmlMax).optional(),
+  "url": zod.string().max(createLibraryRecordingBodyMeetingNotesItemUrlMax).optional(),
+  "name": zod.string().max(createLibraryRecordingBodyMeetingNotesItemNameMax).optional(),
+  "mimeType": zod.string().max(createLibraryRecordingBodyMeetingNotesItemMimeTypeMax).optional(),
+  "size": zod.number().int().optional(),
+  "createdAt": zod.string()
+})).max(createLibraryRecordingBodyMeetingNotesMax).optional()
 }).optional()
 })
 

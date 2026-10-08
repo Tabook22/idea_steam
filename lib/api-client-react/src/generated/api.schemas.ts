@@ -268,6 +268,40 @@ export interface MeetingMarker {
   kind: MeetingMarkerKind;
 }
 
+export type MeetingNoteKind = typeof MeetingNoteKind[keyof typeof MeetingNoteKind];
+
+
+export const MeetingNoteKind = {
+  text: 'text',
+  photo: 'photo',
+  file: 'file',
+  drawing: 'drawing',
+} as const;
+
+export interface MeetingNote {
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  id: string;
+  kind: MeetingNoteKind;
+  /**
+     * Seconds into the meeting it was added; null when added afterwards.
+     * @nullable
+     */
+  at: number | null;
+  /** @maxLength 100000 */
+  html?: string;
+  /** @maxLength 500 */
+  url?: string;
+  /** @maxLength 200 */
+  name?: string;
+  /** @maxLength 120 */
+  mimeType?: string;
+  size?: number;
+  createdAt: string;
+}
+
 export interface MeetingStart {
   /**
      * @minLength 1
@@ -285,6 +319,13 @@ export interface MeetingStart {
   agenda?: string;
   /** @maxItems 500 */
   markers?: MeetingMarker[];
+  /** @maxItems 300 */
+  notes?: MeetingNote[];
+}
+
+export interface MeetingNotesInput {
+  /** @maxItems 300 */
+  notes: MeetingNote[];
 }
 
 export interface MeetingSegment {
@@ -383,6 +424,7 @@ export type Meeting = MeetingSummary & ({
      * @nullable
      */
   minutesText: string | null;
+  notes: MeetingNote[];
 });
 
 /**

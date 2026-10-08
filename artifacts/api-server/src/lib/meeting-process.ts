@@ -9,6 +9,7 @@ import { aiConfigured, openai, toFile } from "@workspace/integrations-openai-ai-
 import { withMeetingAudio } from "./audio-edit";
 import { SpeakerMap, mergeSegments, minutesPrompt, minutesText, parseMinutes, plainTranscript, speakerName, transcriptLines, voiceSample } from "./meeting-minutes";
 import { sameTask, textHash } from "./tasks";
+import { noteAttachments, notesForMinutes, notesSection } from "./meeting-notes";
 
 const DIARIZE_MODEL = process.env.OPENAI_DIARIZE_MODEL || "gpt-4o-transcribe-diarize";
 const PART_SECONDS = Number(process.env.MEETING_PART_SECONDS) || 600;
@@ -99,7 +100,7 @@ export async function processMeeting(id: number) {
       model: textModel(),
       response_format: { type: "json_object" },
       messages: [
-        { role: "system", content: minutesPrompt({ title: meeting.title, agenda: meeting.agenda, participants: meeting.participants, markers: meeting.markers, recordedOn: item.capturedAt }) },
+        { role: "system", content: minutesPrompt({ title: meeting.title, agenda: meeting.agenda, participants: meeting.participants, markers: meeting.markers, recordedOn: item.capturedAt, notes: notesForMinutes(meeting.notes ?? []) }) },
         { role: "user", content: transcriptLines(segments, names).slice(0, 150_000) },
       ],
     }, { timeout: 5 * 60_000, maxRetries: 1 });
@@ -122,18 +123,9 @@ export async function processMeeting(id: number) {
         at: action.at === null ? null : Math.max(0, action.at - 2),
       })));
 
-    // 4. The minutes in the meeting's notebook (once), with the recording attached.
-    let ideaId = meeting.ideaId;
-    if (meeting.subjectId && !ideaId) {
-      const [idea] = await db.insert(ideasTable).values({
-        subjectId: meeting.subjectId,
-        content: minutesText(meeting.title, minutes, names, arabic, "plain"),
-        source: "audio",
-        attachments: [{ type: "audio", url: item.url, name: meeting.title, mimeType: item.mimeType ?? "audio/webm", durationSeconds: duration, libraryItemId: item.id }],
-      }).returning({ id: ideasTable.id }).catch(() => []);
-      ideaId = idea?.id ?? null;
-    }
-    await db.update(meetingsTable).set({ minutes, status: "ready", stage: null, error: null, ideaId }).where(eq(meetingsTable.id, id));
+    await db.update(meetingsTable).set({ minutes, status: "ready", stage: null, error: null }).where(eq(meetingsTable.id, id));
+    // 4. The minutes, your notes, photos and documents in the meeting's notebook.
+    await syncMeetingIdea(id).catch((failure) => console.warn("Meeting: notebook entry failed:", (failure as Error).message));
   } catch (error) {
     const message = (error as Error).message || "";
     console.warn(`Meeting ${id} failed:`, message);
@@ -142,6 +134,31 @@ export async function processMeeting(id: number) {
       : "The meeting couldn't be processed right now. Your recording is safe; tap Try again.";
     await db.update(meetingsTable).set({ status: "failed", stage: null, error: friendly }).where(eq(meetingsTable.id, id));
   }
+}
+
+/**
+ * The meeting's entry in its notebook: the minutes and your written notes, with the recording,
+ * photos, drawings and documents attached. Made once, then kept up to date.
+ */
+export async function syncMeetingIdea(id: number) {
+  const [meeting] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, id));
+  if (!meeting?.subjectId || !meeting.minutes) return;
+  const [item] = await db.select().from(audioLibraryTable).where(eq(audioLibraryTable.id, meeting.libraryItemId));
+  if (!item) return;
+  const names = meeting.speakers ?? {};
+  const notes = meeting.notes ?? [];
+  const arabic = /[\u0600-\u06FF]/.test(meeting.minutes.summary);
+  const content = [minutesText(meeting.title, meeting.minutes, names, arabic, "plain"), notesSection(notes, arabic)].filter(Boolean).join("\n\n");
+  const attachments = [
+    { type: "audio" as const, url: item.url, name: meeting.title, mimeType: item.mimeType ?? "audio/webm", ...(item.durationSeconds ? { durationSeconds: item.durationSeconds } : {}), libraryItemId: item.id },
+    ...noteAttachments(notes),
+  ];
+  if (meeting.ideaId) {
+    const [updated] = await db.update(ideasTable).set({ content, attachments }).where(eq(ideasTable.id, meeting.ideaId)).returning({ id: ideasTable.id });
+    if (updated) return;
+  }
+  const [idea] = await db.insert(ideasTable).values({ subjectId: meeting.subjectId, content, source: "audio", attachments }).returning({ id: ideasTable.id });
+  if (idea) await db.update(meetingsTable).set({ ideaId: idea.id }).where(eq(meetingsTable.id, id));
 }
 
 /** After a server restart, meetings that were being processed carry on. */

@@ -2,6 +2,19 @@ import { integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg
 
 export type MeetingSegment = { start: number; end: number; speaker: string; text: string };
 export type MeetingMarker = { at: number; kind: "important" | "decision" | "action" | "question" };
+/** The meeting notepad: written notes, photos, documents and drawings, each at a moment of the meeting. */
+export type MeetingNote = {
+  id: string;
+  kind: "text" | "photo" | "file" | "drawing";
+  /** Seconds into the meeting it was added (null when added afterwards). */
+  at: number | null;
+  html?: string;
+  url?: string;
+  name?: string;
+  mimeType?: string;
+  size?: number;
+  createdAt: string;
+};
 export type MeetingMinutes = {
   summary: string;
   decisions: Array<{ text: string; at: number | null }>;
@@ -29,6 +42,7 @@ export const meetingsTable = pgTable("meetings", {
   segments: jsonb("segments").$type<MeetingSegment[]>(),
   speakers: jsonb("speakers").$type<Record<string, string>>().notNull().default({}),
   minutes: jsonb("minutes").$type<MeetingMinutes>(),
+  notes: jsonb("notes").$type<MeetingNote[]>().notNull().default([]),
   ideaId: integer("idea_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

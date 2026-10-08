@@ -7,6 +7,7 @@
  */
 import type { MeetingMarker } from './meetingMarker';
 import type { MeetingMinutes } from './meetingMinutes';
+import type { MeetingNote } from './meetingNote';
 import type { MeetingSegment } from './meetingSegment';
 import type { MeetingSpeaker } from './meetingSpeaker';
 import type { MeetingSummary } from './meetingSummary';
@@ -26,4 +27,5 @@ export type Meeting = MeetingSummary & ({
      * @nullable
      */
   minutesText: string | null;
+  notes: MeetingNote[];
 });

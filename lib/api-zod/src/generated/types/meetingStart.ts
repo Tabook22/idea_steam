@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MeetingMarker } from './meetingMarker';
+import type { MeetingNote } from './meetingNote';
 
 export interface MeetingStart {
   /**
@@ -24,4 +25,6 @@ export interface MeetingStart {
   agenda?: string;
   /** @maxItems 500 */
   markers?: MeetingMarker[];
+  /** @maxItems 300 */
+  notes?: MeetingNote[];
 }

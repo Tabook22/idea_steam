@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { audioLibraryTable, db, meetingsTable, subjectsTable, tasksTable, type MeetingRecord } from "@workspace/db";
-import { AskMeetingBody, AskMeetingParams, GetMeetingParams, ProcessMeetingBody, UpdateMeetingBody } from "@workspace/api-zod";
+import { AskMeetingBody, AskMeetingParams, GetMeetingParams, ProcessMeetingBody, SaveMeetingNotesBody, UpdateMeetingBody } from "@workspace/api-zod";
+import { cleanNotes, notesForMinutes } from "../lib/meeting-notes";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { MEETING_ASK, mergeNamedSpeakers, minutesText, plainTranscript, speakerName, talkTime, transcriptLines } from "../lib/meeting-minutes";
-import { isProcessing, processMeetingLater, resumeMeetings } from "../lib/meeting-process";
+import { isProcessing, processMeetingLater, resumeMeetings, syncMeetingIdea } from "../lib/meeting-process";
 import { textHash } from "../lib/tasks";
 
 const router: IRouter = Router();
@@ -56,6 +57,7 @@ function full(meeting: MeetingRecord, ctx: Awaited<ReturnType<typeof context>>) 
       .map(([id, seconds]) => ({ id, name: speakerName(id, names), seconds: Math.round(seconds), named: !!names[id]?.trim() })),
     minutes: meeting.minutes,
     minutesText: meeting.minutes ? minutesText(meeting.title, meeting.minutes, names, arabic) : null,
+    notes: meeting.notes ?? [],
   };
 }
 
@@ -125,6 +127,18 @@ router.patch("/meetings/:meetingId", async (req, res): Promise<void> => {
   res.json(await one(meeting.id));
 });
 
+router.put("/meetings/:meetingId/notes", async (req, res): Promise<void> => {
+  const params = GetMeetingParams.safeParse(req.params);
+  const body = SaveMeetingNotesBody.safeParse(req.body);
+  if (!params.success || !body.success) { res.status(400).json({ error: "These notes couldn't be saved." }); return; }
+  const [meeting] = await db.select().from(meetingsTable).where(eq(meetingsTable.id, params.data.meetingId));
+  if (!meeting) { res.status(404).json({ error: "Meeting not found" }); return; }
+  await db.update(meetingsTable).set({ notes: cleanNotes(body.data.notes) }).where(eq(meetingsTable.id, meeting.id));
+  // The notebook entry shows the latest notes and files.
+  await syncMeetingIdea(meeting.id).catch(() => {});
+  res.json(await one(meeting.id));
+});
+
 router.post("/meetings/:meetingId/process", async (req, res): Promise<void> => {
   const params = GetMeetingParams.safeParse(req.params);
   const body = ProcessMeetingBody.safeParse(req.body ?? {});
@@ -156,6 +170,7 @@ router.post("/meetings/:meetingId/ask", async (req, res): Promise<void> => {
         { role: "user", content: [
           `Meeting: ${meeting.title}`,
           meeting.minutes ? `Minutes:\n${minutesText(meeting.title, meeting.minutes, names, false)}` : "",
+          meeting.notes?.length ? `Notes taken during the meeting:\n${notesForMinutes(meeting.notes)}` : "",
           `Transcript:\n${transcriptLines(meeting.segments, names).slice(0, 150_000)}`,
         ].filter(Boolean).join("\n\n") },
         ...(body.data.history ?? []).slice(-4).flatMap((turn) => [

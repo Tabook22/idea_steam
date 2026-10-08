@@ -1,4 +1,5 @@
 import { appPath, uploadCredentials } from "./app-path.ts";
+import { deleteMeetingFile, getMeetingFile } from "./meeting-files.ts";
 import type { AudioLibraryItem, Idea } from "@workspace/api-client-react";
 import { RecordingStore } from "./recording-store.ts";
 import { retryDelay } from "./recording-utils.ts";
@@ -89,6 +90,27 @@ export async function syncRecording(
       };
       await store.patch(id, { uploadedAudio: record.uploadedAudio });
     }
+    // Meeting notepad: photos, documents and drawings kept on the phone are uploaded first.
+    if (record.meeting && record.meetingNotes?.some((note) => note.pending)) {
+      const notes = [...record.meetingNotes];
+      for (const [index, note] of notes.entries()) {
+        if (!note.pending) continue;
+        const file = await getMeetingFile(note.id);
+        if (!file) { notes[index] = { ...note, pending: false }; continue; }
+        const type = note.mimeType || file.type || "application/octet-stream";
+        const upload = await json<{ uploadURL: string; objectPath: string }>(fetcher, "/api/storage/uploads/request-url", { name: note.name || "file", size: file.size, contentType: type });
+        await request(fetcher, upload.uploadURL, {
+          method: "PUT",
+          credentials: uploadCredentials(upload.uploadURL, typeof location === "undefined" ? undefined : location.origin),
+          headers: { "Content-Type": type },
+          body: file,
+        });
+        notes[index] = { ...note, pending: false, url: `/api/storage${upload.objectPath}` };
+        await store.patch(id, { meetingNotes: notes });
+      }
+      record.meetingNotes = notes;
+      for (const note of notes) if (note.kind !== "text") void deleteMeetingFile(note.id).catch(() => {});
+    }
     // Every recording is saved to the audio library first; that copy is the master.
     let item = record.libraryItemId ? null : await json<AudioLibraryItem>(fetcher, "/api/audio-library/recordings", {
       url: record.uploadedAudio.url,
@@ -98,7 +120,11 @@ export async function syncRecording(
       ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}),
       ...(record.marks?.length ? { marks: record.marks } : {}),
       // A meeting: the server makes its text (with speakers) and minutes.
-      ...(record.meeting ? { meeting: { ...record.meeting, markers: (record.marks ?? []).map((at, index) => ({ at, kind: record.markKinds?.[index] ?? "important" })) } } : {}),
+      ...(record.meeting ? { meeting: {
+        ...record.meeting,
+        markers: (record.marks ?? []).map((at, index) => ({ at, kind: record.markKinds?.[index] ?? "important" })),
+        notes: (record.meetingNotes ?? []).filter((note) => !note.pending).map(({ pending: _pending, ...note }) => note),
+      } } : {}),
     });
     const libraryItemId = record.libraryItemId ?? item!.id;
     await store.patch(id, { libraryItemId });

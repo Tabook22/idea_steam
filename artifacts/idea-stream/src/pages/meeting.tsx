@@ -24,18 +24,22 @@ import {
   getGetMeetingQueryKey,
   getListMeetingsQueryKey,
   processMeeting,
+  requestUploadUrl,
+  saveMeetingNotes,
   updateMeeting,
   useGetMeeting,
   type Meeting,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
+import { MeetingNotepad } from "@/components/meeting-notepad";
+import type { MeetingNote } from "@/lib/meeting-notes";
 import { useToast } from "@/hooks/use-toast";
-import { appPath } from "@/lib/app-path";
+import { appPath, uploadCredentials } from "@/lib/app-path";
 import { useLanguage } from "@/lib/i18n";
 import { answerPieces, clock, segmentAt, speakerColor } from "@/lib/meeting-view";
 import { stageLabel } from "@/pages/meetings";
 
-type Tab = "minutes" | "transcript" | "ask" | "speakers";
+type Tab = "minutes" | "notes" | "transcript" | "ask" | "speakers";
 const MARK_ICON: Record<string, string> = { important: "⭐", decision: "✅", action: "📌", question: "❓" };
 const dirOf = (text: string) => (/[֐-ࣿ]/.test(text.slice(0, 40)) ? "rtl" : "ltr");
 
@@ -97,7 +101,7 @@ export default function MeetingPage() {
   if (!meeting) return <main className="mx-auto max-w-3xl px-4 py-10 text-center text-muted-foreground">{copy("Meeting not found.", "الاجتماع غير موجود.")}</main>;
 
   const minutes = meeting.minutes;
-  const tabs: Array<[Tab, string]> = [["minutes", copy("Minutes", "المحضر")], ["transcript", copy("Transcript", "النص")], ["ask", copy("Ask", "اسأل")], ["speakers", copy("Speakers", "المتحدثون")]];
+  const tabs: Array<[Tab, string]> = [["minutes", copy("Minutes", "المحضر")], ["notes", `${copy("Notes", "الملاحظات")}${meeting.notes.length ? ` ${meeting.notes.length}` : ""}`], ["transcript", copy("Transcript", "النص")], ["ask", copy("Ask", "اسأل")], ["speakers", copy("Speakers", "المتحدثون")]];
 
   return (
     <main id="main-content" className="mx-auto w-full max-w-3xl px-4 pb-28 pt-2 sm:px-6">
@@ -148,12 +152,18 @@ export default function MeetingPage() {
           </p>
           {meeting.status === "failed" && <Button className="mt-4 rounded-full" onClick={() => void retry()}><RotateCcw size={15} className="me-1.5" />{copy("Try again", "حاول مجددًا")}</Button>}
         </div>
+      ) : null}
+      {meeting.status !== "ready" ? (
+        <div className="mt-6">
+          <h2 className="mb-3 font-serif text-xl">{copy("Notes", "الملاحظات")}</h2>
+          <MeetingNotes meeting={meeting} seek={seek} copy={copy} arabic={isArabic} onSaved={refresh} />
+        </div>
       ) : (
         <>
-          <div className="mt-5 grid grid-cols-4 gap-1 rounded-2xl bg-secondary p-1 text-sm" role="tablist">
+          <div className="mt-5 grid grid-cols-5 gap-1 rounded-2xl bg-secondary p-1 text-[13px] sm:text-sm" role="tablist">
             {tabs.map(([value, label]) => (
               <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setTab(value)}
-                className={`rounded-xl px-2 py-2 font-medium transition ${tab === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+                className={`rounded-xl px-1 py-2 font-medium transition ${tab === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
             ))}
           </div>
 
@@ -237,12 +247,53 @@ export default function MeetingPage() {
             </div>
           )}
 
+          {tab === "notes" && <MeetingNotes meeting={meeting} seek={seek} copy={copy} arabic={isArabic} onSaved={refresh} />}
           {tab === "transcript" && <Transcript meeting={meeting} now={now} seek={seek} copy={copy} onRename={rename} />}
           {tab === "ask" && <AskMeeting meeting={meeting} seek={seek} copy={copy} />}
           {tab === "speakers" && <Speakers meeting={meeting} seek={seek} copy={copy} onRename={rename} />}
         </>
       )}
     </main>
+  );
+}
+
+/** The meeting's notepad, afterwards: changes are saved to the meeting (and its notebook entry). */
+function MeetingNotes({ meeting, seek, copy, arabic, onSaved }: { meeting: Meeting; seek: (at: number | null) => void; copy: (en: string, ar: string) => string; arabic: boolean; onSaved: (next?: Meeting) => void }) {
+  const [notes, setNotes] = useState<MeetingNote[]>(meeting.notes as MeetingNote[]);
+  const [state, setState] = useState<"saved" | "saving" | "error">("saved");
+  const timer = useRef(0);
+  const latest = useRef(notes);
+  const { toast } = useToast();
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const save = (next: MeetingNote[]) => {
+    latest.current = next;
+    setNotes(next);
+    setState("saving");
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(async () => {
+      try {
+        const saved = await saveMeetingNotes(meeting.id, { notes: latest.current });
+        setState("saved");
+        onSaved(saved);
+      } catch { setState("error"); }
+    }, 900);
+  };
+  async function upload(note: MeetingNote, file: Blob): Promise<MeetingNote> {
+    const type = note.mimeType || file.type || "application/octet-stream";
+    const target = await requestUploadUrl({ name: note.name || "file", size: file.size, contentType: type });
+    const response = await fetch(appPath(target.uploadURL, import.meta.env.BASE_URL), {
+      method: "PUT", body: file, headers: { "Content-Type": type }, credentials: uploadCredentials(target.uploadURL, location.origin),
+    });
+    if (!response.ok) { toast({ variant: "destructive", title: copy("Upload failed.", "فشل الرفع.") }); throw new Error("upload"); }
+    return { ...note, url: `/api/storage${target.objectPath}` };
+  }
+  return (
+    <div className="mt-5">
+      <p className="mb-3 text-xs text-muted-foreground" role="status">
+        {state === "saving" ? copy("Saving…", "جارٍ الحفظ…") : state === "error" ? copy("Not saved. Check your connection.", "لم يُحفظ. تحقّق من الاتصال.") : copy("Saved. Also in the meeting's notebook.", "محفوظ. وأيضًا في دفتر الاجتماع.")}
+      </p>
+      <MeetingNotepad notes={notes} onChange={save} now={() => null} seek={(at) => seek(at)} storeFile={upload} copy={copy} arabic={arabic} />
+    </div>
   );
 }
 

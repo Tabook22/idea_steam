@@ -597,6 +597,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Meeting"
+  /meetings/{meetingId}/notes:
+    put:
+      operationId: saveMeetingNotes
+      tags: [meetings]
+      summary: Save the meeting notepad (notes, photos, documents, drawings)
+      parameters:
+        - $ref: "#/components/parameters/MeetingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingNotesInput"
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
   /meetings/{meetingId}/process:
     post:
       operationId: processMeeting
@@ -1551,6 +1571,50 @@ components:
           maxItems: 500
           items:
             $ref: "#/components/schemas/MeetingMarker"
+        notes:
+          type: array
+          maxItems: 300
+          items:
+            $ref: "#/components/schemas/MeetingNote"
+    MeetingNote:
+      type: object
+      required: [id, kind, at, createdAt]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        kind:
+          type: string
+          enum: [text, photo, file, drawing]
+        at:
+          type: ["number", "null"]
+          description: Seconds into the meeting it was added; null when added afterwards.
+        html:
+          type: string
+          maxLength: 100000
+        url:
+          type: string
+          maxLength: 500
+        name:
+          type: string
+          maxLength: 200
+        mimeType:
+          type: string
+          maxLength: 120
+        size:
+          type: integer
+        createdAt:
+          type: string
+    MeetingNotesInput:
+      type: object
+      required: [notes]
+      properties:
+        notes:
+          type: array
+          maxItems: 300
+          items:
+            $ref: "#/components/schemas/MeetingNote"
     MeetingSegment:
       type: object
       required: [start, end, speaker, text]
@@ -1672,7 +1736,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/MeetingSummary"
         - type: object
-          required: [url, error, participants, agenda, markers, segments, speakers, minutes, minutesText]
+          required: [url, error, participants, agenda, markers, segments, speakers, minutes, minutesText, notes]
           properties:
             url:
               type: string
@@ -1703,6 +1767,10 @@ components:
             minutesText:
               type: ["string", "null"]
               description: The minutes as text (Markdown), for copying and downloading.
+            notes:
+              type: array
+              items:
+                $ref: "#/components/schemas/MeetingNote"
     MeetingUpdate:
       type: object
       properties:
