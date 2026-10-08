@@ -5,8 +5,13 @@ import { useListSubjects } from "@workspace/api-client-react";
 import { useRecorder } from "@/components/recorder-provider";
 import { useLanguage } from "@/lib/i18n";
 
-const clock = (seconds: number) =>
-  `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+/** 05:07, or 1:05:07 past an hour (meetings). */
+const clock = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+  const rest = String(seconds % 60).padStart(2, "0");
+  return hours ? `${hours}:${minutes}:${rest}` : `${minutes}:${rest}`;
+};
 
 /** Live bars driven by the microphone level. */
 export function LevelBars({ readLevel, bars = 28, className = "" }: { readLevel: () => number; bars?: number; className?: string }) {
@@ -119,14 +124,25 @@ export function SavedBurst({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** The four things worth marking in a meeting. */
+export const MEETING_MARKS = [
+  { kind: "important", icon: "⭐", en: "Important", ar: "مهم", tone: "border-amber-300/40 bg-amber-400/15 text-amber-100" },
+  { kind: "decision", icon: "✅", en: "Decision", ar: "قرار", tone: "border-emerald-300/40 bg-emerald-400/15 text-emerald-100" },
+  { kind: "action", icon: "📌", en: "Action", ar: "مهمة", tone: "border-sky-300/40 bg-sky-400/15 text-sky-100" },
+  { kind: "question", icon: "❓", en: "Question", ar: "سؤال", tone: "border-violet-300/40 bg-violet-400/15 text-violet-100" },
+] as const;
+
 /** Full-screen, high-contrast recording view: one huge target to stop and save. */
 export function DrivingMode() {
   const { isArabic } = useLanguage();
   const copy = (en: string, ar: string) => (isArabic ? ar : en);
-  const { stage, seconds, stop, readLevel, audioLevel, target, addMark, markCount } = useRecorder();
+  const { stage, seconds, stop, readLevel, audioLevel, target, addMark, markCount, markKinds } = useRecorder();
+  const meeting = target?.meeting;
   const { data: subjects = [] } = useListSubjects();
   const limit = target?.limit ?? 900;
-  const destination = target?.libraryOnly
+  const destination = meeting
+    ? meeting.title
+    : target?.libraryOnly
     ? copy("Audio library", "مكتبة الصوت")
     : subjects.find((subject) => subject.id === target?.subjectId)?.title ?? copy("Audio library", "مكتبة الصوت");
   const stopButton = useRef<HTMLButtonElement>(null);
@@ -154,7 +170,7 @@ export function DrivingMode() {
             {stage === "recording" && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />}
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
           </span>
-          {saving ? copy("Saving…", "جارٍ الحفظ…") : starting ? copy("Getting ready…", "جارٍ التجهيز…") : copy("Recording", "يسجّل الآن")}
+          {saving ? copy("Saving…", "جارٍ الحفظ…") : starting ? copy("Getting ready…", "جارٍ التجهيز…") : meeting ? copy("Meeting", "اجتماع") : copy("Recording", "يسجّل الآن")}
         </span>
         <span className="inline-flex min-w-0 items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm">
           <FolderCheck size={16} className="shrink-0" />
@@ -166,7 +182,7 @@ export function DrivingMode() {
           <p className="font-mono text-5xl font-light tabular-nums tracking-wider sm:text-6xl" role="timer" aria-live="off">
             {clock(seconds)}
           </p>
-          {markCount > 0 && (
+          {markCount > 0 && !meeting && (
             <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-200"><Bookmark size={12} />{markCount}</p>
           )}
         </VoiceRing>
@@ -175,6 +191,8 @@ export function DrivingMode() {
             ? copy("Keeping your idea safe on this device…", "نحفظ فكرتك على هذا الجهاز…")
             : starting
               ? copy("Opening the microphone…", "جارٍ فتح الميكروفون…")
+            : meeting
+              ? copy("Place the phone in the middle of the table.", "ضع الهاتف في منتصف الطاولة.")
             : audioLevel > 0.04
               ? copy("Listening. Speak naturally.", "أستمع إليك. تحدّث بشكل طبيعي.")
               : copy("Speak toward your phone", "تحدّث باتجاه الهاتف")}
@@ -182,7 +200,13 @@ export function DrivingMode() {
         <p className="mt-2 text-sm text-white/45">
           {copy("Stops by itself in", "يتوقف تلقائيًا بعد")} {clock(remaining)}
         </p>
-        {target?.autoTranscribe !== false && (
+        {meeting && (
+          <p className="mt-5 max-w-sm rounded-2xl bg-white/5 px-4 py-2.5 text-sm text-white/70">
+            {copy("Let everyone know the meeting is being recorded. Minutes, speakers and action items are made after you end it.",
+              "أخبر الحاضرين أن الاجتماع يُسجَّل. يُكتب المحضر والمتحدثون والمهام بعد إنهائه.")}
+          </p>
+        )}
+        {target?.autoTranscribe !== false && !meeting && (
           <p className="mt-6 max-w-sm rounded-2xl bg-white/5 px-4 py-2.5 text-sm text-white/70">
             {target?.libraryOnly || target?.subjectId == null
               ? copy("Saving to your audio library. You can add it to any subject from there.", "يُحفظ في مكتبة الصوت، ويمكنك إضافته لأي موضوع من هناك.")
@@ -191,10 +215,26 @@ export function DrivingMode() {
         )}
       </div>
       <div className="px-4 pb-5 sm:px-8 sm:pb-8">
+        {meeting ? (
+          <div className="mb-3 grid grid-cols-2 gap-2" role="group" aria-label={copy("Mark this moment as", "علّم هذه اللحظة كـ")}>
+            {MEETING_MARKS.map((mark) => {
+              const count = markKinds.filter((kind) => kind === mark.kind).length;
+              return (
+                <button key={mark.kind} type="button" disabled={stage !== "recording"}
+                  onPointerDown={() => addMark(mark.kind)}
+                  onClick={(event) => { if (event.detail === 0) addMark(mark.kind); }}
+                  className={`flex h-14 items-center justify-center gap-2 rounded-2xl border text-base font-semibold transition active:scale-[0.97] disabled:opacity-50 ${mark.tone}`}>
+                  <span aria-hidden="true">{mark.icon}</span>{copy(mark.en, mark.ar)}
+                  {count > 0 && <span className="rounded-full bg-white/90 px-2 text-xs font-bold text-black">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
         <button
           type="button"
           // Marks on touch-down: a second finger (while the first holds REC) gets no "click" on phones.
-          onPointerDown={addMark}
+          onPointerDown={() => addMark()}
           // Keyboard (Enter/Space) produces a click without a pointer; detail is 0 then.
           onClick={(event) => { if (event.detail === 0) addMark(); }}
           disabled={stage !== "recording"}
@@ -205,6 +245,7 @@ export function DrivingMode() {
           {copy("Mark this moment", "علّم هذه اللحظة")}
           {markCount > 0 && <span className="rounded-full bg-amber-300 px-2.5 py-0.5 text-sm font-bold text-amber-950">{markCount}</span>}
         </button>
+        )}
         <button
           ref={stopButton}
           type="button"
@@ -214,7 +255,7 @@ export function DrivingMode() {
         >
           {saving || starting ? <Loader2 size={48} className="animate-spin" /> : <Square size={46} fill="currentColor" />}
           <span className="text-2xl font-semibold">
-            {hold ? copy("Release to save", "اترك للحفظ") : copy("Tap to stop & save", "اضغط للإيقاف والحفظ")}
+            {hold ? copy("Release to save", "اترك للحفظ") : meeting ? copy("End meeting & save", "أنهِ الاجتماع واحفظ") : copy("Tap to stop & save", "اضغط للإيقاف والحفظ")}
           </span>
           <span className="text-sm text-white/75">{hold ? copy("Keep holding while you talk", "استمر بالضغط أثناء الكلام") : "Alt + R"}</span>
         </button>

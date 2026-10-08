@@ -18,6 +18,8 @@ tags:
     description: AI conversations grounded in an individual idea
   - name: compilation
     description: Turning collected ideas into drafts
+  - name: meetings
+    description: Recorded meetings with speakers and minutes
   - name: tasks
     description: Tasks found in recordings or added by hand
   - name: search
@@ -548,6 +550,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DigestResponse"
+  /meetings:
+    get:
+      operationId: listMeetings
+      tags: [meetings]
+      summary: Recorded meetings, newest first
+      responses:
+        "200":
+          description: Meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingSummary"
+  /meetings/{meetingId}:
+    get:
+      operationId: getMeeting
+      tags: [meetings]
+      summary: A meeting with its transcript, speakers and minutes
+      parameters:
+        - $ref: "#/components/parameters/MeetingId"
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+    patch:
+      operationId: updateMeeting
+      tags: [meetings]
+      summary: Rename the meeting or its speakers, or change its notebook
+      parameters:
+        - $ref: "#/components/parameters/MeetingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingUpdate"
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+  /meetings/{meetingId}/process:
+    post:
+      operationId: processMeeting
+      tags: [meetings]
+      summary: Make (or remake) the meeting's text and minutes
+      parameters:
+        - $ref: "#/components/parameters/MeetingId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingProcessInput"
+      responses:
+        "202":
+          description: Started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+  /meetings/{meetingId}/ask:
+    post:
+      operationId: askMeeting
+      tags: [meetings]
+      summary: Ask a question about this meeting
+      parameters:
+        - $ref: "#/components/parameters/MeetingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskInput"
+      responses:
+        "200":
+          description: The answer, citing moments as [m:ss]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingAnswer"
   /dashboard:
     get:
       operationId: getDashboard
@@ -1098,6 +1187,12 @@ paths:
           description: Object content
 components:
   parameters:
+    MeetingId:
+      name: meetingId
+      in: path
+      required: true
+      schema:
+        type: integer
     SubjectId:
       name: subjectId
       in: path
@@ -1422,6 +1517,219 @@ components:
         tighten:
           type: boolean
           description: Shorten long pauses (default true).
+    MeetingMarker:
+      type: object
+      required: [at, kind]
+      properties:
+        at:
+          type: number
+          minimum: 0
+        kind:
+          type: string
+          enum: [important, decision, action, question]
+    MeetingStart:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        subjectId:
+          type: ["integer", "null"]
+        participants:
+          type: array
+          maxItems: 30
+          items:
+            type: string
+            maxLength: 80
+        agenda:
+          type: string
+          maxLength: 4000
+        markers:
+          type: array
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/MeetingMarker"
+    MeetingSegment:
+      type: object
+      required: [start, end, speaker, text]
+      properties:
+        start:
+          type: number
+        end:
+          type: number
+        speaker:
+          type: string
+        text:
+          type: string
+    MeetingSpeaker:
+      type: object
+      required: [id, name, seconds, named]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        seconds:
+          type: number
+        named:
+          type: boolean
+    MeetingTimed:
+      type: object
+      required: [text, at]
+      properties:
+        text:
+          type: string
+        at:
+          type: ["number", "null"]
+    MeetingAction:
+      type: object
+      required: [text, owner, due, at]
+      properties:
+        text:
+          type: string
+        owner:
+          type: ["string", "null"]
+        due:
+          type: ["string", "null"]
+        at:
+          type: ["number", "null"]
+    MeetingQuote:
+      type: object
+      required: [text, speaker, at]
+      properties:
+        text:
+          type: string
+        speaker:
+          type: ["string", "null"]
+        at:
+          type: ["number", "null"]
+    MeetingTopic:
+      type: object
+      required: [title, start]
+      properties:
+        title:
+          type: string
+        start:
+          type: number
+    MeetingMinutes:
+      type: object
+      required: [summary, decisions, actions, questions, quotes, topics]
+      properties:
+        summary:
+          type: string
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingTimed"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingAction"
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingTimed"
+        quotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingQuote"
+        topics:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingTopic"
+    MeetingSummary:
+      type: object
+      required: [id, title, status, stage, libraryItemId, durationSeconds, subjectId, subjectTitle, speakerCount, actionCount, summary, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum: [processing, ready, failed]
+        stage:
+          type: ["string", "null"]
+        libraryItemId:
+          type: integer
+        durationSeconds:
+          type: ["integer", "null"]
+        subjectId:
+          type: ["integer", "null"]
+        subjectTitle:
+          type: ["string", "null"]
+        speakerCount:
+          type: integer
+        actionCount:
+          type: integer
+        summary:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+    Meeting:
+      allOf:
+        - $ref: "#/components/schemas/MeetingSummary"
+        - type: object
+          required: [url, error, participants, agenda, markers, segments, speakers, minutes, minutesText]
+          properties:
+            url:
+              type: string
+            error:
+              type: ["string", "null"]
+            participants:
+              type: array
+              items:
+                type: string
+            agenda:
+              type: string
+            markers:
+              type: array
+              items:
+                $ref: "#/components/schemas/MeetingMarker"
+            segments:
+              type: array
+              items:
+                $ref: "#/components/schemas/MeetingSegment"
+            speakers:
+              type: array
+              items:
+                $ref: "#/components/schemas/MeetingSpeaker"
+            minutes:
+              oneOf:
+                - $ref: "#/components/schemas/MeetingMinutes"
+                - type: "null"
+            minutesText:
+              type: ["string", "null"]
+              description: The minutes as text (Markdown), for copying and downloading.
+    MeetingUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        speakers:
+          type: object
+          description: Speaker id (S1, S2...) to name; an empty name goes back to "Speaker N".
+          additionalProperties:
+            type: string
+            maxLength: 60
+        subjectId:
+          type: ["integer", "null"]
+    MeetingProcessInput:
+      type: object
+      properties:
+        fresh:
+          type: boolean
+          description: Make the text with speakers again too (not only the minutes).
+    MeetingAnswer:
+      type: object
+      required: [answer]
+      properties:
+        answer:
+          type: string
     Task:
       type: object
       required: [id, text, due, time, person, done, doneAt, source, sourceId, sourceTitle, sourceUrl, at, createdAt]
@@ -1796,7 +2104,7 @@ components:
           format: date-time
         marks:
           type: array
-          maxItems: 100
+          maxItems: 500
           items:
             type: number
             minimum: 0
@@ -1807,6 +2115,8 @@ components:
           type: string
           enum: [recording, music]
           default: recording
+        meeting:
+          $ref: "#/components/schemas/MeetingStart"
     LibraryTranscriptionInput:
       type: object
       properties:

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalStorageUrl } from "./stored-transcription";
@@ -378,4 +378,39 @@ export async function buildEpisode(urls: string[], options: EpisodeOptions) {
     for (const length of lengths) { starts.push(Math.round(at * 10) / 10); at += length + gap; }
     return { ...(await publish(output, sources[0].prefix)), starts };
   });
+}
+
+export type MeetingPart = { path: string; start: number; length: number };
+
+/**
+ * A meeting's audio in parts small enough to turn into text (mono, 16 kHz MP3, `partSeconds`
+ * each), plus a way to cut short clips (voice samples) from it. Files are removed afterwards.
+ * Runs outside the editing slots, so a long meeting never blocks editing.
+ */
+export async function withMeetingAudio<T>(url: string, partSeconds: number, work: (audio: {
+  duration: number; parts: MeetingPart[]; clip: (from: number, to: number) => Promise<Buffer>;
+}) => Promise<T>): Promise<T> {
+  const source = await storedFile(url);
+  const dir = await mkdtemp(join(tmpdir(), "idea-stream-meeting-"));
+  const speech = ["-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "48k"];
+  try {
+    const duration = await audioDuration(source.path);
+    const parts: MeetingPart[] = [];
+    for (let start = 0; start < duration; start += partSeconds) {
+      const length = Math.min(partSeconds, duration - start);
+      if (length < 1 && parts.length) break;
+      const path = join(dir, `part${parts.length}.mp3`);
+      await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-ss", start.toFixed(2), "-t", length.toFixed(2), ...speech, path], 600_000);
+      parts.push({ path, start, length });
+    }
+    let clips = 0;
+    const clip = async (from: number, to: number) => {
+      const path = join(dir, `clip${clips++}.mp3`);
+      await run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-i", source.path, "-ss", from.toFixed(2), "-t", Math.max(0.5, to - from).toFixed(2), ...speech, path], 120_000);
+      return readFile(path);
+    };
+    return await work({ duration, parts, clip });
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
 }

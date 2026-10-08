@@ -97,6 +97,8 @@ export async function syncRecording(
       capturedAt: record.capturedAt,
       ...(record.durationSeconds ? { durationSeconds: record.durationSeconds } : {}),
       ...(record.marks?.length ? { marks: record.marks } : {}),
+      // A meeting: the server makes its text (with speakers) and minutes.
+      ...(record.meeting ? { meeting: { ...record.meeting, markers: (record.marks ?? []).map((at, index) => ({ at, kind: record.markKinds?.[index] ?? "important" })) } } : {}),
     });
     const libraryItemId = record.libraryItemId ?? item!.id;
     await store.patch(id, { libraryItemId });

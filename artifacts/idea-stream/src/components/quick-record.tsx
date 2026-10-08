@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import {
   ArrowUpRight,
+  CalendarClock,
   CheckCircle2,
   CloudUpload,
   FolderCheck,
@@ -13,6 +14,7 @@ import {
 import { useListSubjects } from "@workspace/api-client-react";
 import { useRecorder } from "@/components/recorder-provider";
 import { OptionPill } from "@/components/option-pill";
+import { openMeetingStart } from "@/components/meeting-start";
 import { useLanguage } from "@/lib/i18n";
 import { useRecorderPrefs, type SpokenLanguage } from "@/lib/recorder-prefs";
 
@@ -233,6 +235,10 @@ export function QuickRecord() {
             onClick={() => void record()}
           />
           <span className="text-sm font-semibold">{copy("Tap to record", "اضغط للتسجيل")}</span>
+          <button type="button" onClick={() => openMeetingStart()} disabled={!ready || stage !== "idle" || !!rescue}
+            className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3.5 py-1.5 text-xs font-semibold text-sky-800 transition hover:bg-sky-500/15 disabled:opacity-50 dark:text-sky-200">
+            <CalendarClock size={14} />{copy("Record a meeting", "سجّل اجتماعًا")}
+          </button>
         </div>
       </div>
       <LatestNote />

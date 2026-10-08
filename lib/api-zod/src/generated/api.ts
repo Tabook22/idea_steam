@@ -786,6 +786,299 @@ export const MakeDigestResponse = zod.object({
 
 
 /**
+ * @summary Recorded meetings, newest first
+ */
+export const ListMeetingsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "stage": zod.string().nullable(),
+  "libraryItemId": zod.number().int(),
+  "durationSeconds": zod.number().int().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "speakerCount": zod.number().int(),
+  "actionCount": zod.number().int(),
+  "summary": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+export const ListMeetingsResponse = zod.array(ListMeetingsResponseItem)
+
+
+/**
+ * @summary A meeting with its transcript, speakers and minutes
+ */
+export const GetMeetingParams = zod.object({
+  "meetingId": zod.coerce.number().int()
+})
+
+export const getMeetingResponseTwoMarkersItemAtMin = 0;
+
+
+
+export const GetMeetingResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "stage": zod.string().nullable(),
+  "libraryItemId": zod.number().int(),
+  "durationSeconds": zod.number().int().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "speakerCount": zod.number().int(),
+  "actionCount": zod.number().int(),
+  "summary": zod.string().nullable(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "url": zod.string(),
+  "error": zod.string().nullable(),
+  "participants": zod.array(zod.string()),
+  "agenda": zod.string(),
+  "markers": zod.array(zod.object({
+  "at": zod.number().min(getMeetingResponseTwoMarkersItemAtMin),
+  "kind": zod.enum(['important', 'decision', 'action', 'question'])
+})),
+  "segments": zod.array(zod.object({
+  "start": zod.number(),
+  "end": zod.number(),
+  "speaker": zod.string(),
+  "text": zod.string()
+})),
+  "speakers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "seconds": zod.number(),
+  "named": zod.boolean()
+})),
+  "minutes": zod.union([zod.object({
+  "summary": zod.string(),
+  "decisions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "actions": zod.array(zod.object({
+  "text": zod.string(),
+  "owner": zod.string().nullable(),
+  "due": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "questions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "quotes": zod.array(zod.object({
+  "text": zod.string(),
+  "speaker": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "topics": zod.array(zod.object({
+  "title": zod.string(),
+  "start": zod.number()
+}))
+}),zod.null()]),
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.')
+}))
+
+
+/**
+ * @summary Rename the meeting or its speakers, or change its notebook
+ */
+export const UpdateMeetingParams = zod.object({
+  "meetingId": zod.coerce.number().int()
+})
+
+export const updateMeetingBodyTitleMax = 200;
+
+export const updateMeetingBodySpeakersMaxOne = 60;
+
+
+
+export const UpdateMeetingBody = zod.object({
+  "title": zod.string().min(1).max(updateMeetingBodyTitleMax).optional(),
+  "speakers": zod.record(zod.string(), zod.string().max(updateMeetingBodySpeakersMaxOne)).optional().describe('Speaker id (S1, S2...) to name; an empty name goes back to "Speaker N".'),
+  "subjectId": zod.number().int().nullish()
+})
+
+export const updateMeetingResponseTwoMarkersItemAtMin = 0;
+
+
+
+export const UpdateMeetingResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "stage": zod.string().nullable(),
+  "libraryItemId": zod.number().int(),
+  "durationSeconds": zod.number().int().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "speakerCount": zod.number().int(),
+  "actionCount": zod.number().int(),
+  "summary": zod.string().nullable(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "url": zod.string(),
+  "error": zod.string().nullable(),
+  "participants": zod.array(zod.string()),
+  "agenda": zod.string(),
+  "markers": zod.array(zod.object({
+  "at": zod.number().min(updateMeetingResponseTwoMarkersItemAtMin),
+  "kind": zod.enum(['important', 'decision', 'action', 'question'])
+})),
+  "segments": zod.array(zod.object({
+  "start": zod.number(),
+  "end": zod.number(),
+  "speaker": zod.string(),
+  "text": zod.string()
+})),
+  "speakers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "seconds": zod.number(),
+  "named": zod.boolean()
+})),
+  "minutes": zod.union([zod.object({
+  "summary": zod.string(),
+  "decisions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "actions": zod.array(zod.object({
+  "text": zod.string(),
+  "owner": zod.string().nullable(),
+  "due": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "questions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "quotes": zod.array(zod.object({
+  "text": zod.string(),
+  "speaker": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "topics": zod.array(zod.object({
+  "title": zod.string(),
+  "start": zod.number()
+}))
+}),zod.null()]),
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.')
+}))
+
+
+/**
+ * @summary Make (or remake) the meeting's text and minutes
+ */
+export const ProcessMeetingParams = zod.object({
+  "meetingId": zod.coerce.number().int()
+})
+
+export const ProcessMeetingBody = zod.object({
+  "fresh": zod.boolean().optional().describe('Make the text with speakers again too (not only the minutes).')
+})
+
+export const processMeetingResponseTwoMarkersItemAtMin = 0;
+
+
+
+export const ProcessMeetingResponse = zod.object({
+  "id": zod.number().int(),
+  "title": zod.string(),
+  "status": zod.enum(['processing', 'ready', 'failed']),
+  "stage": zod.string().nullable(),
+  "libraryItemId": zod.number().int(),
+  "durationSeconds": zod.number().int().nullable(),
+  "subjectId": zod.number().int().nullable(),
+  "subjectTitle": zod.string().nullable(),
+  "speakerCount": zod.number().int(),
+  "actionCount": zod.number().int(),
+  "summary": zod.string().nullable(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "url": zod.string(),
+  "error": zod.string().nullable(),
+  "participants": zod.array(zod.string()),
+  "agenda": zod.string(),
+  "markers": zod.array(zod.object({
+  "at": zod.number().min(processMeetingResponseTwoMarkersItemAtMin),
+  "kind": zod.enum(['important', 'decision', 'action', 'question'])
+})),
+  "segments": zod.array(zod.object({
+  "start": zod.number(),
+  "end": zod.number(),
+  "speaker": zod.string(),
+  "text": zod.string()
+})),
+  "speakers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "seconds": zod.number(),
+  "named": zod.boolean()
+})),
+  "minutes": zod.union([zod.object({
+  "summary": zod.string(),
+  "decisions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "actions": zod.array(zod.object({
+  "text": zod.string(),
+  "owner": zod.string().nullable(),
+  "due": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "questions": zod.array(zod.object({
+  "text": zod.string(),
+  "at": zod.number().nullable()
+})),
+  "quotes": zod.array(zod.object({
+  "text": zod.string(),
+  "speaker": zod.string().nullable(),
+  "at": zod.number().nullable()
+})),
+  "topics": zod.array(zod.object({
+  "title": zod.string(),
+  "start": zod.number()
+}))
+}),zod.null()]),
+  "minutesText": zod.string().nullable().describe('The minutes as text (Markdown), for copying and downloading.')
+}))
+
+
+/**
+ * @summary Ask a question about this meeting
+ */
+export const AskMeetingParams = zod.object({
+  "meetingId": zod.coerce.number().int()
+})
+
+export const askMeetingBodyQuestionMin = 2;
+export const askMeetingBodyQuestionMax = 500;
+
+export const askMeetingBodyHistoryItemQuestionMax = 500;
+
+export const askMeetingBodyHistoryItemAnswerMax = 4000;
+
+export const askMeetingBodyHistoryMax = 6;
+
+
+
+export const AskMeetingBody = zod.object({
+  "question": zod.string().min(askMeetingBodyQuestionMin).max(askMeetingBodyQuestionMax),
+  "subjectId": zod.number().int().nullish().describe('Only this subject\'s recordings, ideas and drafts.'),
+  "history": zod.array(zod.object({
+  "question": zod.string().max(askMeetingBodyHistoryItemQuestionMax),
+  "answer": zod.string().max(askMeetingBodyHistoryItemAnswerMax)
+})).max(askMeetingBodyHistoryMax).optional().describe('Earlier questions and answers, for follow-up questions.')
+})
+
+export const AskMeetingResponse = zod.object({
+  "answer": zod.string()
+})
+
+
+/**
  * @summary Home dashboard - activity, streak, where you left off, and an older idea brought back
  */
 export const getDashboardQueryOffsetMin = -840;
@@ -1111,11 +1404,24 @@ export const createLibraryRecordingBodyDurationSecondsMax = 86400;
 
 export const createLibraryRecordingBodyMarksItemMin = 0;
 
-export const createLibraryRecordingBodyMarksMax = 100;
+export const createLibraryRecordingBodyMarksMax = 500;
 
 export const createLibraryRecordingBodyTitleMax = 200;
 
 export const createLibraryRecordingBodyKindDefault = `recording`;
+export const createLibraryRecordingBodyMeetingTitleMax = 200;
+
+export const createLibraryRecordingBodyMeetingParticipantsItemMax = 80;
+
+export const createLibraryRecordingBodyMeetingParticipantsMax = 30;
+
+export const createLibraryRecordingBodyMeetingAgendaMax = 4000;
+
+export const createLibraryRecordingBodyMeetingMarkersItemAtMin = 0;
+
+export const createLibraryRecordingBodyMeetingMarkersMax = 500;
+
+
 
 export const CreateLibraryRecordingBody = zod.object({
   "url": zod.string().min(1).describe('Path of the uploaded audio in this app\'s storage.'),
@@ -1125,7 +1431,17 @@ export const CreateLibraryRecordingBody = zod.object({
   "capturedAt": zod.coerce.date().optional(),
   "marks": zod.array(zod.number().min(createLibraryRecordingBodyMarksItemMin)).max(createLibraryRecordingBodyMarksMax).optional(),
   "title": zod.string().max(createLibraryRecordingBodyTitleMax).optional(),
-  "kind": zod.enum(['recording', 'music']).default(createLibraryRecordingBodyKindDefault)
+  "kind": zod.enum(['recording', 'music']).default(createLibraryRecordingBodyKindDefault),
+  "meeting": zod.object({
+  "title": zod.string().min(1).max(createLibraryRecordingBodyMeetingTitleMax),
+  "subjectId": zod.number().int().nullish(),
+  "participants": zod.array(zod.string().max(createLibraryRecordingBodyMeetingParticipantsItemMax)).max(createLibraryRecordingBodyMeetingParticipantsMax).optional(),
+  "agenda": zod.string().max(createLibraryRecordingBodyMeetingAgendaMax).optional(),
+  "markers": zod.array(zod.object({
+  "at": zod.number().min(createLibraryRecordingBodyMeetingMarkersItemAtMin),
+  "kind": zod.enum(['important', 'decision', 'action', 'question'])
+})).max(createLibraryRecordingBodyMeetingMarkersMax).optional()
+}).optional()
 })
 
 export const createLibraryRecordingResponseMixTwoSettingsMusicStartMin = 0;

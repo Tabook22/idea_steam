@@ -9,7 +9,7 @@ import {
 } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { RecordingStore, type LocalRecording } from "@/lib/recording-store";
+import { RecordingStore, type LocalRecording, type MarkKind, type MeetingInfo } from "@/lib/recording-store";
 import { maxTranscriptionAttempts, syncRecording, transcribeRecording } from "@/lib/recording-sync";
 import { useLanguage } from "@/lib/i18n";
 import { readRecorderPrefs } from "@/lib/recorder-prefs";
@@ -38,7 +38,10 @@ type Session = {
   limit: number;
   meter?: { context: AudioContext; analyser: AnalyserNode };
   marks: number[];
+  markKinds: MarkKind[];
 };
+/** Meetings can run up to three hours; voice notes up to fifteen minutes. */
+const MEETING_LIMIT = 3 * 60 * 60;
 export type StartOptions = {
   language: "auto" | "en" | "ar";
   autoTranscribe: boolean;
@@ -46,8 +49,10 @@ export type StartOptions = {
   hold?: boolean;
   /** Save only to the audio library, not to any subject. */
   libraryOnly?: boolean;
+  /** Record a meeting: long, with typed markers, turned into minutes after upload. */
+  meeting?: MeetingInfo;
 };
-type RecordingTarget = { subjectId: number | null; limit: number; autoTranscribe: boolean; hold: boolean; libraryOnly: boolean };
+type RecordingTarget = { subjectId: number | null; limit: number; autoTranscribe: boolean; hold: boolean; libraryOnly: boolean; meeting?: MeetingInfo };
 type RecorderContextValue = {
   records: LocalRecording[];
   stage: Stage;
@@ -55,9 +60,11 @@ type RecorderContextValue = {
   audioLevel: number;
   /** Current microphone level (0–1), read on demand for smooth animation. */
   readLevel: () => number;
-  /** Bookmark the current moment of the recording. */
-  addMark: () => void;
+  /** Bookmark the current moment of the recording (meetings: with what it is). */
+  addMark: (kind?: MarkKind) => void;
   markCount: number;
+  /** Meetings: how many of each marker. */
+  markKinds: MarkKind[];
   /** Where the current recording will be filed, for the recording screen. */
   target: RecordingTarget | null;
   activeId: string | null;
@@ -102,6 +109,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [markCount, setMarkCount] = useState(0);
+  const [markKinds, setMarkKinds] = useState<MarkKind[]>([]);
   const [target, setTarget] = useState<RecordingTarget | null>(null);
   const [seconds, setSeconds] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -130,14 +138,16 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     const rms = Math.sqrt(samples.reduce((sum, value) => sum + ((value - 128) / 128) ** 2, 0) / samples.length);
     return Math.min(1, rms * 4);
   }, []);
-  const addMark = useCallback(() => {
+  const addMark = useCallback((kind: MarkKind = "important") => {
     const current = session.current;
     if (!current || current.recorder.state !== "recording") return;
     const at = Math.round(((Date.now() - current.started) / 1000) * 10) / 10;
     // Ignore an accidental double tap.
     if (current.marks.length && at - current.marks[current.marks.length - 1] < 0.5) return;
     current.marks.push(at);
+    current.markKinds.push(kind);
     setMarkCount(current.marks.length);
+    setMarkKinds([...current.markKinds]);
     try { navigator.vibrate?.([15, 60, 15]); } catch { /* optional */ }
   }, []);
   /** Text conversion: its own queue, so it never holds up saving new recordings. */
@@ -250,13 +260,15 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       preparing.current = true;
       setTarget({
         subjectId,
-        limit: Math.min(900, Math.max(10, limit)),
-        autoTranscribe: options?.autoTranscribe ?? true,
+        limit: options?.meeting ? MEETING_LIMIT : Math.min(900, Math.max(10, limit)),
+        autoTranscribe: options?.meeting ? false : options?.autoTranscribe ?? true,
         hold: options?.hold ?? false,
-        libraryOnly: options?.libraryOnly ?? false,
+        libraryOnly: options?.meeting ? true : options?.libraryOnly ?? false,
+        meeting: options?.meeting,
       });
       setStage("starting");
       setMarkCount(0);
+      setMarkKinds([]);
       setError(null);
       let release = () => {};
       let stream: MediaStream | undefined;
@@ -280,7 +292,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           id,
           capturedAt,
           updatedAt: Date.now(),
-          title: `${isArabic ? "فكرة صوتية" : "Voice idea"} · ${new Intl.DateTimeFormat(language, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date())}`,
+          title: options?.meeting?.title || `${isArabic ? "فكرة صوتية" : "Voice idea"} · ${new Intl.DateTimeFormat(language, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date())}`,
           status: "recording",
           chunks: 0,
           bytes: 0,
@@ -288,18 +300,21 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           durationSeconds: 0,
           language,
           transcriptionLanguage: options?.language || "auto",
-          autoTranscribe: options?.autoTranscribe ?? true,
-          subjectId: options?.libraryOnly ? null : subjectId,
+          // A meeting's text (with speakers) is made on the server, with its minutes.
+          autoTranscribe: options?.meeting ? false : options?.autoTranscribe ?? true,
+          subjectId: options?.libraryOnly || options?.meeting ? null : subjectId,
           // Without a subject it stays in the audio library (add it to a subject later from there).
-          ...(options?.libraryOnly || subjectId === null ? { destination: "library" as const } : {}),
+          ...(options?.libraryOnly || options?.meeting || subjectId === null ? { destination: "library" as const } : {}),
+          ...(options?.meeting ? { meeting: options.meeting } : {}),
           attempts: 0,
           nextRetryAt: 0,
         });
         stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             channelCount: { ideal: 1 },
-            echoCancellation: true,
-            noiseSuppression: true,
+            // In a meeting the phone lies on the table: keep quieter, farther voices.
+            echoCancellation: !options?.meeting,
+            noiseSuppression: !options?.meeting,
             autoGainControl: true,
           },
         });
@@ -309,7 +324,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         );
         const recorder = new MediaRecorder(stream, {
           ...(mimeType ? { mimeType } : {}),
-          audioBitsPerSecond: 96_000,
+          // Speech at 32 kbps keeps a three-hour meeting under the upload limit.
+          audioBitsPerSecond: options?.meeting ? 32_000 : 96_000,
         });
         await recordingStore.patch(id, { mimeType: recorder.mimeType });
         const current: Session = {
@@ -322,8 +338,9 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
           chunks: [],
           failed: false,
           interrupted: false,
-          limit: Math.min(900, Math.max(10, limit)),
+          limit: options?.meeting ? MEETING_LIMIT : Math.min(900, Math.max(10, limit)),
           marks: [],
+          markKinds: [],
         };
         try {
           const context = new AudioContext();
@@ -390,6 +407,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
                   (Date.now() - current.started) / 1000,
                 ),
                 marks: current.marks,
+                ...(current.markKinds.some((kind) => kind !== "important") || options?.meeting ? { markKinds: current.markKinds } : {}),
               });
               setSavedAt(Date.now());
               navigator.vibrate?.([18, 60, 28]);
@@ -584,6 +602,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         audioLevel,
         readLevel,
         addMark,
+        markKinds,
         markCount,
         target,
         activeId,

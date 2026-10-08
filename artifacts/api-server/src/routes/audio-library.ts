@@ -4,6 +4,7 @@ import {
   audioLibraryTable,
   db,
   ideasTable,
+  meetingsTable,
   subjectsTable,
   type AudioLibraryRecord,
 } from "@workspace/db";
@@ -37,6 +38,7 @@ import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { cleanMarks, joinMarks, parseChapters, remapMarks, transcriptSegments } from "../lib/audio-marks";
 import { LEGACY_SUFFIX, findLegacySource, snippet } from "../lib/legacy-mix";
 import { findTasksLater } from "../lib/task-extract";
+import { processMeetingLater } from "../lib/meeting-process";
 
 const router: IRouter = Router();
 
@@ -274,6 +276,21 @@ router.post("/audio-library/recordings", async (req, res): Promise<void> => {
     eq(audioLibraryTable.url, body.data.url),
   ));
   if (!saved) { res.status(409).json({ error: "The recording could not be saved" }); return; }
+  // A meeting: keep its details and start on the text with speakers and the minutes.
+  const meeting = body.data.meeting;
+  if (meeting) {
+    const [created] = await db.insert(meetingsTable).values({
+      libraryItemId: saved.item.id,
+      title: meeting.title.trim(),
+      subjectId: meeting.subjectId ?? null,
+      participants: (meeting.participants ?? []).map((name) => name.trim()).filter(Boolean),
+      agenda: meeting.agenda ?? "",
+      markers: (meeting.markers ?? []).filter((mark) => mark.at >= 0),
+      status: "processing",
+      stage: "waiting",
+    }).onConflictDoNothing().returning({ id: meetingsTable.id });
+    if (created) processMeetingLater(created.id);
+  }
   res.status(inserted ? 201 : 200).json(serialize(saved));
 });
 

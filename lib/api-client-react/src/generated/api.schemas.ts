@@ -252,6 +252,165 @@ export interface EpisodeInput {
   tighten?: boolean;
 }
 
+export type MeetingMarkerKind = typeof MeetingMarkerKind[keyof typeof MeetingMarkerKind];
+
+
+export const MeetingMarkerKind = {
+  important: 'important',
+  decision: 'decision',
+  action: 'action',
+  question: 'question',
+} as const;
+
+export interface MeetingMarker {
+  /** @minimum 0 */
+  at: number;
+  kind: MeetingMarkerKind;
+}
+
+export interface MeetingStart {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title: string;
+  /** @nullable */
+  subjectId?: number | null;
+  /**
+     * @maxItems 30
+     * @items.maxLength 80
+     */
+  participants?: string[];
+  /** @maxLength 4000 */
+  agenda?: string;
+  /** @maxItems 500 */
+  markers?: MeetingMarker[];
+}
+
+export interface MeetingSegment {
+  start: number;
+  end: number;
+  speaker: string;
+  text: string;
+}
+
+export interface MeetingSpeaker {
+  id: string;
+  name: string;
+  seconds: number;
+  named: boolean;
+}
+
+export interface MeetingTimed {
+  text: string;
+  /** @nullable */
+  at: number | null;
+}
+
+export interface MeetingAction {
+  text: string;
+  /** @nullable */
+  owner: string | null;
+  /** @nullable */
+  due: string | null;
+  /** @nullable */
+  at: number | null;
+}
+
+export interface MeetingQuote {
+  text: string;
+  /** @nullable */
+  speaker: string | null;
+  /** @nullable */
+  at: number | null;
+}
+
+export interface MeetingTopic {
+  title: string;
+  start: number;
+}
+
+export interface MeetingMinutes {
+  summary: string;
+  decisions: MeetingTimed[];
+  actions: MeetingAction[];
+  questions: MeetingTimed[];
+  quotes: MeetingQuote[];
+  topics: MeetingTopic[];
+}
+
+export type MeetingSummaryStatus = typeof MeetingSummaryStatus[keyof typeof MeetingSummaryStatus];
+
+
+export const MeetingSummaryStatus = {
+  processing: 'processing',
+  ready: 'ready',
+  failed: 'failed',
+} as const;
+
+export interface MeetingSummary {
+  id: number;
+  title: string;
+  status: MeetingSummaryStatus;
+  /** @nullable */
+  stage: string | null;
+  libraryItemId: number;
+  /** @nullable */
+  durationSeconds: number | null;
+  /** @nullable */
+  subjectId: number | null;
+  /** @nullable */
+  subjectTitle: string | null;
+  speakerCount: number;
+  actionCount: number;
+  /** @nullable */
+  summary: string | null;
+  createdAt: string;
+}
+
+export type Meeting = MeetingSummary & ({
+  url: string;
+  /** @nullable */
+  error: string | null;
+  participants: string[];
+  agenda: string;
+  markers: MeetingMarker[];
+  segments: MeetingSegment[];
+  speakers: MeetingSpeaker[];
+  minutes: MeetingMinutes | null;
+  /**
+     * The minutes as text (Markdown), for copying and downloading.
+     * @nullable
+     */
+  minutesText: string | null;
+});
+
+/**
+ * Speaker id (S1, S2...) to name; an empty name goes back to "Speaker N".
+ */
+export type MeetingUpdateSpeakers = {[key: string]: string};
+
+export interface MeetingUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  title?: string;
+  /** Speaker id (S1, S2...) to name; an empty name goes back to "Speaker N". */
+  speakers?: MeetingUpdateSpeakers;
+  /** @nullable */
+  subjectId?: number | null;
+}
+
+export interface MeetingProcessInput {
+  /** Make the text with speakers again too (not only the minutes). */
+  fresh?: boolean;
+}
+
+export interface MeetingAnswer {
+  answer: string;
+}
+
 export type TaskSource = typeof TaskSource[keyof typeof TaskSource];
 
 
@@ -695,13 +854,14 @@ export interface LibraryRecordingInput {
   durationSeconds?: number;
   capturedAt?: string;
   /**
-     * @maxItems 100
+     * @maxItems 500
      * @items.minimum 0
      */
   marks?: number[];
   /** @maxLength 200 */
   title?: string;
   kind?: LibraryRecordingInputKind;
+  meeting?: MeetingStart;
 }
 
 export type LibraryTranscriptionInputLanguage = typeof LibraryTranscriptionInputLanguage[keyof typeof LibraryTranscriptionInputLanguage];

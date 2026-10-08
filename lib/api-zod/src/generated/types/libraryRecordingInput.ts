@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { LibraryRecordingInputKind } from './libraryRecordingInputKind';
+import type { MeetingStart } from './meetingStart';
 
 export interface LibraryRecordingInput {
   /**
@@ -23,11 +24,12 @@ export interface LibraryRecordingInput {
   durationSeconds?: number;
   capturedAt?: Date;
   /**
-     * @maxItems 100
+     * @maxItems 500
      * @items.minimum 0
      */
   marks?: number[];
   /** @maxLength 200 */
   title?: string;
   kind?: LibraryRecordingInputKind;
+  meeting?: MeetingStart;
 }

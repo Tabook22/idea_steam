@@ -19,6 +19,9 @@ import SharePage from "@/pages/share";
 import LibraryPage from "@/pages/library";
 import TasksPage from "@/pages/tasks";
 import EpisodeStudio from "@/pages/episode-studio";
+import MeetingsPage from "@/pages/meetings";
+import MeetingPage from "@/pages/meeting";
+import { MeetingStart } from "@/components/meeting-start";
 import { TasksButton } from "@/components/home-tasks";
 import { RecorderProvider } from "@/components/recorder-provider";
 import { LanguageProvider, useLanguage } from "@/lib/i18n";
@@ -123,6 +126,8 @@ function Router() {
         <Route path="/share" component={SharePage} />
         <Route path="/library" component={LibraryPage} />
         <Route path="/tasks" component={TasksPage} />
+        <Route path="/meetings" component={MeetingsPage} />
+        <Route path="/meetings/:id" component={MeetingPage} />
         <Route path="/subjects/:id/studio" component={EpisodeStudio} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
         <Route path="/sign-in/*?">{() => <Redirect to="/app" />}</Route>
@@ -145,6 +150,7 @@ function AppContent() {
         <TooltipProvider>
           <RecorderProvider>
             <ServiceNotice />
+            <MeetingStart />
             {import.meta.env.VITE_DESIGN_PREVIEW === "true" && (
               <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
                 Design preview · AI is simulated · Server data resets on restart

@@ -9,7 +9,7 @@ git pull --ff-only origin main
 pnpm install --frozen-lockfile
 pnpm typecheck
 node --experimental-strip-types --test scripts/recording.test.mjs scripts/offline-recorder.test.mjs scripts/search.test.mjs scripts/share.test.mjs scripts/audio-ranges.test.mjs scripts/audio-cleanup.test.mjs scripts/audio-marks.test.mjs scripts/audio-view.test.mjs scripts/sound-analysis.test.mjs scripts/sound-lab.test.mjs scripts/mix.test.mjs scripts/similar-sounds.test.mjs scripts/text-edit.test.mjs scripts/dashboard.test.mjs scripts/teleprompter.test.mjs
-(cd scripts && node --import tsx --test vps.test.mjs ask.test.mjs tasks.test.mjs connections.test.mjs episode.test.mjs)
+(cd scripts && node --import tsx --test vps.test.mjs ask.test.mjs tasks.test.mjs connections.test.mjs episode.test.mjs meetings.test.mjs)
 BASE_PATH=/ideas/ PORT=5185 pnpm --filter @workspace/idea-stream build
 pnpm --filter @workspace/api-server build
 set -a
@@ -34,6 +34,7 @@ previous=$(readlink "$APP_ROOT/current" || true)
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261010_covers_peaks.sql
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261011_tasks.sql
 /usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261012_weekly_digests.sql
+/usr/lib/postgresql/16/bin/psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f lib/db/migrations/20261013_meetings.sql
 ln -s "$release" "$APP_ROOT/current.next"
 mv -Tf "$APP_ROOT/current.next" "$APP_ROOT/current"
 systemctl --user enable idea-stream.service

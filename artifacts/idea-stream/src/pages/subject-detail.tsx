@@ -38,6 +38,7 @@ import {
 
 import { IdeaList } from "@/components/idea-list";
 import { CoverPicker } from "@/components/cover-picker";
+import { openMeetingStart } from "@/components/meeting-start";
 import { coverStyle } from "@/lib/covers";
 import { CreateIdeaForm } from "@/components/create-idea-form";
 const CompilationView = lazy(() =>
@@ -413,6 +414,14 @@ export default function SubjectDetailPage() {
               <Mic size={14} />
               {isArabic ? "٣. سجّل حلقة" : "03 · Record an episode"}
             </Link>
+            <button
+              type="button"
+              onClick={() => openMeetingStart(subjectDetail.id)}
+              className="flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/5 px-4 py-2 text-sky-800 dark:text-sky-200"
+            >
+              <CalendarClock size={14} />
+              {isArabic ? "سجّل اجتماعًا هنا" : "Record a meeting here"}
+            </button>
           </nav>
         </div>
       </header>

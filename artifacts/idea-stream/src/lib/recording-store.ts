@@ -1,4 +1,6 @@
 export type RecordingStatus = "recording" | "saved" | "synced";
+export type MarkKind = "important" | "decision" | "action" | "question";
+export type MeetingInfo = { title: string; subjectId: number | null; participants: string[]; agenda: string };
 export interface LocalRecording {
   id: string;
   title: string;
@@ -26,6 +28,10 @@ export interface LocalRecording {
   libraryItemId?: number;
   /** Seconds where "Mark" was tapped while recording. */
   marks?: number[];
+  /** For meetings: what each mark means (same order as `marks`). */
+  markKinds?: MarkKind[];
+  /** Set when this is a meeting recording: it becomes a meeting with minutes after upload. */
+  meeting?: MeetingInfo;
   error?: string;
   attempts: number;
   nextRetryAt: number;

@@ -25,3 +25,4 @@ export * from "./compilation-images";export * from "./audio-library";
 export * from "./ask-passages";
 export * from "./tasks";
 export * from "./weekly-digests";
+export * from "./meetings";

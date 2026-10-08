@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpRight,
+  CalendarClock,
   AudioLines,
   BookOpen,
   Feather,
@@ -198,6 +199,7 @@ export default function HomePage() {
           <Link href="/record" className="sidebar-link"><Mic size={18} />{copy("Recorder & inbox", "المسجل وصندوق التسجيلات")}</Link>
           <Link href="/library" className="sidebar-link"><Headphones size={18} />{copy("Audio library", "مكتبة الصوت")}</Link>
           <Link href="/tasks" className="sidebar-link"><ListChecks size={18} />{copy("Tasks", "المهام")}</Link>
+          <Link href="/meetings" className="sidebar-link"><CalendarClock size={18} />{copy("Meetings", "الاجتماعات")}</Link>
         </nav>
         <div className="mt-10 flex justify-between items-center">
           <p className="sidebar-label mb-0">

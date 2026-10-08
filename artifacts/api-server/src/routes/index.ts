@@ -7,6 +7,7 @@ import askRouter from "./ask";
 import dashboardRouter from "./dashboard";
 import tasksRouter from "./tasks";
 import connectionsRouter from "./connections";
+import meetingsRouter from "./meetings";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -18,6 +19,7 @@ router.use(askRouter);
 router.use(dashboardRouter);
 router.use(tasksRouter);
 router.use(connectionsRouter);
+router.use(meetingsRouter);
 router.use(audioLibraryRouter);
 router.use(storageRouter);
 
