@@ -100,6 +100,32 @@ export function notebookText(notebook: Notebook | null | undefined) {
 export const pagesToRead = (notebook: Notebook | null | undefined) =>
   (notebook?.pages ?? []).filter((page) => page.strokes.length > 0 && page.snapshot && page.handwritingRev !== page.snapshot.rev);
 
+/**
+ * Strict on purpose: a page with only lines or doodles must not turn into invented words (they
+ * would end up in the minutes).
+ */
+export const HANDWRITING_PROMPT = [
+  "You transcribe handwriting from a picture of a notebook page.",
+  "Write ONLY words and numbers you can clearly read, exactly as written, in their own language (Arabic stays Arabic), keeping line breaks and lists.",
+  "Never guess or complete unclear words; write [unclear] for a word you can't read. Ignore the page ruling, lines, scribbles and decorations.",
+  "Do not describe the page or add any introduction. If there is no readable handwriting at all, answer exactly: (none)",
+].join(" ");
+
+/** The model's answer as handwriting text: nothing when it found none, no preamble. */
+export function cleanHandwriting(answer: string) {
+  const text = answer.trim().replace(/^(the )?handwritten text( on the page)? (is|reads):?\s*/i, "").replace(/^["“]|["”]$/g, "").trim();
+  if (!text || /^\(?none\)?\.?$/i.test(text)) return "";
+  // "The image contains no readable handwriting.", "I can't transcribe…": nothing to keep.
+  if (text.length < 160 && /no (readable |legible )?(handwrit|text|words)|can(no|'|’)t (read|transcribe)|cannot (read|transcribe)|unable to (read|transcribe)/i.test(text)) return "";
+  return text.slice(0, 20_000);
+}
+
+/**
+ * Reading handwriting uses gpt-4.1 by default: in tests on near-empty pages, smaller models
+ * sometimes invented text; gpt-4.1 answered "(none)". Set OPENAI_VISION_MODEL to change it.
+ */
+const visionModel = () => process.env.OPENAI_VISION_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? textModel() : "gpt-4.1");
+
 const textModel = () => process.env.OPENAI_TEXT_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "gpt-5.6-luna" : "gpt-4.1-mini");
 
 /**
@@ -113,16 +139,17 @@ export async function readHandwriting(notebook: Notebook) {
     try {
       const image = await readStoredFile(page.snapshot!.url);
       const response = await openai.chat.completions.create({
-        model: textModel(),
+        model: visionModel(),
+        temperature: 0,
         messages: [
-          { role: "system", content: "You transcribe handwritten notes from a picture of a notebook page. Write exactly what is handwritten, in its own language (Arabic stays Arabic), keeping line breaks, lists and numbers. Ignore the page ruling. Describe any drawing or diagram in one short line in [brackets]. If nothing is handwritten, answer with nothing." },
+          { role: "system", content: HANDWRITING_PROMPT },
           { role: "user", content: [
             { type: "text", text: "Transcribe this page." },
             { type: "image_url", image_url: { url: `data:image/png;base64,${image.toString("base64")}`, detail: "high" } },
           ] },
         ],
       }, { timeout: 90_000, maxRetries: 1 });
-      page.handwriting = (response.choices[0]?.message?.content ?? "").trim().slice(0, 20_000) || undefined;
+      page.handwriting = cleanHandwriting(response.choices[0]?.message?.content ?? "") || undefined;
       page.handwritingRev = page.snapshot!.rev;
       read++;
     } catch (error) {

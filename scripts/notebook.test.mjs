@@ -81,3 +81,13 @@ test("the server checks the notebook: sizes, kinds, its own files only", () => {
   assert.equal(cleanNotebook({ pages: [] }), null);
   assert.equal(cleanNotebook(null), null);
 });
+
+test("handwriting answers: real text kept, 'nothing here' answers and preambles dropped", async () => {
+  const { cleanHandwriting, HANDWRITING_PROMPT } = await import("../artifacts/api-server/src/lib/meeting-notebook.ts");
+  assert.equal(cleanHandwriting("Budget 200 dollars  \nCall Sara on Monday"), "Budget 200 dollars  \nCall Sara on Monday");
+  assert.equal(cleanHandwriting('The handwritten text on the page is:\n\n"Study plan"'), "Study plan");
+  for (const none of ["(none)", "none", "The image contains no readable handwriting.", "I'm sorry, I can't transcribe the text from this image.", "There is no legible text.", ""])
+    assert.equal(cleanHandwriting(none), "", none);
+  assert.equal(cleanHandwriting("ميزانية ٢٠٠ دولار"), "ميزانية ٢٠٠ دولار");
+  assert.match(HANDWRITING_PROMPT, /Never guess/);
+});
