@@ -550,6 +550,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DigestResponse"
+  /compilations/{compilationId}/visuals:
+    get:
+      operationId: listCompilationVisuals
+      tags: [visuals]
+      summary: The visuals made from a draft
+      parameters:
+        - $ref: "#/components/parameters/CompilationVisualsId"
+      responses:
+        "200":
+          description: Visuals, in the draft's order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Visual"
+  /compilations/{compilationId}/visuals/plan:
+    post:
+      operationId: planCompilationVisuals
+      tags: [visuals]
+      summary: The AI reads the draft and makes visuals (pictures are drawn in the background)
+      parameters:
+        - $ref: "#/components/parameters/CompilationVisualsId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisualPlanInput"
+      responses:
+        "201":
+          description: The new visuals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Visual"
+  /visuals/{visualId}:
+    patch:
+      operationId: updateVisual
+      tags: [visuals]
+      summary: Change a visual's words, or keep the picture of a diagram
+      parameters:
+        - $ref: "#/components/parameters/VisualId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisualUpdate"
+      responses:
+        "200":
+          description: The visual
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visual"
+    delete:
+      operationId: deleteVisual
+      tags: [visuals]
+      summary: Remove a visual
+      parameters:
+        - $ref: "#/components/parameters/VisualId"
+      responses:
+        "204":
+          description: Removed
+  /visuals/{visualId}/redo:
+    post:
+      operationId: redoVisual
+      tags: [visuals]
+      summary: Make a visual again, optionally with a wish or another style
+      parameters:
+        - $ref: "#/components/parameters/VisualId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisualRedoInput"
+      responses:
+        "200":
+          description: The visual (a picture comes back as drawing)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visual"
   /books:
     get:
       operationId: listBooks
@@ -1359,6 +1446,18 @@ paths:
           description: Object content
 components:
   parameters:
+    CompilationVisualsId:
+      name: compilationId
+      in: path
+      required: true
+      schema:
+        type: integer
+    VisualId:
+      name: visualId
+      in: path
+      required: true
+      schema:
+        type: integer
     BookId:
       name: bookId
       in: path
@@ -1756,6 +1855,88 @@ components:
       properties:
         notebook:
           $ref: "#/components/schemas/NotebookDoc"
+    Visual:
+      type: object
+      required: [id, compilationId, kind, title, caption, why, anchor, style, spec, status, imageUrl, error, createdAt]
+      properties:
+        id:
+          type: integer
+        compilationId:
+          type: integer
+        kind:
+          type: string
+          enum: [picture, concept, steps, timeline, compare, chart, facts]
+        title:
+          type: string
+        caption:
+          type: string
+        why:
+          type: string
+        anchor:
+          type: string
+          description: A few words of the draft this visual belongs after.
+        style:
+          type: string
+        spec:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [ready, drawing, failed]
+        imageUrl:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+    VisualPlanInput:
+      type: object
+      required: [kinds]
+      properties:
+        kinds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            enum: [picture, concept, steps, timeline, compare, chart, facts]
+        style:
+          type: string
+          maxLength: 20
+        audience:
+          type: string
+          maxLength: 20
+        language:
+          type: string
+          enum: [auto, ar, en]
+        count:
+          type: integer
+          minimum: 1
+          maximum: 8
+        request:
+          type: string
+          maxLength: 500
+          description: The user's own idea for one visual.
+    VisualRedoInput:
+      type: object
+      properties:
+        wish:
+          type: string
+          maxLength: 500
+        style:
+          type: string
+          maxLength: 20
+    VisualUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 120
+        caption:
+          type: string
+          maxLength: 300
+        imageUrl:
+          type: string
+          maxLength: 300
     BookSummary:
       type: object
       required: [id, kind, title, cover, subjectId, subjectTitle, libraryItemId, audioTitle, meetingId, ideaId, pageCount, writtenCount, preview, paper, paperColor, updatedAt]

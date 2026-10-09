@@ -455,7 +455,7 @@ export default function SubjectDetailPage() {
 
         <aside
           id="draft-studio"
-          className="lg:col-span-5 h-full relative mt-8 lg:mt-0 border-t lg:border-t-0 pt-8 lg:pt-0 border-border/50 scroll-mt-6"
+          className="min-w-0 lg:col-span-5 h-full relative mt-8 lg:mt-0 border-t lg:border-t-0 pt-8 lg:pt-0 border-border/50 scroll-mt-6"
         >
           <div className="lg:sticky lg:top-6 h-[calc(100dvh-3rem)] min-h-[650px]">
             <Suspense

@@ -39,7 +39,7 @@ interface RichTextEditorProps {
   onUploadingChange?: (isUploading: boolean) => void;
 }
 
-const RICH_TEXT_MARKER = "<!--idea-stream-rich-text-->";
+export const RICH_TEXT_MARKER = "<!--idea-stream-rich-text-->";
 const ALLOWED_TAGS = new Set([
   "p", "br", "h1", "h2", "h3", "strong", "b", "em", "i", "u", "s",
   "strike", "ul", "ol", "li", "blockquote", "a", "img", "span", "div", "font", "mark",

@@ -28,3 +28,4 @@ export * from "./weekly-digests";
 export * from "./meetings";
 
 export * from "./books";
+export * from "./compilation-visuals";

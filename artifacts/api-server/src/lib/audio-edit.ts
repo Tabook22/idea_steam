@@ -415,6 +415,17 @@ export async function withMeetingAudio<T>(url: string, partSeconds: number, work
   }
 }
 
+/** Saves bytes (e.g. a drawn picture) as a new stored file and returns its URL. */
+export async function storeBytes(bytes: Buffer, contentType: string) {
+  const root = storageRoot();
+  const id = randomUUID();
+  const temporary = join(root, `${id}.${randomUUID()}.partial`);
+  await writeFile(temporary, bytes);
+  await rename(temporary, join(root, id));
+  await writeFile(join(root, `${id}.json`), JSON.stringify({ contentType }), { mode: 0o600 });
+  return `/api/storage/objects/${id}`;
+}
+
 /** The bytes of a file stored by this app (e.g. a notebook page picture). */
 export async function readStoredFile(url: string) {
   const source = await storedFile(url);

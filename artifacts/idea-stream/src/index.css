@@ -1021,3 +1021,8 @@ html.app-rtl .workspace-welcome h1 {
 .note-paper mark { background: #fde68a; color: #1f2937; border-radius: 3px; padding: 0 2px; }
 .note-paper a { color: hsl(var(--primary)); text-decoration: underline; }
 .note-paper :is(h1, h2, h3, p, li, div, span, strong, b, em, i, u, s, ol, ul) { color: inherit; }
+
+@keyframes visual-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}

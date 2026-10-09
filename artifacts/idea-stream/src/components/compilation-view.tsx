@@ -57,8 +57,10 @@ import { formatDateTime } from "@/lib/formatters";
 import {
   normalizeDraftHtml,
   RichTextEditor,
+  RICH_TEXT_MARKER,
   sanitizeDraftHtml,
 } from "@/components/rich-text-editor";
+import { VisualStudio } from "@/components/visual-studio";
 import {
   Dialog,
   DialogContent,
@@ -103,6 +105,7 @@ export function CompilationView({
   const [editDraft, setEditDraft] = useState("");
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [visualsOpen, setVisualsOpen] = useState(false);
   const [isReadDialogOpen, setIsReadDialogOpen] = useState(false);
   const [readDialogPosition, setReadDialogPosition] = useState({ x: 0, y: 0 });
   const [readerHtml, setReaderHtml] = useState("");
@@ -741,13 +744,13 @@ export function CompilationView({
           </div>
         ) : selectedCompilation ? (
           <div className="flex-1 flex flex-col h-full overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between p-2 md:px-4 border-b border-border/30 bg-muted/5 min-h-[48px]">
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 p-2 md:px-4 border-b border-border/30 bg-muted/5 min-h-[48px]">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium bg-primary/10 text-primary px-2.5 py-1 rounded-full">
                   {getToneLabel(selectedCompilation.tone)}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {isEditing ? (
                   <>
                     <Button
@@ -864,6 +867,20 @@ export function CompilationView({
                 )}
               </div>
             </div>
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={() => setVisualsOpen(true)}
+                className="group shrink-0 flex items-center gap-3 border-b border-border/30 bg-gradient-to-r from-violet-500/10 via-primary/5 to-amber-400/10 px-4 py-2.5 text-start transition-colors hover:from-violet-500/15 hover:to-amber-400/15"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-600 to-primary text-white shadow-sm"><Wand2 className="h-4 w-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-foreground">{copy("Turn it into visuals", "حوّلها إلى رسوم")}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{copy("Pictures, cartoons, concept maps, steps, timelines and charts made from this draft", "رسوم وكرتون وخرائط مفاهيم وخطوات وخطوط زمنية ورسوم بيانية من هذه المسودة")}</span>
+                </span>
+                <span className="shrink-0 rounded-full bg-background px-3 py-1 text-xs font-semibold text-primary shadow-sm transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5">{copy("Open", "افتح")}</span>
+              </button>
+            )}
             <div
               className="rich-text-content flex-1 overflow-auto p-6 text-foreground cursor-text"
               onClick={handleStartEdit}
@@ -877,6 +894,26 @@ export function CompilationView({
           </div>
         ) : null}
       </CardContent>
+
+      {selectedCompilation && (
+        <VisualStudio
+          open={visualsOpen}
+          onOpenChange={setVisualsOpen}
+          compilationId={selectedCompilation.id}
+          content={selectedCompilation.content}
+          saveContent={async (html) => {
+            const data = await updateCompilation.mutateAsync({
+              subjectId,
+              compilationId: selectedCompilation.id,
+              data: { content: `${RICH_TEXT_MARKER}${html}` },
+            });
+            queryClient.setQueryData<Compilation[]>(
+              getListSubjectCompilationsQueryKey(subjectId),
+              (old) => (old ? old.map((c) => (c.id === data.id ? data : c)) : []),
+            );
+          }}
+        />
+      )}
 
       <Dialog
         open={isEditing}

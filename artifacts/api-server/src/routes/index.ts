@@ -9,6 +9,7 @@ import tasksRouter from "./tasks";
 import connectionsRouter from "./connections";
 import meetingsRouter from "./meetings";
 import booksRouter from "./books";
+import visualsRouter from "./visuals";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -22,6 +23,7 @@ router.use(tasksRouter);
 router.use(connectionsRouter);
 router.use(meetingsRouter);
 router.use(booksRouter);
+router.use(visualsRouter);
 router.use(audioLibraryRouter);
 router.use(storageRouter);
 

@@ -340,6 +340,107 @@ export interface MeetingNotebookInput {
   notebook: NotebookDoc;
 }
 
+export type VisualKind = typeof VisualKind[keyof typeof VisualKind];
+
+
+export const VisualKind = {
+  picture: 'picture',
+  concept: 'concept',
+  steps: 'steps',
+  timeline: 'timeline',
+  compare: 'compare',
+  chart: 'chart',
+  facts: 'facts',
+} as const;
+
+export type VisualSpec = { [key: string]: unknown };
+
+export type VisualStatus = typeof VisualStatus[keyof typeof VisualStatus];
+
+
+export const VisualStatus = {
+  ready: 'ready',
+  drawing: 'drawing',
+  failed: 'failed',
+} as const;
+
+export interface Visual {
+  id: number;
+  compilationId: number;
+  kind: VisualKind;
+  title: string;
+  caption: string;
+  why: string;
+  /** A few words of the draft this visual belongs after. */
+  anchor: string;
+  style: string;
+  spec: VisualSpec;
+  status: VisualStatus;
+  /** @nullable */
+  imageUrl: string | null;
+  /** @nullable */
+  error: string | null;
+  createdAt: string;
+}
+
+export type VisualPlanInputKindsItem = typeof VisualPlanInputKindsItem[keyof typeof VisualPlanInputKindsItem];
+
+
+export const VisualPlanInputKindsItem = {
+  picture: 'picture',
+  concept: 'concept',
+  steps: 'steps',
+  timeline: 'timeline',
+  compare: 'compare',
+  chart: 'chart',
+  facts: 'facts',
+} as const;
+
+export type VisualPlanInputLanguage = typeof VisualPlanInputLanguage[keyof typeof VisualPlanInputLanguage];
+
+
+export const VisualPlanInputLanguage = {
+  auto: 'auto',
+  ar: 'ar',
+  en: 'en',
+} as const;
+
+export interface VisualPlanInput {
+  /** @minItems 1 */
+  kinds: VisualPlanInputKindsItem[];
+  /** @maxLength 20 */
+  style?: string;
+  /** @maxLength 20 */
+  audience?: string;
+  language?: VisualPlanInputLanguage;
+  /**
+     * @minimum 1
+     * @maximum 8
+     */
+  count?: number;
+  /**
+     * The user's own idea for one visual.
+     * @maxLength 500
+     */
+  request?: string;
+}
+
+export interface VisualRedoInput {
+  /** @maxLength 500 */
+  wish?: string;
+  /** @maxLength 20 */
+  style?: string;
+}
+
+export interface VisualUpdate {
+  /** @maxLength 120 */
+  title?: string;
+  /** @maxLength 300 */
+  caption?: string;
+  /** @maxLength 300 */
+  imageUrl?: string;
+}
+
 export type BookSummaryKind = typeof BookSummaryKind[keyof typeof BookSummaryKind];
 
 

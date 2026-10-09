@@ -786,6 +786,159 @@ export const MakeDigestResponse = zod.object({
 
 
 /**
+ * @summary The visuals made from a draft
+ */
+export const ListCompilationVisualsParams = zod.object({
+  "compilationId": zod.coerce.number().int()
+})
+
+export const ListCompilationVisualsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "compilationId": zod.number().int(),
+  "kind": zod.enum(['picture', 'concept', 'steps', 'timeline', 'compare', 'chart', 'facts']),
+  "title": zod.string(),
+  "caption": zod.string(),
+  "why": zod.string(),
+  "anchor": zod.string().describe('A few words of the draft this visual belongs after.'),
+  "style": zod.string(),
+  "spec": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['ready', 'drawing', 'failed']),
+  "imageUrl": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+export const ListCompilationVisualsResponse = zod.array(ListCompilationVisualsResponseItem)
+
+
+/**
+ * @summary The AI reads the draft and makes visuals (pictures are drawn in the background)
+ */
+export const PlanCompilationVisualsParams = zod.object({
+  "compilationId": zod.coerce.number().int()
+})
+
+
+export const planCompilationVisualsBodyStyleMax = 20;
+
+export const planCompilationVisualsBodyAudienceMax = 20;
+
+export const planCompilationVisualsBodyCountMax = 8;
+
+export const planCompilationVisualsBodyRequestMax = 500;
+
+
+
+export const PlanCompilationVisualsBody = zod.object({
+  "kinds": zod.array(zod.enum(['picture', 'concept', 'steps', 'timeline', 'compare', 'chart', 'facts'])).min(1),
+  "style": zod.string().max(planCompilationVisualsBodyStyleMax).optional(),
+  "audience": zod.string().max(planCompilationVisualsBodyAudienceMax).optional(),
+  "language": zod.enum(['auto', 'ar', 'en']).optional(),
+  "count": zod.number().int().min(1).max(planCompilationVisualsBodyCountMax).optional(),
+  "request": zod.string().max(planCompilationVisualsBodyRequestMax).optional().describe('The user\'s own idea for one visual.')
+})
+
+export const PlanCompilationVisualsResponseItem = zod.object({
+  "id": zod.number().int(),
+  "compilationId": zod.number().int(),
+  "kind": zod.enum(['picture', 'concept', 'steps', 'timeline', 'compare', 'chart', 'facts']),
+  "title": zod.string(),
+  "caption": zod.string(),
+  "why": zod.string(),
+  "anchor": zod.string().describe('A few words of the draft this visual belongs after.'),
+  "style": zod.string(),
+  "spec": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['ready', 'drawing', 'failed']),
+  "imageUrl": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+export const PlanCompilationVisualsResponse = zod.array(PlanCompilationVisualsResponseItem)
+
+
+/**
+ * @summary Change a visual's words, or keep the picture of a diagram
+ */
+export const UpdateVisualParams = zod.object({
+  "visualId": zod.coerce.number().int()
+})
+
+export const updateVisualBodyTitleMax = 120;
+
+export const updateVisualBodyCaptionMax = 300;
+
+export const updateVisualBodyImageUrlMax = 300;
+
+
+
+export const UpdateVisualBody = zod.object({
+  "title": zod.string().max(updateVisualBodyTitleMax).optional(),
+  "caption": zod.string().max(updateVisualBodyCaptionMax).optional(),
+  "imageUrl": zod.string().max(updateVisualBodyImageUrlMax).optional()
+})
+
+export const UpdateVisualResponse = zod.object({
+  "id": zod.number().int(),
+  "compilationId": zod.number().int(),
+  "kind": zod.enum(['picture', 'concept', 'steps', 'timeline', 'compare', 'chart', 'facts']),
+  "title": zod.string(),
+  "caption": zod.string(),
+  "why": zod.string(),
+  "anchor": zod.string().describe('A few words of the draft this visual belongs after.'),
+  "style": zod.string(),
+  "spec": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['ready', 'drawing', 'failed']),
+  "imageUrl": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a visual
+ */
+export const DeleteVisualParams = zod.object({
+  "visualId": zod.coerce.number().int()
+})
+
+export const DeleteVisualResponse = zod.void()
+
+
+/**
+ * @summary Make a visual again, optionally with a wish or another style
+ */
+export const RedoVisualParams = zod.object({
+  "visualId": zod.coerce.number().int()
+})
+
+export const redoVisualBodyWishMax = 500;
+
+export const redoVisualBodyStyleMax = 20;
+
+
+
+export const RedoVisualBody = zod.object({
+  "wish": zod.string().max(redoVisualBodyWishMax).optional(),
+  "style": zod.string().max(redoVisualBodyStyleMax).optional()
+})
+
+export const RedoVisualResponse = zod.object({
+  "id": zod.number().int(),
+  "compilationId": zod.number().int(),
+  "kind": zod.enum(['picture', 'concept', 'steps', 'timeline', 'compare', 'chart', 'facts']),
+  "title": zod.string(),
+  "caption": zod.string(),
+  "why": zod.string(),
+  "anchor": zod.string().describe('A few words of the draft this visual belongs after.'),
+  "style": zod.string(),
+  "spec": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['ready', 'drawing', 'failed']),
+  "imageUrl": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Handwriting books (and meeting notebooks), all or those of one subject or recording
  */
 export const ListBooksQueryParams = zod.object({
