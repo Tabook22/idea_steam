@@ -8,6 +8,7 @@
 import type { VisualKind } from './visualKind';
 import type { VisualSpec } from './visualSpec';
 import type { VisualStatus } from './visualStatus';
+import type { VisualVersion } from './visualVersion';
 
 export interface Visual {
   id: number;
@@ -25,5 +26,7 @@ export interface Visual {
   imageUrl: string | null;
   /** @nullable */
   error: string | null;
+  /** Earlier versions, newest last. */
+  history: VisualVersion[];
   createdAt: string;
 }

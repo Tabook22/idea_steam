@@ -617,6 +617,26 @@ paths:
       responses:
         "204":
           description: Removed
+  /visuals/{visualId}/restore:
+    post:
+      operationId: restoreVisual
+      tags: [visuals]
+      summary: Go back to an earlier version (the current one is kept as a version)
+      parameters:
+        - $ref: "#/components/parameters/VisualId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisualRestoreInput"
+      responses:
+        "200":
+          description: The visual
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visual"
   /visuals/{visualId}/redo:
     post:
       operationId: redoVisual
@@ -1857,7 +1877,7 @@ components:
           $ref: "#/components/schemas/NotebookDoc"
     Visual:
       type: object
-      required: [id, compilationId, kind, title, caption, why, anchor, style, spec, status, imageUrl, error, createdAt]
+      required: [id, compilationId, kind, title, caption, why, anchor, style, spec, status, imageUrl, error, history, createdAt]
       properties:
         id:
           type: integer
@@ -1887,8 +1907,33 @@ components:
           type: ["string", "null"]
         error:
           type: ["string", "null"]
+        history:
+          type: array
+          description: Earlier versions, newest last.
+          items:
+            $ref: "#/components/schemas/VisualVersion"
         createdAt:
           type: string
+    VisualVersion:
+      type: object
+      required: [imageUrl, title, note, at]
+      properties:
+        imageUrl:
+          type: ["string", "null"]
+        title:
+          type: string
+        note:
+          type: string
+          description: The change that came after this version.
+        at:
+          type: string
+    VisualRestoreInput:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: integer
+          minimum: 0
     VisualPlanInput:
       type: object
       required: [kinds]
@@ -1921,7 +1966,15 @@ components:
       properties:
         wish:
           type: string
-          maxLength: 500
+          maxLength: 1000
+        mode:
+          type: string
+          enum: [retouch, redraw]
+          description: "Pictures: retouch keeps the picture and changes what is asked; redraw draws it again."
+        prompt:
+          type: string
+          maxLength: 2000
+          description: A picture's full drawing description, rewritten by the user.
         style:
           type: string
           maxLength: 20

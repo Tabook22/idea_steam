@@ -89,6 +89,7 @@ import type {
   Visual,
   VisualPlanInput,
   VisualRedoInput,
+  VisualRestoreInput,
   VisualUpdate,
   YoutubeTranscript,
   YoutubeTranscriptInput
@@ -2997,6 +2998,95 @@ export const useDeleteVisual = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteVisualMutationOptions(options));
+    }
+
+export const getRestoreVisualUrl = (visualId: number,) => {
+
+
+
+
+  return `/api/visuals/${visualId}/restore`
+}
+
+/**
+ * @summary Go back to an earlier version (the current one is kept as a version)
+ */
+export const restoreVisual = async (visualId: number,
+    visualRestoreInput: VisualRestoreInput, options?: Parameters<typeof customFetch>[1]): Promise<Visual> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Visual>(getRestoreVisualUrl(visualId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(visualRestoreInput)
+  }
+);}
+
+
+
+
+
+export const getRestoreVisualMutationKey = () => ['restoreVisual'] as const;
+
+export const getRestoreVisualMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreVisual>>, TError,RestoreVisualMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restoreVisual>>, TError,RestoreVisualMutationVariables, TContext> => {
+
+const mutationKey = getRestoreVisualMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restoreVisual>>, RestoreVisualMutationVariables> = (props) => {
+          const {visualId,data} = props ?? {};
+
+          return  restoreVisual(visualId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreVisualMutationResult = NonNullable<Awaited<ReturnType<typeof restoreVisual>>>
+    export type RestoreVisualMutationBody = BodyType<VisualRestoreInput>
+    export type RestoreVisualMutationError = ErrorType<unknown>
+    export type RestoreVisualMutationVariables = {visualId: number;data: BodyType<VisualRestoreInput>}
+
+    /**
+ * @summary Go back to an earlier version (the current one is kept as a version)
+ */
+export const useRestoreVisual = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreVisual>>, TError,RestoreVisualMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof restoreVisual>>,
+        TError,
+        RestoreVisualMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRestoreVisualMutationOptions(options));
     }
 
 export const getRedoVisualUrl = (visualId: number,) => {

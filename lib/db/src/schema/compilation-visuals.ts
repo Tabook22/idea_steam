@@ -1,6 +1,17 @@
 import { index, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { subjectCompilationsTable } from "./subject-compilations";
 
+/** An earlier version of a visual: its picture, words and data, and the change that replaced it. */
+export type VisualVersion = {
+  imageUrl: string | null;
+  title: string;
+  caption: string;
+  style: string;
+  spec: Record<string, unknown>;
+  note: string;
+  at: string;
+};
+
 /**
  * A visual made from a Creation studio draft: an AI-drawn picture (spec.prompt) or a diagram the
  * app draws itself from spec (concept map, steps, timeline, comparison, chart, key facts).
@@ -24,6 +35,8 @@ export const compilationVisualsTable = pgTable(
     imageUrl: text("image_url"),
     error: text("error"),
     position: integer("position").notNull().default(0),
+    /** Earlier versions, newest last (kept to go back). */
+    history: jsonb("history").$type<VisualVersion[]>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("compilation_visuals_compilation_idx").on(table.compilationId)],

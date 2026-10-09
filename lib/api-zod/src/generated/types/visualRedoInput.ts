@@ -5,10 +5,18 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { VisualRedoInputMode } from './visualRedoInputMode';
 
 export interface VisualRedoInput {
-  /** @maxLength 500 */
+  /** @maxLength 1000 */
   wish?: string;
+  /** Pictures: retouch keeps the picture and changes what is asked; redraw draws it again. */
+  mode?: VisualRedoInputMode;
+  /**
+     * A picture's full drawing description, rewritten by the user.
+     * @maxLength 2000
+     */
+  prompt?: string;
   /** @maxLength 20 */
   style?: string;
 }

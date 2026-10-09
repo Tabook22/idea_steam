@@ -65,3 +65,14 @@ test("anchors match loosely (punctuation, case, a few changed words)", () => {
   assert.equal(anchorBlock(parts, "how large language models like ChatGPT really work"), 1);
   assert.equal(anchorBlock(parts, "nothing alike here at all"), -1);
 });
+
+test("retouching asks to change only what's described, keeping the rest and no lettering", async () => {
+  const { retouchPrompt, storedId } = await import("../artifacts/api-server/src/lib/visuals.ts");
+  const prompt = retouchPrompt("add an owl on the branch", "cartoon");
+  assert.match(prompt, /^Edit this picture: add an owl on the branch\./);
+  assert.match(prompt, /Keep everything else exactly as it is/);
+  assert.match(prompt, /cartoon/);
+  assert.match(prompt, /no words, letters/);
+  assert.equal(storedId("/ideas/api/storage/objects/0f8fad5b-d9cb-469f-a165-70867728950e"), "0f8fad5b-d9cb-469f-a165-70867728950e");
+  assert.equal(storedId(null), null);
+});

@@ -364,6 +364,15 @@ export const VisualStatus = {
   failed: 'failed',
 } as const;
 
+export interface VisualVersion {
+  /** @nullable */
+  imageUrl: string | null;
+  title: string;
+  /** The change that came after this version. */
+  note: string;
+  at: string;
+}
+
 export interface Visual {
   id: number;
   compilationId: number;
@@ -380,7 +389,14 @@ export interface Visual {
   imageUrl: string | null;
   /** @nullable */
   error: string | null;
+  /** Earlier versions, newest last. */
+  history: VisualVersion[];
   createdAt: string;
+}
+
+export interface VisualRestoreInput {
+  /** @minimum 0 */
+  version: number;
 }
 
 export type VisualPlanInputKindsItem = typeof VisualPlanInputKindsItem[keyof typeof VisualPlanInputKindsItem];
@@ -425,9 +441,27 @@ export interface VisualPlanInput {
   request?: string;
 }
 
+/**
+ * Pictures: retouch keeps the picture and changes what is asked; redraw draws it again.
+ */
+export type VisualRedoInputMode = typeof VisualRedoInputMode[keyof typeof VisualRedoInputMode];
+
+
+export const VisualRedoInputMode = {
+  retouch: 'retouch',
+  redraw: 'redraw',
+} as const;
+
 export interface VisualRedoInput {
-  /** @maxLength 500 */
+  /** @maxLength 1000 */
   wish?: string;
+  /** Pictures: retouch keeps the picture and changes what is asked; redraw draws it again. */
+  mode?: VisualRedoInputMode;
+  /**
+     * A picture's full drawing description, rewritten by the user.
+     * @maxLength 2000
+     */
+  prompt?: string;
   /** @maxLength 20 */
   style?: string;
 }

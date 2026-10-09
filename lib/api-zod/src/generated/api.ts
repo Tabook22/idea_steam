@@ -805,6 +805,12 @@ export const ListCompilationVisualsResponseItem = zod.object({
   "status": zod.enum(['ready', 'drawing', 'failed']),
   "imageUrl": zod.string().nullable(),
   "error": zod.string().nullable(),
+  "history": zod.array(zod.object({
+  "imageUrl": zod.string().nullable(),
+  "title": zod.string(),
+  "note": zod.string().describe('The change that came after this version.'),
+  "at": zod.string()
+})).describe('Earlier versions, newest last.'),
   "createdAt": zod.string()
 })
 export const ListCompilationVisualsResponse = zod.array(ListCompilationVisualsResponseItem)
@@ -850,6 +856,12 @@ export const PlanCompilationVisualsResponseItem = zod.object({
   "status": zod.enum(['ready', 'drawing', 'failed']),
   "imageUrl": zod.string().nullable(),
   "error": zod.string().nullable(),
+  "history": zod.array(zod.object({
+  "imageUrl": zod.string().nullable(),
+  "title": zod.string(),
+  "note": zod.string().describe('The change that came after this version.'),
+  "at": zod.string()
+})).describe('Earlier versions, newest last.'),
   "createdAt": zod.string()
 })
 export const PlanCompilationVisualsResponse = zod.array(PlanCompilationVisualsResponseItem)
@@ -889,6 +901,12 @@ export const UpdateVisualResponse = zod.object({
   "status": zod.enum(['ready', 'drawing', 'failed']),
   "imageUrl": zod.string().nullable(),
   "error": zod.string().nullable(),
+  "history": zod.array(zod.object({
+  "imageUrl": zod.string().nullable(),
+  "title": zod.string(),
+  "note": zod.string().describe('The change that came after this version.'),
+  "at": zod.string()
+})).describe('Earlier versions, newest last.'),
   "createdAt": zod.string()
 })
 
@@ -904,13 +922,53 @@ export const DeleteVisualResponse = zod.void()
 
 
 /**
+ * @summary Go back to an earlier version (the current one is kept as a version)
+ */
+export const RestoreVisualParams = zod.object({
+  "visualId": zod.coerce.number().int()
+})
+
+export const restoreVisualBodyVersionMin = 0;
+
+
+
+export const RestoreVisualBody = zod.object({
+  "version": zod.number().int().min(restoreVisualBodyVersionMin)
+})
+
+export const RestoreVisualResponse = zod.object({
+  "id": zod.number().int(),
+  "compilationId": zod.number().int(),
+  "kind": zod.enum(['picture', 'concept', 'steps', 'timeline', 'compare', 'chart', 'facts']),
+  "title": zod.string(),
+  "caption": zod.string(),
+  "why": zod.string(),
+  "anchor": zod.string().describe('A few words of the draft this visual belongs after.'),
+  "style": zod.string(),
+  "spec": zod.record(zod.string(), zod.unknown()),
+  "status": zod.enum(['ready', 'drawing', 'failed']),
+  "imageUrl": zod.string().nullable(),
+  "error": zod.string().nullable(),
+  "history": zod.array(zod.object({
+  "imageUrl": zod.string().nullable(),
+  "title": zod.string(),
+  "note": zod.string().describe('The change that came after this version.'),
+  "at": zod.string()
+})).describe('Earlier versions, newest last.'),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Make a visual again, optionally with a wish or another style
  */
 export const RedoVisualParams = zod.object({
   "visualId": zod.coerce.number().int()
 })
 
-export const redoVisualBodyWishMax = 500;
+export const redoVisualBodyWishMax = 1000;
+
+export const redoVisualBodyPromptMax = 2000;
 
 export const redoVisualBodyStyleMax = 20;
 
@@ -918,6 +976,8 @@ export const redoVisualBodyStyleMax = 20;
 
 export const RedoVisualBody = zod.object({
   "wish": zod.string().max(redoVisualBodyWishMax).optional(),
+  "mode": zod.enum(['retouch', 'redraw']).optional().describe('Pictures: retouch keeps the picture and changes what is asked; redraw draws it again.'),
+  "prompt": zod.string().max(redoVisualBodyPromptMax).optional().describe('A picture\'s full drawing description, rewritten by the user.'),
   "style": zod.string().max(redoVisualBodyStyleMax).optional()
 })
 
@@ -934,6 +994,12 @@ export const RedoVisualResponse = zod.object({
   "status": zod.enum(['ready', 'drawing', 'failed']),
   "imageUrl": zod.string().nullable(),
   "error": zod.string().nullable(),
+  "history": zod.array(zod.object({
+  "imageUrl": zod.string().nullable(),
+  "title": zod.string(),
+  "note": zod.string().describe('The change that came after this version.'),
+  "at": zod.string()
+})).describe('Earlier versions, newest last.'),
   "createdAt": zod.string()
 })
 

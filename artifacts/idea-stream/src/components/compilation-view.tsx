@@ -901,6 +901,7 @@ export function CompilationView({
           onOpenChange={setVisualsOpen}
           compilationId={selectedCompilation.id}
           content={selectedCompilation.content}
+          onDraftChanged={() => void queryClient.invalidateQueries({ queryKey: getListSubjectCompilationsQueryKey(subjectId) })}
           saveContent={async (html) => {
             const data = await updateCompilation.mutateAsync({
               subjectId,

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   deleteVisual,
   getListCompilationVisualsQueryKey,
   planCompilationVisuals,
   redoVisual,
+  restoreVisual,
   updateVisual,
   useListCompilationVisuals,
   type Visual,
@@ -33,6 +34,7 @@ import {
   X,
 } from "lucide-react";
 import { uploadFile } from "@/components/books";
+import { PICTURE_STYLES as STYLES, VISUAL_KINDS as KINDS, VisualCard, type RedoOptions } from "@/components/visual-card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -45,25 +47,6 @@ import { hasVisual, insertVisual, removeVisual } from "@/lib/visual-insert";
 type Copy = (en: string, ar: string) => string;
 type Kind = VisualPlanInputKindsItem;
 
-const KINDS: Array<{ kind: Kind; icon: typeof ImageIcon; en: string; ar: string; hint: [string, string] }> = [
-  { kind: "picture", icon: ImageIcon, en: "Pictures", ar: "رسوم", hint: ["Drawn by AI in the style you choose", "يرسمها الذكاء الاصطناعي بالأسلوب الذي تختاره"] },
-  { kind: "concept", icon: GitBranch, en: "Concept map", ar: "خريطة مفاهيم", hint: ["The main idea and its branches", "الفكرة الرئيسية وفروعها"] },
-  { kind: "steps", icon: ListOrdered, en: "Steps", ar: "خطوات", hint: ["A process, in order", "عملية بالترتيب"] },
-  { kind: "timeline", icon: Milestone, en: "Timeline", ar: "خط زمني", hint: ["Events over time", "أحداث عبر الزمن"] },
-  { kind: "compare", icon: Columns3, en: "Comparison", ar: "مقارنة", hint: ["Side by side", "جنبًا إلى جنب"] },
-  { kind: "chart", icon: BarChart3, en: "Chart", ar: "رسم بياني", hint: ["Only numbers from the text", "أرقام من النص فقط"] },
-  { kind: "facts", icon: Sparkles, en: "Key facts", ar: "حقائق رئيسية", hint: ["The essentials at a glance", "الأساسيات بنظرة"] },
-];
-const STYLES: Array<{ id: string; emoji: string; en: string; ar: string }> = [
-  { id: "cartoon", emoji: "🎨", en: "Cartoon", ar: "كرتون" },
-  { id: "illustration", emoji: "🖼️", en: "Illustration", ar: "رسم توضيحي" },
-  { id: "textbook", emoji: "🔬", en: "Textbook", ar: "كتاب مدرسي" },
-  { id: "sketch", emoji: "✍️", en: "Whiteboard", ar: "سبورة" },
-  { id: "watercolor", emoji: "🖌️", en: "Watercolour", ar: "ألوان مائية" },
-  { id: "clay", emoji: "🧸", en: "3D clay", ar: "صلصال ثلاثي" },
-  { id: "comic", emoji: "💬", en: "Comic strip", ar: "قصة مصورة" },
-  { id: "realistic", emoji: "📷", en: "Realistic", ar: "واقعي" },
-];
 const AUDIENCES: Array<[string, string, string]> = [["kids", "Children", "أطفال"], ["students", "Students", "طلاب"], ["adults", "Adults", "بالغون"], ["experts", "Experts", "متخصصون"]];
 const PREFS_KEY = "idea-stream-visual-prefs";
 type Prefs = { kinds: Kind[]; style: string; audience: string; palette: Palette; count: number; language: "auto" | "ar" | "en" };
@@ -71,134 +54,22 @@ const DEFAULT_PREFS: Prefs = { kinds: ["picture", "concept", "steps", "facts", "
 function readPrefs(): Prefs {
   try { return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") }; } catch { return DEFAULT_PREFS; }
 }
-const kindInfo = (kind: string) => KINDS.find((item) => item.kind === kind) ?? KINDS[0];
 const errorText = (error: unknown, fallback: string) => (error as { data?: { error?: string } })?.data?.error ?? fallback;
-
-/** A diagram drawn by the app, shown as an image. */
-function useDiagram(visual: Visual, palette: Palette) {
-  const [src, setSrc] = useState<string | null>(null);
-  const key = JSON.stringify([visual.spec, visual.title, palette]);
-  useEffect(() => {
-    if (visual.kind === "picture") return;
-    let cancelled = false;
-    void renderDiagram(visual.kind as DiagramKind, visual.spec, visual.title, palette).then((canvas) => { if (!cancelled) setSrc(canvas.toDataURL("image/png")); }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  return src;
-}
-
-function VisualCard({ visual, palette, inDraft, busy, copy, onAdd, onRemoveFromDraft, onRedo, onEdit, onDelete, onDownload, onOpen }: {
-  visual: Visual; palette: Palette; inDraft: boolean; busy: boolean; copy: Copy;
-  onAdd: () => void; onRemoveFromDraft: () => void; onRedo: (wish: string, style?: string) => void; onEdit: (title: string, caption: string) => void;
-  onDelete: () => void; onDownload: () => void; onOpen: (src: string) => void;
-}) {
-  const info = kindInfo(visual.kind);
-  const diagram = useDiagram(visual, palette);
-  const src = visual.kind === "picture" ? (visual.imageUrl ? appPath(visual.imageUrl, import.meta.env.BASE_URL) : null) : diagram;
-  const [changing, setChanging] = useState(false);
-  const [wish, setWish] = useState("");
-  const [style, setStyle] = useState(visual.style);
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(visual.title);
-  const [caption, setCaption] = useState(visual.caption);
-  const drawing = visual.status === "drawing";
-  return (
-    <article className={`group overflow-hidden rounded-3xl border bg-card shadow-sm transition-shadow hover:shadow-md ${inDraft ? "ring-2 ring-emerald-500/60" : ""}`}>
-      <div className="relative bg-muted/30">
-        {drawing ? (
-          <div className="grid aspect-[3/2] place-items-center overflow-hidden bg-[linear-gradient(110deg,hsl(var(--muted))_30%,hsl(var(--background))_50%,hsl(var(--muted))_70%)] bg-[length:200%_100%] motion-safe:animate-[visual-shimmer_1.6s_linear_infinite]">
-            <span className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
-              <Wand2 className="animate-pulse text-primary" />
-              {copy("Drawing… about a minute", "جارٍ الرسم… نحو دقيقة")}
-            </span>
-          </div>
-        ) : visual.status === "failed" ? (
-          <div className="grid aspect-[3/2] place-items-center p-6 text-center">
-            <span className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
-              <TriangleAlert className="text-amber-500" />{visual.error ?? copy("It couldn't be drawn.", "تعذر الرسم.")}
-              <Button size="sm" variant="outline" onClick={() => onRedo("")} disabled={busy}><RefreshCw size={14} className="me-1.5" />{copy("Try again", "حاول مجددًا")}</Button>
-            </span>
-          </div>
-        ) : src ? (
-          <button type="button" onClick={() => onOpen(src)} className="block w-full" aria-label={copy(`Enlarge ${visual.title}`, `كبّر ${visual.title}`)}>
-            <img src={src} alt={visual.title} className="block max-h-[420px] w-full object-contain" />
-            <span className="absolute end-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100"><Maximize2 size={15} /></span>
-          </button>
-        ) : (
-          <div className="grid aspect-[3/2] place-items-center"><Loader2 className="animate-spin text-muted-foreground" /></div>
-        )}
-        <span className="absolute start-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-semibold shadow-sm backdrop-blur">
-          <info.icon size={12} className="text-primary" />{copy(info.en, info.ar)}
-          {visual.kind === "picture" && visual.style && <span className="font-normal text-muted-foreground">· {copy(STYLES.find((s) => s.id === visual.style)?.en ?? "", STYLES.find((s) => s.id === visual.style)?.ar ?? "")}</span>}
-        </span>
-        {inDraft && <span className="absolute end-2 bottom-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow"><Check size={12} />{copy("In the draft", "في المسودة")}</span>}
-      </div>
-      <div className="space-y-2 p-4">
-        {editing ? (
-          <div className="space-y-2">
-            <Input dir="auto" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} aria-label={copy("Title", "العنوان")} />
-            <textarea dir="auto" value={caption} onChange={(event) => setCaption(event.target.value)} maxLength={300} rows={2} aria-label={copy("Caption", "التعليق")}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>{copy("Cancel", "إلغاء")}</Button>
-              <Button size="sm" onClick={() => { onEdit(title, caption); setEditing(false); }}>{copy("Save", "حفظ")}</Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <h3 dir="auto" className="font-serif text-lg leading-snug">{visual.title}</h3>
-            {visual.caption && <p dir="auto" className="text-sm leading-6 text-muted-foreground">{visual.caption}</p>}
-            {visual.anchor && <p dir="auto" className="line-clamp-1 text-xs text-muted-foreground/80">{copy("Goes after", "بعد")} “{visual.anchor}”</p>}
-          </>
-        )}
-        {changing && (
-          <form className="space-y-2 rounded-2xl bg-secondary/60 p-3" onSubmit={(event) => { event.preventDefault(); onRedo(wish, visual.kind === "picture" ? style : undefined); setChanging(false); setWish(""); }}>
-            <Input dir="auto" autoFocus value={wish} onChange={(event) => setWish(event.target.value)} maxLength={500}
-              placeholder={visual.kind === "picture" ? copy("e.g. show a forest from below, warmer colours", "مثلًا: أظهر الغابة من الأسفل بألوان أدفأ") : copy("e.g. fewer branches, add the cost", "مثلًا: فروع أقل، أضف التكلفة")} />
-            {visual.kind === "picture" && (
-              <div className="flex flex-wrap gap-1">
-                {STYLES.map((option) => (
-                  <button key={option.id} type="button" onClick={() => setStyle(option.id)} aria-pressed={style === option.id}
-                    className={`rounded-full border px-2.5 py-1 text-xs ${style === option.id ? "border-primary bg-primary text-primary-foreground" : "bg-background"}`}>{option.emoji} {copy(option.en, option.ar)}</button>
-                ))}
-              </div>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button type="button" size="sm" variant="ghost" onClick={() => setChanging(false)}>{copy("Cancel", "إلغاء")}</Button>
-              <Button type="submit" size="sm" disabled={busy}><RefreshCw size={14} className="me-1.5" />{visual.kind === "picture" ? copy("Draw again", "ارسم مجددًا") : copy("Remake", "أعد الإنشاء")}</Button>
-            </div>
-          </form>
-        )}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          {inDraft ? (
-            <Button size="sm" variant="outline" className="rounded-full" onClick={onRemoveFromDraft} disabled={busy}><X size={14} className="me-1" />{copy("Take out of the draft", "أخرجه من المسودة")}</Button>
-          ) : (
-            <Button size="sm" className="rounded-full" onClick={onAdd} disabled={busy || drawing || visual.status === "failed" || !src}>
-              {busy ? <Loader2 size={14} className="me-1 animate-spin" /> : <Plus size={14} className="me-1" />}{copy("Add to the draft", "أضفه إلى المسودة")}
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setChanging((open) => !open)} disabled={busy || drawing}><RefreshCw size={14} className="me-1" />{copy("Change", "غيّر")}</Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={() => { setTitle(visual.title); setCaption(visual.caption); setEditing(true); }} aria-label={copy("Edit the words", "عدّل الكلمات")}><Pencil size={14} /></Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={onDownload} disabled={!src} aria-label={copy("Download", "تنزيل")}><Download size={14} /></Button>
-          <Button size="icon" variant="ghost" className="ms-auto h-8 w-8 rounded-full text-muted-foreground hover:text-destructive" onClick={onDelete} aria-label={copy("Delete", "حذف")}><Trash2 size={14} /></Button>
-        </div>
-      </div>
-    </article>
-  );
-}
 
 /**
  * Turns a draft into visuals: the AI reads it and suggests pictures (drawn in the chosen style) and
  * diagrams (drawn exactly by the app). Each can be changed, downloaded, or added to the draft after
  * the paragraph it explains, so it goes into Read, PDF and Word too.
  */
-export function VisualStudio({ open, onOpenChange, compilationId, content, saveContent }: {
+export function VisualStudio({ open, onOpenChange, compilationId, content, saveContent, onDraftChanged }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   compilationId: number;
   content: string;
   /** Saves the draft with visuals added or removed (rich text with its marker). */
   saveContent: (html: string) => Promise<void>;
+  /** The server changed the draft (a retouched picture took the old one's place): load it again. */
+  onDraftChanged: () => void;
 }) {
   const { isArabic } = useLanguage();
   const copy: Copy = (en, ar) => (isArabic ? ar : en);
@@ -290,16 +161,46 @@ export function VisualStudio({ open, onOpenChange, compilationId, content, saveC
     try { await saveContent(removeVisual(html, shownUrl(visual.imageUrl!))); }
     catch { toast({ variant: "destructive", title: copy("The draft couldn't be saved.", "تعذر حفظ المسودة.") }); }
   });
-  const redo = (visual: Visual, wish: string, style?: string) => busyWith(visual.id, async () => {
+  const setVisual = (saved: Visual) => queryClient.setQueryData<Visual[]>(key, (old) => old?.map((one) => (one.id === saved.id ? saved : one)));
+  /** A diagram in the draft shows its new version in the same place (the server swaps pictures when they're drawn). */
+  async function replaceDiagramInDraft(before: Visual, after: Visual) {
+    if (after.kind === "picture" || !before.imageUrl || !hasVisual(html, shownUrl(before.imageUrl))) return;
+    const url = await pictureUrl(after);
+    await saveContent(insertVisual(removeVisual(html, shownUrl(before.imageUrl)), { url: shownUrl(url), title: after.title, caption: after.caption, anchor: after.anchor }));
+  }
+  const redo = async (visual: Visual, options: RedoOptions) => {
+    let ok = false;
+    await busyWith(visual.id, async () => {
+      try {
+        const saved = await redoVisual(visual.id, options);
+        setVisual(saved);
+        await replaceDiagramInDraft(visual, saved);
+        if (saved.kind === "picture")
+          toast({ title: (options.mode === "retouch" ? copy("Retouching your picture… about a minute.", "جارٍ تعديل صورتك… نحو دقيقة.") : copy("Drawing it again… about a minute.", "جارٍ الرسم من جديد… نحو دقيقة."))
+            + (inDraft(visual) ? copy(" The draft gets the new version when it's ready.", " وستأخذ المسودة النسخة الجديدة عندما تجهز.") : "") });
+        ok = true;
+      } catch (error) { toast({ variant: "destructive", title: errorText(error, copy("It couldn't be changed.", "تعذر التعديل.")) }); }
+    });
+    return ok;
+  };
+  const restore = (visual: Visual, version: number) => busyWith(visual.id, async () => {
     try {
-      // A visual in the draft is replaced there once it's made again.
-      const wasIn = inDraft(visual);
-      if (wasIn) await saveContent(removeVisual(html, shownUrl(visual.imageUrl!)));
-      const saved = await redoVisual(visual.id, { ...(wish ? { wish } : {}), ...(style ? { style } : {}) });
-      queryClient.setQueryData<Visual[]>(key, (old) => old?.map((one) => (one.id === saved.id ? saved : one)));
-      if (wasIn) toast({ title: copy("Taken out of the draft while it changes. Add it again when you like it.", "أُخرجت من المسودة أثناء التغيير. أضفها مجددًا عندما تعجبك.") });
-    } catch (error) { toast({ variant: "destructive", title: errorText(error, copy("It couldn't be changed.", "تعذر التغيير.")) }); }
+      const saved = await restoreVisual(visual.id, { version });
+      setVisual(saved);
+      if (saved.kind === "picture") onDraftChanged(); else await replaceDiagramInDraft(visual, saved);
+      toast({ title: copy(`Back to version ${version + 1}. The one you had is kept as a version too.`, `رجعت إلى النسخة ${version + 1}. والنسخة التي كانت محفوظة أيضًا.`) });
+    } catch (error) { toast({ variant: "destructive", title: errorText(error, copy("It couldn't go back.", "تعذر الرجوع.")) }); }
   });
+  // When a picture finishes drawing, the server may have put it in the draft in place of the old one.
+  const statuses = useRef(new Map<number, string>());
+  useEffect(() => {
+    let finished = false;
+    for (const visual of visuals) {
+      if (statuses.current.get(visual.id) === "drawing" && visual.status !== "drawing") finished = true;
+      statuses.current.set(visual.id, visual.status);
+    }
+    if (finished) onDraftChanged();
+  }, [visuals]); // eslint-disable-line react-hooks/exhaustive-deps
   const edit = (visual: Visual, title: string, caption: string) => busyWith(visual.id, async () => {
     try {
       const wasIn = inDraft(visual);
@@ -356,7 +257,7 @@ export function VisualStudio({ open, onOpenChange, compilationId, content, saveC
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{copy("Kinds of visuals", "أنواع الرسوم")}</p>
                   <div className="flex flex-wrap gap-2">
                     {KINDS.map((item) => (
-                      <button key={item.kind} type="button" onClick={() => toggleKind(item.kind)} aria-pressed={prefs.kinds.includes(item.kind)} title={copy(...item.hint)} className={chip(prefs.kinds.includes(item.kind))}>
+                      <button key={item.kind} type="button" onClick={() => toggleKind(item.kind)} aria-pressed={prefs.kinds.includes(item.kind)} title={copy(item.hint[0], item.hint[1])} className={chip(prefs.kinds.includes(item.kind))}>
                         <item.icon size={15} />{copy(item.en, item.ar)}
                       </button>
                     ))}
@@ -431,7 +332,7 @@ export function VisualStudio({ open, onOpenChange, compilationId, content, saveC
               <div className="grid gap-5 md:grid-cols-2">
                 {visuals.map((visual) => (
                   <VisualCard key={visual.id} visual={visual} palette={prefs.palette} inDraft={inDraft(visual)} busy={working.has(visual.id)} copy={copy}
-                    onAdd={() => void addOne(visual)} onRemoveFromDraft={() => void takeOut(visual)} onRedo={(wish, style) => void redo(visual, wish, style)}
+                    onAdd={() => void addOne(visual)} onRemoveFromDraft={() => void takeOut(visual)} onRedo={(options) => redo(visual, options)} onRestore={(version) => void restore(visual, version)}
                     onEdit={(title, caption) => void edit(visual, title, caption)} onDelete={() => void remove(visual)} onDownload={() => void download(visual)} onOpen={setLarge} />
                 ))}
               </div>

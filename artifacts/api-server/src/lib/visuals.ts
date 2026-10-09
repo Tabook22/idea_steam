@@ -148,3 +148,15 @@ export function picturePrompt(prompt: string, style: string, audience: string) {
   ].join(" ");
 }
 
+
+/** Retouching a drawn picture: change only what's asked, keep the rest exactly. */
+export function retouchPrompt(wish: string, style: string) {
+  return [
+    `Edit this picture: ${wish}.`,
+    `Keep everything else exactly as it is: the same composition, characters, objects, colours and style (${PICTURE_STYLES[style] ?? PICTURE_STYLES.illustration}), unless the change asks otherwise.`,
+    "Absolutely no words, letters, numbers, captions or labels anywhere in the image.",
+  ].join(" ");
+}
+
+/** A draft's picture URLs end in the stored file's id; swapping a picture swaps that id. */
+export const storedId = (url: string | null | undefined) => url?.match(/[a-f0-9-]{36}$/)?.[0] ?? null;
