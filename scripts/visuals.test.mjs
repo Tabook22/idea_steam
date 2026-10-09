@@ -37,6 +37,7 @@ test("the planner is told to stay faithful to the draft", () => {
   assert.match(prompt, /Never invent data/);
   assert.match(prompt, /in Arabic/);
   assert.match(prompt, /ONLY when the draft itself gives these numbers/);
+  assert.match(prompt, /pictures for at most half/);
   assert.doesNotMatch(prompt, /"timeline"/, "only the chosen kinds are offered");
 });
 

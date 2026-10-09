@@ -63,7 +63,7 @@ export function planPrompt(options: { kinds: VisualKind[]; count: number; audien
     `Audience: ${AUDIENCES[options.audience] ?? AUDIENCES.students}.`,
     options.request
       ? `The user asked for this visual: "${options.request}". Plan exactly 1 visual that does it, choosing the best kind from the allowed ones.`
-      : `Plan up to ${options.count} visuals, each for a different part or idea of the draft, ordered as they appear in it. Use the kind that suits each idea best; mix kinds when it helps.`,
+      : `Plan up to ${options.count} visuals, each for a different part or idea of the draft, ordered as they appear in it. Use the kind that suits each idea best and give the reader variety: different kinds where the draft allows it, no two of the same kind unless the draft clearly needs it, and pictures for at most half of them.`,
     "Allowed kinds:",
     ...options.kinds.map((kind) => `- ${kinds[kind]}`),
     "Rules:",

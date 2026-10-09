@@ -65,10 +65,14 @@ async function draw(id: number) {
       prompt: picturePrompt(String(visual.spec.prompt ?? visual.title), visual.style, audience),
       size: "1536x1024",
       quality: "medium",
+      // JPEG keeps drafts and PDFs light (a PNG is ten times bigger).
+      output_format: "jpeg",
+      output_compression: 88,
     } as Parameters<typeof openai.images.generate>[0], { timeout: 180_000, maxRetries: 1 });
     const base64 = (result as { data?: Array<{ b64_json?: string }> }).data?.[0]?.b64_json;
     if (!base64) throw new Error("no image");
-    const url = await storeBytes(Buffer.from(base64, "base64"), "image/png");
+    const bytes = Buffer.from(base64, "base64");
+    const url = await storeBytes(bytes, bytes[0] === 0x89 ? "image/png" : "image/jpeg");
     await db.update(compilationVisualsTable).set({ imageUrl: url, status: "ready", error: null }).where(eq(compilationVisualsTable.id, id));
   } catch (error) {
     const message = (error as Error).message ?? "";
