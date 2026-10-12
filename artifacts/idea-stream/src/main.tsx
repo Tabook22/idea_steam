@@ -15,7 +15,8 @@ import "@/lib/theme";
 setBaseUrl(import.meta.env.BASE_URL.replace(/\/$/, ""));
 
 // Development never installs a worker, avoiding stale source files during HMR.
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+// Not for workshop participants (/join): they only use the workshop page.
+if (import.meta.env.PROD && "serviceWorker" in navigator && !/^\/join(\/|$)/.test(location.pathname.slice(import.meta.env.BASE_URL.length - 1))) {
   window.addEventListener("load", () => {
     void navigator.serviceWorker
       .register(`${import.meta.env.BASE_URL}recorder-sw.js`, {

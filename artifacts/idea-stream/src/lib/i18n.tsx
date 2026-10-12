@@ -537,7 +537,9 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     const requested = new URLSearchParams(window.location.search).get("lang");
     if (requested === "ar" || requested === "en") return requested;
     const saved = localStorage.getItem("idea-stream-language");
-    return saved === "ar" ? "ar" : "en";
+    if (saved === "ar" || saved === "en") return saved;
+    // First visit (e.g. a workshop participant): the phone's own language.
+    return navigator.language?.toLowerCase().startsWith("ar") ? "ar" : "en";
   });
 
   useEffect(() => {

@@ -10,6 +10,7 @@ import connectionsRouter from "./connections";
 import meetingsRouter from "./meetings";
 import booksRouter from "./books";
 import visualsRouter from "./visuals";
+import liveRouter from "./live";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -24,6 +25,7 @@ router.use(connectionsRouter);
 router.use(meetingsRouter);
 router.use(booksRouter);
 router.use(visualsRouter);
+router.use(liveRouter);
 router.use(audioLibraryRouter);
 router.use(storageRouter);
 

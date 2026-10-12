@@ -22,6 +22,10 @@ import EpisodeStudio from "@/pages/episode-studio";
 import MeetingsPage from "@/pages/meetings";
 import MeetingPage from "@/pages/meeting";
 import BooksPage from "@/pages/books";
+import LiveJoinApp from "@/pages/live-join";
+import LiveSessionsPage from "@/pages/live-sessions";
+import LiveControlPage from "@/pages/live-control";
+import LivePresentPage from "@/pages/live-present";
 import { BookHost, BooksButton } from "@/components/books";
 import { MeetingStart } from "@/components/meeting-start";
 import { TasksButton } from "@/components/home-tasks";
@@ -132,6 +136,9 @@ function Router() {
         <Route path="/meetings" component={MeetingsPage} />
         <Route path="/meetings/:id" component={MeetingPage} />
         <Route path="/books" component={BooksPage} />
+        <Route path="/live" component={LiveSessionsPage} />
+        <Route path="/live/:id/present" component={LivePresentPage} />
+        <Route path="/live/:id" component={LiveControlPage} />
         <Route path="/subjects/:id/studio" component={EpisodeStudio} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
         <Route path="/sign-in/*?">{() => <Redirect to="/app" />}</Route>
@@ -175,7 +182,17 @@ function AppContent() {
   );
 }
 
+/** Workshop participants (/join) get only the workshop: none of the owner's screens or data. */
+const isJoin = () => /^\/join(\/|$)/.test(window.location.pathname.slice(basePath.length) || "/");
+
 function App() {
+  if (isJoin()) return (
+    <LanguageProvider>
+      <TooltipProvider>
+        <LiveJoinApp />
+      </TooltipProvider>
+    </LanguageProvider>
+  );
   return (
     <WouterRouter base={basePath}>
       <AppContent />

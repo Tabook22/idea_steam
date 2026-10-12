@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   CalendarClock,
   NotebookPen,
+  Presentation,
   AudioLines,
   BookOpen,
   Feather,
@@ -202,6 +203,7 @@ export default function HomePage() {
           <Link href="/tasks" className="sidebar-link"><ListChecks size={18} />{copy("Tasks", "المهام")}</Link>
           <Link href="/meetings" className="sidebar-link"><CalendarClock size={18} />{copy("Meetings", "الاجتماعات")}</Link>
           <Link href="/books" className="sidebar-link"><NotebookPen size={18} />{copy("Books", "الكراسات")}</Link>
+          <Link href="/live" className="sidebar-link"><Presentation size={18} />{copy("Workshops", "ورش العمل")}</Link>
         </nav>
         <div className="mt-10 flex justify-between items-center">
           <p className="sidebar-label mb-0">

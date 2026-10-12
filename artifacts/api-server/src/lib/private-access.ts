@@ -6,6 +6,10 @@ const COOKIE = "idea_stream_session";
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 // Fonts, icons, and the app manifest contain nothing private. The login page needs them,
 // and Android fetches the manifest and icons without cookies when installing the app.
+// Workshops: participants join with a code and their name, without the owner's sign-in. They reach
+// only the join page, the app's code (no data in it), and the workshop API, which checks its own pass
+// and only ever shows one workshop's cards to the people in it.
+const PUBLIC_LIVE = /^\/(?:join(?:\/[\w-]{0,20})?|assets\/[\w.-]+|api\/live\/.+)$/;
 const PUBLIC_ASSET = /^\/(?:assets\/[\w.-]+\.woff2|favicon\.svg|apple-touch-icon\.png|icon-[\w-]+\.png|manifest\.webmanifest)$/;
 
 /** Optional single-owner gate for a private VPS. This is not multi-user account isolation. */
@@ -131,6 +135,10 @@ export function privateAccess(env = process.env): RequestHandler {
       return;
     }
 
+    if (PUBLIC_LIVE.test(req.path)) {
+      next();
+      return;
+    }
     const session = sessionExpiry(req);
     if (session) {
       // Sliding renewal: an active device stays signed in.
