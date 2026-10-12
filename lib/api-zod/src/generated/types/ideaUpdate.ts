@@ -15,5 +15,11 @@ export interface IdeaUpdate {
   subjectId?: number;
   /** @minLength 1 */
   content?: string;
+  /**
+     * The note with formatting; its words become content. null goes back to plain text.
+     * @maxLength 500000
+     * @nullable
+     */
+  richContent?: string | null;
   attachments?: IdeaAttachment[];
 }

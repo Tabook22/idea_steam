@@ -12,6 +12,11 @@ export interface Idea {
   id: number;
   subjectId: number;
   content: string;
+  /**
+     * The note with formatting (HTML from the editor); its words are also in content.
+     * @nullable
+     */
+  richContent?: string | null;
   source: IdeaSource;
   attachments: IdeaAttachment[];
   createdAt: Date;

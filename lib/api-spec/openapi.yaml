@@ -3128,6 +3128,9 @@ components:
           type: integer
         content:
           type: string
+        richContent:
+          type: ["string", "null"]
+          description: The note with formatting (HTML from the editor); its words are also in content.
         source:
           type: string
           enum: [text, voice, image, video, audio, pdf, document, link]
@@ -3204,6 +3207,10 @@ components:
         content:
           type: string
           minLength: 1
+        richContent:
+          type: ["string", "null"]
+          maxLength: 500000
+          description: The note with formatting; its words become content. null goes back to plain text.
         attachments:
           type: array
           items:

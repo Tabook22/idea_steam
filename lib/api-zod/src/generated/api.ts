@@ -90,6 +90,7 @@ export const GetSubjectResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
+  "richContent": zod.string().nullish().describe('The note with formatting (HTML from the editor); its words are also in content.'),
   "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']),
   "attachments": zod.array(zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
@@ -203,6 +204,7 @@ export const CreateIdeaResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
+  "richContent": zod.string().nullish().describe('The note with formatting (HTML from the editor); its words are also in content.'),
   "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']),
   "attachments": zod.array(zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
@@ -242,6 +244,7 @@ export const ListIdeasResponseItem = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
+  "richContent": zod.string().nullish().describe('The note with formatting (HTML from the editor); its words are also in content.'),
   "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']),
   "attachments": zod.array(zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
@@ -270,6 +273,8 @@ export const UpdateIdeaParams = zod.object({
 
 
 
+export const updateIdeaBodyRichContentMax = 500000;
+
 
 
 export const updateIdeaBodyAttachmentsItemDurationSecondsMin = 0;
@@ -283,6 +288,7 @@ export const updateIdeaBodyAttachmentsItemMarksMax = 100;
 export const UpdateIdeaBody = zod.object({
   "subjectId": zod.number().int().min(1).optional().describe('Move the idea and its attachments to this subject.'),
   "content": zod.string().min(1).optional(),
+  "richContent": zod.string().max(updateIdeaBodyRichContentMax).nullish().describe('The note with formatting; its words become content. null goes back to plain text.'),
   "attachments": zod.array(zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),
   "url": zod.string().min(1),
@@ -312,6 +318,7 @@ export const UpdateIdeaResponse = zod.object({
   "id": zod.number().int(),
   "subjectId": zod.number().int(),
   "content": zod.string(),
+  "richContent": zod.string().nullish().describe('The note with formatting (HTML from the editor); its words are also in content.'),
   "source": zod.enum(['text', 'voice', 'image', 'video', 'audio', 'pdf', 'document', 'link']),
   "attachments": zod.array(zod.object({
   "type": zod.enum(['image', 'video', 'audio', 'pdf', 'document', 'link']),

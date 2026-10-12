@@ -16,6 +16,8 @@ export const ideasTable = pgTable("ideas", {
     .notNull()
     .references(() => subjectsTable.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
+  /** The note with formatting (from the editor), or null for plain text. Its words are kept in content. */
+  richContent: text("rich_content"),
   clientCaptureId: text("client_capture_id").unique(),
   source: text("source", { enum: ["text", "voice", "image", "video", "audio", "pdf", "document", "link"] }).notNull().default("text"),
   attachments: jsonb("attachments")

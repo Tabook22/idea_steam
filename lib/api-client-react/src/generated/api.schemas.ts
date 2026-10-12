@@ -1485,6 +1485,11 @@ export interface Idea {
   id: number;
   subjectId: number;
   content: string;
+  /**
+     * The note with formatting (HTML from the editor); its words are also in content.
+     * @nullable
+     */
+  richContent?: string | null;
   source: IdeaSource;
   attachments: IdeaAttachment[];
   createdAt: string;
@@ -1592,6 +1597,12 @@ export interface IdeaUpdate {
   subjectId?: number;
   /** @minLength 1 */
   content?: string;
+  /**
+     * The note with formatting; its words become content. null goes back to plain text.
+     * @maxLength 500000
+     * @nullable
+     */
+  richContent?: string | null;
   attachments?: IdeaAttachment[];
 }
 

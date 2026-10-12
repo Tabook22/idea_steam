@@ -7,11 +7,14 @@ import {
   Bold,
   Heading1,
   Heading2,
+  IndentDecrease,
+  IndentIncrease,
   ImagePlus,
   Italic,
   Link,
   List,
   ListOrdered,
+  Minus,
   Pilcrow,
   Quote,
   Redo2,
@@ -35,13 +38,16 @@ import { useToast } from "@/hooks/use-toast";
 interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
-  compilationId: number;
+  /** Images in a draft are filed with it; elsewhere (ideas) they're ordinary uploads. */
+  compilationId?: number;
   onUploadingChange?: (isUploading: boolean) => void;
+  /** The writing area's height (default: tall, for drafts). */
+  minHeightClass?: string;
 }
 
 export const RICH_TEXT_MARKER = "<!--idea-stream-rich-text-->";
 const ALLOWED_TAGS = new Set([
-  "p", "br", "h1", "h2", "h3", "strong", "b", "em", "i", "u", "s",
+  "p", "br", "hr", "h1", "h2", "h3", "strong", "b", "em", "i", "u", "s",
   "strike", "ul", "ol", "li", "blockquote", "a", "img", "span", "div", "font", "mark",
 ]);
 
@@ -174,6 +180,7 @@ export function RichTextEditor({
   onChange,
   compilationId,
   onUploadingChange,
+  minHeightClass = "min-h-[380px]",
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -242,6 +249,22 @@ export function RichTextEditor({
     editorRef.current?.focus();
     restoreSelection();
     document.execCommand(name, false, commandValue);
+    emitChange();
+    rememberSelection();
+  };
+
+  const indent = (step: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    restoreSelection();
+    let node: Node | null = window.getSelection()?.anchorNode ?? null;
+    while (node && node !== editor && !(node instanceof HTMLElement && /^(P|H1|H2|H3|DIV|BLOCKQUOTE|UL|OL)$/.test(node.tagName))) node = node.parentNode;
+    if (!(node instanceof HTMLElement) || node === editor) return;
+    const side = getComputedStyle(node).direction === "rtl" ? "marginRight" : "marginLeft";
+    const now = parseFloat(node.style[side]) || 0;
+    node.style[side] = `${Math.min(12, Math.max(0, now + step * 2))}em`;
+    if (node.style[side] === "0em") node.style[side] = "";
     emitChange();
     rememberSelection();
   };
@@ -342,8 +365,7 @@ export function RichTextEditor({
           name: file.name,
           size: file.size,
           contentType: file.type,
-          purpose: "compiled-draft-image",
-          compilationId,
+          ...(compilationId ? { purpose: "compiled-draft-image", compilationId } : {}),
         }),
       });
       if (!request.ok) throw new Error("Upload URL failed");
@@ -464,6 +486,9 @@ export function RichTextEditor({
         <ToolbarButton label={t("rightToLeft")} onClick={() => setDirection("rtl")}><span className="text-xs font-bold">RTL</span></ToolbarButton>
         <ToolbarButton label={t("bulletList")} onClick={() => command("insertUnorderedList")}><List className="h-4 w-4" /></ToolbarButton>
         <ToolbarButton label={t("numberedList")} onClick={() => command("insertOrderedList")}><ListOrdered className="h-4 w-4" /></ToolbarButton>
+        <ToolbarButton label={t("indentMore")} onClick={() => indent(1)}><IndentIncrease className="h-4 w-4 rtl:-scale-x-100" /></ToolbarButton>
+        <ToolbarButton label={t("indentLess")} onClick={() => indent(-1)}><IndentDecrease className="h-4 w-4 rtl:-scale-x-100" /></ToolbarButton>
+        <ToolbarButton label={t("dividerLine")} onClick={() => command("insertHorizontalRule")}><Minus className="h-4 w-4" /></ToolbarButton>
         <ToolbarButton label={t("quote")} onClick={() => command("formatBlock", "blockquote")}><Quote className="h-4 w-4" /></ToolbarButton>
         <ToolbarButton label={t("addLink")} onClick={addLink}><Link className="h-4 w-4" /></ToolbarButton>
         <ToolbarButton label={t("removeLink")} onClick={() => command("unlink")}><Unlink className="h-4 w-4" /></ToolbarButton>
@@ -524,7 +549,7 @@ export function RichTextEditor({
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
-        className="rich-text-content min-h-[380px] flex-1 overflow-auto bg-background p-5 outline-none sm:p-7"
+        className={`rich-text-content ${minHeightClass} flex-1 overflow-auto bg-background p-5 outline-none sm:p-7`}
         onInput={emitChange}
         onPaste={handlePaste}
         onKeyDown={handleEditorKeyDown}

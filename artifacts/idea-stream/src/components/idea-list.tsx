@@ -1,6 +1,6 @@
 import { AudioTranscript } from "./audio-transcript";
 import { appPath } from "@/lib/app-path";
-import { useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   type Idea,
@@ -15,7 +15,7 @@ import {
   useExtractYoutubeTranscript,
 } from "@workspace/api-client-react";
 import { formatDateTime, formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock, NotebookPen, Sparkles, Waypoints } from "lucide-react";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock, Minimize2, NotebookPen, Sparkles, Waypoints } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
 import { IdeaChatDialog } from "@/components/idea-chat-dialog";
 import { IdeaTakeaways } from "@/components/idea-takeaways";
+import { normalizeDraftHtml, RICH_TEXT_MARKER, RichTextEditor, sanitizeDraftHtml } from "@/components/rich-text-editor";
 import { RelatedIdeas } from "@/components/related-ideas";
 import { openBook } from "@/components/books";
 import { useListBooks, type BookSummary } from "@workspace/api-client-react";
@@ -442,7 +443,12 @@ function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; bo
   const [takeawaysOpen, setTakeawaysOpen] = useState(false);
   // Long ideas (or ones with transcripts and documents) get a visible "Key takeaways" button.
   const substantial = idea.content.split(/\s+/).length > 60 || idea.attachments.some((attachment) => (attachment.transcript?.length ?? 0) > 300 || attachment.type === "pdf" || attachment.type === "document" || (attachment.extractedText?.length ?? 0) > 300);
-  const [editContent, setEditContent] = useState(idea.content);
+  // The note while editing, as formatted text (HTML).
+  const [editContent, setEditContent] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editorUploading, setEditorUploading] = useState(false);
+  const [bigEditor, setBigEditor] = useState(false);
+  const richHtml = useMemo(() => (idea.richContent ? sanitizeDraftHtml(idea.richContent) : null), [idea.richContent]);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
@@ -454,22 +460,28 @@ function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; bo
   const deleteIdea = useDeleteIdea();
 
   const handleStartEditing = () => {
-    setEditContent(idea.content);
+    // The editor reads formatted text by its marker (plain text is turned into paragraphs).
+    const start = RICH_TEXT_MARKER + (idea.richContent ?? normalizeDraftHtml(idea.content));
+    setEditContent(start);
+    setEditStart(start);
+    setBigEditor(false);
     setIsEditing(true);
   };
 
   const handleSave = () => {
-    if (!editContent.trim() || editContent === idea.content) {
+    if (editorUploading) return;
+    if (editContent === editStart) {
       setIsEditing(false);
       return;
     }
 
     updateIdea.mutate(
-      { ideaId: idea.id, data: { content: editContent } },
+      { ideaId: idea.id, data: { richContent: editContent.replace(RICH_TEXT_MARKER, "") } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListIdeasQueryKey(subjectId) });
           setIsEditing(false);
+          setBigEditor(false);
         },
         onError: () => {
           toast({
@@ -602,29 +614,38 @@ function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; bo
         )}
 
         {isEditing ? (
-          <div className="space-y-3 mt-2">
-            <Textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="min-h-[100px] resize-y bg-background font-serif text-base focus-visible:ring-primary/20"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+          <div className={bigEditor ? "fixed inset-2 z-[70] flex flex-col gap-3 rounded-2xl border bg-card p-3 shadow-2xl sm:inset-6" : "mt-2 space-y-3"}>
+            {bigEditor && <div aria-hidden="true" className="fixed inset-0 -z-10 bg-black/40" />}
+            <div className={`flex flex-col overflow-hidden rounded-xl border bg-background shadow-inner ${bigEditor ? "min-h-0 flex-1" : ""}`}>
+              <RichTextEditor value={editContent} onChange={setEditContent} onUploadingChange={setEditorUploading}
+                minHeightClass={bigEditor ? "min-h-0" : "min-h-[220px] max-h-[60vh]"} />
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="ghost" size="sm" className="me-auto" onClick={() => setBigEditor((value) => !value)}>
+                {bigEditor ? <Minimize2 className="h-4 w-4 me-1.5" /> : <Maximize2 className="h-4 w-4 me-1.5" />}
+                {bigEditor ? (language === "ar" ? "تصغير" : "Smaller") : (language === "ar" ? "ملء الشاشة" : "Full screen")}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setIsEditing(false); setBigEditor(false); }}>
                 <X className="h-4 w-4 me-1.5" /> {t("cancel")}
               </Button>
-              <Button size="sm" onClick={handleSave} disabled={updateIdea.isPending}>
-                <Check className="h-4 w-4 me-1.5" /> {t("save")}
+              <Button size="sm" onClick={handleSave} disabled={updateIdea.isPending || editorUploading}>
+                {updateIdea.isPending ? <Loader2 className="h-4 w-4 me-1.5 animate-spin" /> : <Check className="h-4 w-4 me-1.5" />} {t("save")}
               </Button>
             </div>
           </div>
         ) : (
           <div>
-            <div className={`prose prose-sm dark:prose-invert max-w-none text-foreground font-serif leading-relaxed text-[1.05rem] ${isContentExpanded ? "" : "line-clamp-4"}`}>
-              {idea.content.split('\n').map((paragraph, i) => (
-                paragraph ? <p key={i} className="mb-2 last:mb-0">{paragraph}</p> : <br key={i} />
-              ))}
-            </div>
+            {richHtml ? (
+              // Formatted note: shown as written; long ones fade out until expanded.
+              <div className={`rich-text-content text-foreground [&>*:first-child]:mt-0 ${isContentExpanded ? "" : "max-h-48 overflow-hidden [mask-image:linear-gradient(to_bottom,black_70%,transparent)]"}`}
+                dangerouslySetInnerHTML={{ __html: richHtml }} />
+            ) : (
+              <div className={`prose prose-sm dark:prose-invert max-w-none text-foreground font-serif leading-relaxed text-[1.05rem] ${isContentExpanded ? "" : "line-clamp-4"}`}>
+                {idea.content.split('\n').map((paragraph, i) => (
+                  paragraph ? <p key={i} className="mb-2 last:mb-0">{paragraph}</p> : <br key={i} />
+                ))}
+              </div>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-1">
               <MoveIdeaDialog idea={idea} />
               {substantial && (
@@ -633,7 +654,7 @@ function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; bo
                   <Sparkles className="h-3.5 w-3.5" />{language === "ar" ? "أهم ما فيها" : "Key takeaways"}
                 </button>
               )}
-              {(idea.content.length > 220 || idea.content.split("\n").length > 4) && (
+              {(idea.content.length > 220 || idea.content.split("\n").length > 4 || /<img\b/i.test(idea.richContent ?? "")) && (
                 <Button
                   type="button"
                   variant="ghost"

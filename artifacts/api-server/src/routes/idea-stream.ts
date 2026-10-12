@@ -63,7 +63,6 @@ import {
   speechToText,
 } from "@workspace/integrations-openai-ai-server/audio";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/storage-service";
-import sanitizeHtml from "sanitize-html";
 import { mergeRecordingTranscript } from "../lib/recording-transcript";
 import { addRecordingsToLibrary } from "./audio-library";
 import { canonicalStorageUrl, transcribeStoredAudio, transcriptionFailure } from "../lib/stored-transcription";
@@ -71,6 +70,7 @@ import { normalizeYoutubeVideoUrl } from "../lib/youtube-url";
 import { ideaTakeawaysTable } from "@workspace/db";
 import { GetIdeaTakeawaysParams, MakeIdeaTakeawaysBody } from "@workspace/api-zod";
 import { cleanTakeaways, sourceHash, takeawaysPrompt, wordCount } from "../lib/takeaways";
+import { cleanRichHtml, richToPlain, sameWords } from "../lib/rich-html";
 
 const router: IRouter = Router();
 const execFileAsync = promisify(execFile);
@@ -87,50 +87,7 @@ const RICH_TEXT_MARKER = "<!--idea-stream-rich-text-->";
 
 function sanitizeStoredDraft(value: string) {
   if (!value.startsWith(RICH_TEXT_MARKER)) return value;
-  const safeHtml = sanitizeHtml(value.slice(RICH_TEXT_MARKER.length), {
-    allowedTags: [
-      "p", "br", "h1", "h2", "h3", "strong", "b", "em", "i", "u", "s",
-      "strike", "ul", "ol", "li", "blockquote", "a", "img", "span", "div", "font",
-    ],
-    allowedAttributes: {
-      "*": ["dir", "style"],
-      a: ["href", "target", "rel"],
-      img: ["src", "alt"],
-      font: ["face", "size", "color"],
-    },
-    allowedStyles: {
-      "*": {
-        "text-align": [/^(left|right|center|justify)$/],
-        color: [/^#[0-9a-f]{3,8}$/i, /^rgb\([\d\s,.%]+\)$/i],
-        "font-family": [/^[\w\s,'"-]+$/],
-        "font-size": [/^[\d.]+(px|pt|em|rem|%)$/],
-        width: [/^[\d.]+(px|em|rem|%)$/],
-        "max-width": [/^[\d.]+(px|em|rem|%)$/],
-        height: [/^(auto|[\d.]+(px|em|rem|%))$/],
-        display: [/^(block|inline|inline-block)$/],
-        float: [/^(left|right|none)$/],
-        margin: [/^[\d.]+(px|em|rem|%)(\s+(auto|[\d.]+(px|em|rem|%))){0,3}$/],
-        "margin-top": [/^(auto|[\d.]+(px|em|rem|%))$/],
-        "margin-right": [/^(auto|[\d.]+(px|em|rem|%))$/],
-        "margin-bottom": [/^(auto|[\d.]+(px|em|rem|%))$/],
-        "margin-left": [/^(auto|[\d.]+(px|em|rem|%))$/],
-      },
-    },
-    allowedSchemes: ["http", "https"],
-    allowedSchemesByTag: { img: ["http", "https"] },
-    allowProtocolRelative: false,
-    transformTags: {
-      a: (_tagName, attribs) => ({
-        tagName: "a",
-        attribs: {
-          ...attribs,
-          target: "_blank",
-          rel: "noopener noreferrer",
-        },
-      }),
-    },
-  });
-  return `${RICH_TEXT_MARKER}${safeHtml}`;
+  return `${RICH_TEXT_MARKER}${cleanRichHtml(value.slice(RICH_TEXT_MARKER.length))}`;
 }
 
 function extractStoredCompilationImages(content: string) {
@@ -546,6 +503,7 @@ const serializeIdea = (idea: typeof ideasTable.$inferSelect) => ({
   id: idea.id,
   subjectId: idea.subjectId,
   content: idea.content,
+  richContent: idea.richContent && sameWords(idea.richContent, idea.content) ? idea.richContent : null,
   source: idea.source,
   attachments: idea.attachments,
   createdAt: idea.createdAt.toISOString(),
@@ -764,11 +722,22 @@ router.patch("/ideas/:ideaId", async (req, res): Promise<void> => {
       const [destination] = await tx.select({ id: subjectsTable.id }).from(subjectsTable).where(eq(subjectsTable.id, body.data.subjectId));
       if (!destination) return "missing-subject" as const;
     }
-    const [updated] = await tx.update(ideasTable).set(body.data).where(eq(ideasTable.id, previous.id)).returning();
+    // Formatted text: stored clean, and its words become the idea's plain text (used by search, AI…).
+    const { richContent, ...changes } = body.data;
+    const values: Partial<typeof ideasTable.$inferInsert> = { ...changes };
+    if (typeof richContent === "string") {
+      const clean = cleanRichHtml(richContent);
+      const words = richToPlain(clean);
+      if (!words && !/<img\b/i.test(clean)) return "empty" as const;
+      values.richContent = clean;
+      values.content = words || "🖼️";
+    } else if (richContent === null || changes.content !== undefined) values.richContent = null;
+    const [updated] = await tx.update(ideasTable).set(values).where(eq(ideasTable.id, previous.id)).returning();
     await tx.update(subjectsTable).set({ updatedAt: new Date() }).where(inArray(subjectsTable.id, [previous.subjectId, updated.subjectId]));
     return updated;
   });
   if (idea === "missing-subject") { res.status(404).json({ error: "Destination subject not found" }); return; }
+  if (idea === "empty") { res.status(400).json({ error: "The note is empty." }); return; }
 
   if (!idea) {
     res.status(404).json({ error: "Idea not found" });

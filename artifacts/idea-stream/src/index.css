@@ -365,6 +365,12 @@ html.theme-switching *::after {
     text-underline-offset: 3px;
   }
 
+  .rich-text-content hr {
+    margin: 1.25rem 0;
+    border: 0;
+    border-top: 2px solid hsl(var(--border));
+  }
+
   .rich-text-content img {
     display: block;
     max-width: 100%;
