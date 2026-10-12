@@ -341,6 +341,60 @@ export const DeleteIdeaResponse = zod.void()
 
 
 /**
+ * @summary The idea's key takeaways, if they were made
+ */
+export const GetIdeaTakeawaysParams = zod.object({
+  "ideaId": zod.coerce.number().int()
+})
+
+export const GetIdeaTakeawaysResponse = zod.object({
+  "takeaways": zod.union([zod.object({
+  "gist": zod.string(),
+  "words": zod.number().int().describe('How many words the analysed text had.'),
+  "points": zod.array(zod.object({
+  "title": zod.string(),
+  "summary": zod.string(),
+  "details": zod.string(),
+  "why": zod.string(),
+  "quote": zod.string().describe('Words copied from the idea (checked to be there), or empty.'),
+  "kind": zod.enum(['insight', 'fact', 'action', 'question', 'argument', 'example'])
+}))
+}),zod.null()]),
+  "stale": zod.boolean().describe('The idea changed after these were made.'),
+  "createdAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Read the idea and find its key takeaways (kept until the idea changes)
+ */
+export const MakeIdeaTakeawaysParams = zod.object({
+  "ideaId": zod.coerce.number().int()
+})
+
+export const MakeIdeaTakeawaysBody = zod.object({
+  "fresh": zod.boolean().optional().describe('Make them again even if the idea hasn\'t changed.')
+})
+
+export const MakeIdeaTakeawaysResponse = zod.object({
+  "takeaways": zod.union([zod.object({
+  "gist": zod.string(),
+  "words": zod.number().int().describe('How many words the analysed text had.'),
+  "points": zod.array(zod.object({
+  "title": zod.string(),
+  "summary": zod.string(),
+  "details": zod.string(),
+  "why": zod.string(),
+  "quote": zod.string().describe('Words copied from the idea (checked to be there), or empty.'),
+  "kind": zod.enum(['insight', 'fact', 'action', 'question', 'argument', 'example'])
+}))
+}),zod.null()]),
+  "stale": zod.boolean().describe('The idea changed after these were made.'),
+  "createdAt": zod.string().nullable()
+})
+
+
+/**
  * @summary List the persistent AI chat for an idea
  */
 export const ListIdeaChatMessagesParams = zod.object({

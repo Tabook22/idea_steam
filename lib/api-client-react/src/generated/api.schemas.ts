@@ -340,6 +340,48 @@ export interface MeetingNotebookInput {
   notebook: NotebookDoc;
 }
 
+export type TakeawayPointKind = typeof TakeawayPointKind[keyof typeof TakeawayPointKind];
+
+
+export const TakeawayPointKind = {
+  insight: 'insight',
+  fact: 'fact',
+  action: 'action',
+  question: 'question',
+  argument: 'argument',
+  example: 'example',
+} as const;
+
+export interface TakeawayPoint {
+  title: string;
+  summary: string;
+  details: string;
+  why: string;
+  /** Words copied from the idea (checked to be there), or empty. */
+  quote: string;
+  kind: TakeawayPointKind;
+}
+
+export interface Takeaways {
+  gist: string;
+  /** How many words the analysed text had. */
+  words: number;
+  points: TakeawayPoint[];
+}
+
+export interface IdeaTakeawaysResult {
+  takeaways: Takeaways | null;
+  /** The idea changed after these were made. */
+  stale: boolean;
+  /** @nullable */
+  createdAt: string | null;
+}
+
+export interface IdeaTakeawaysInput {
+  /** Make them again even if the idea hasn't changed. */
+  fresh?: boolean;
+}
+
 export type VisualKind = typeof VisualKind[keyof typeof VisualKind];
 
 

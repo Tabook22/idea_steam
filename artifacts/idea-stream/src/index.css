@@ -269,9 +269,15 @@ html.theme-switching *::after {
       [role="menu"],
       [role="listbox"],
       [contenteditable="true"]
-    ):not([dir="ltr"]) {
+    ):not([dir="ltr"]):not([dir="auto"]) {
     direction: rtl;
     text-align: right;
+  }
+
+  /* Text that may be in either language (dir="auto") reads in its own direction: English in the
+     Arabic interface keeps its punctuation in place and starts on the left. */
+  html.app-rtl [dir="auto"] {
+    text-align: start;
   }
 
   html.app-rtl :where(input, textarea)::placeholder {

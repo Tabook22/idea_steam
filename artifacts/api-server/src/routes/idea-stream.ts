@@ -68,6 +68,9 @@ import { mergeRecordingTranscript } from "../lib/recording-transcript";
 import { addRecordingsToLibrary } from "./audio-library";
 import { canonicalStorageUrl, transcribeStoredAudio, transcriptionFailure } from "../lib/stored-transcription";
 import { normalizeYoutubeVideoUrl } from "../lib/youtube-url";
+import { ideaTakeawaysTable } from "@workspace/db";
+import { GetIdeaTakeawaysParams, MakeIdeaTakeawaysBody } from "@workspace/api-zod";
+import { cleanTakeaways, sourceHash, takeawaysPrompt, wordCount } from "../lib/takeaways";
 
 const router: IRouter = Router();
 const execFileAsync = promisify(execFile);
@@ -793,6 +796,58 @@ router.delete("/ideas/:ideaId", async (req, res): Promise<void> => {
   }
 
   res.sendStatus(204);
+});
+
+/** What the takeaways were made from: the idea's words and its attachments' text (cheap to check). */
+const takeawaysSource = (idea: typeof ideasTable.$inferSelect) =>
+  sourceHash(JSON.stringify([idea.content, idea.attachments.map((a) => [a.url, a.note ?? "", a.transcript ?? "", a.extractedText ?? ""])]));
+
+router.get("/ideas/:ideaId/takeaways", async (req, res): Promise<void> => {
+  const params = GetIdeaTakeawaysParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: "Unknown idea" }); return; }
+  const [idea] = await db.select().from(ideasTable).where(eq(ideasTable.id, params.data.ideaId));
+  if (!idea) { res.status(404).json({ error: "Idea not found" }); return; }
+  const [saved] = await db.select().from(ideaTakeawaysTable).where(eq(ideaTakeawaysTable.ideaId, idea.id));
+  res.json({ takeaways: saved?.data ?? null, stale: !!saved && saved.sourceHash !== takeawaysSource(idea), createdAt: saved?.createdAt.toISOString() ?? null });
+});
+
+router.post("/ideas/:ideaId/takeaways", async (req, res): Promise<void> => {
+  const params = GetIdeaTakeawaysParams.safeParse(req.params);
+  const body = MakeIdeaTakeawaysBody.safeParse(req.body ?? {});
+  if (!params.success || !body.success) { res.status(400).json({ error: "Unknown idea" }); return; }
+  const [idea] = await db.select().from(ideasTable).where(eq(ideasTable.id, params.data.ideaId));
+  if (!idea) { res.status(404).json({ error: "Idea not found" }); return; }
+  const hash = takeawaysSource(idea);
+  const [saved] = await db.select().from(ideaTakeawaysTable).where(eq(ideaTakeawaysTable.ideaId, idea.id));
+  if (saved && saved.sourceHash === hash && !body.data.fresh) {
+    res.json({ takeaways: saved.data, stale: false, createdAt: saved.createdAt.toISOString() });
+    return;
+  }
+  if (!aiConfigured) { res.status(503).json({ error: "AI is not configured yet." }); return; }
+  try {
+    const source = await buildIdeaContext(idea);
+    if (wordCount(source) < 25) { res.status(422).json({ error: "This idea is too short to analyse. Add more to it first." }); return; }
+    const response = await openai.chat.completions.create({
+      // Careful reading of long transcripts: the stronger model by default.
+      model: process.env.OPENAI_ANALYSIS_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? (process.env.OPENAI_TEXT_MODEL || "gpt-5.6-luna") : "gpt-4.1"),
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: takeawaysPrompt(wordCount(source)) },
+        { role: "user", content: source },
+      ],
+    }, { timeout: 120_000, maxRetries: 1 });
+    let raw: unknown = null;
+    try { raw = JSON.parse(response.choices[0]?.message?.content ?? "null"); } catch { /* handled below */ }
+    const takeaways = cleanTakeaways(raw, source);
+    if (!takeaways) { res.status(502).json({ error: "No takeaways came back. Please try again." }); return; }
+    const [row] = await db.insert(ideaTakeawaysTable).values({ ideaId: idea.id, sourceHash: hash, data: takeaways })
+      .onConflictDoUpdate({ target: ideaTakeawaysTable.ideaId, set: { sourceHash: hash, data: takeaways, createdAt: new Date() } }).returning();
+    res.json({ takeaways: row!.data, stale: false, createdAt: row!.createdAt.toISOString() });
+  } catch (error) {
+    console.error("Takeaways failed", (error as Error).message);
+    res.status(502).json({ error: "The idea couldn't be analysed right now. Please try again." });
+  }
 });
 
 router.get("/ideas/:ideaId/chat", async (req, res): Promise<void> => {

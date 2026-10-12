@@ -15,7 +15,7 @@ import {
   useExtractYoutubeTranscript,
 } from "@workspace/api-client-react";
 import { formatDateTime, formatTimeAgo } from "@/lib/formatters";
-import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock, NotebookPen, Waypoints } from "lucide-react";
+import { Edit3, Trash2, Mic, FileText, Check, X, Image as ImageIcon, Video, Link2, ExternalLink, FileAudio, FileType, Play, ChevronDown, ChevronUp, Languages, Loader2, Maximize2, CalendarClock, NotebookPen, Sparkles, Waypoints } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/i18n";
 import { IdeaChatDialog } from "@/components/idea-chat-dialog";
+import { IdeaTakeaways } from "@/components/idea-takeaways";
 import { RelatedIdeas } from "@/components/related-ideas";
 import { openBook } from "@/components/books";
 import { useListBooks, type BookSummary } from "@workspace/api-client-react";
@@ -438,6 +439,9 @@ export function IdeaList({ subjectId, initialIdeas }: IdeaListProps) {
 function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; book?: BookSummary }) {
   const [isEditing, setIsEditing] = useState(false);
   const [showRelated, setShowRelated] = useState(false);
+  const [takeawaysOpen, setTakeawaysOpen] = useState(false);
+  // Long ideas (or ones with transcripts and documents) get a visible "Key takeaways" button.
+  const substantial = idea.content.split(/\s+/).length > 60 || idea.attachments.some((attachment) => (attachment.transcript?.length ?? 0) > 300 || attachment.type === "pdf" || attachment.type === "document" || (attachment.extractedText?.length ?? 0) > 300);
   const [editContent, setEditContent] = useState(idea.content);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -538,6 +542,11 @@ function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; bo
           
           {!isEditing && (
             <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1 sm:mt-0">
+              <Button variant="ghost" size="icon" onClick={() => setTakeawaysOpen(true)}
+                className="h-9 w-9 sm:h-8 sm:w-8 text-violet-600 hover:bg-violet-500/10 hover:text-violet-700 dark:text-violet-300"
+                title={language === "ar" ? "أهم ما في الفكرة" : "Key takeaways"} aria-label={language === "ar" ? "أهم ما في الفكرة" : "Key takeaways"}>
+                <Sparkles className="h-4 w-4" />
+              </Button>
               <IdeaChatDialog ideaId={idea.id} />
               <Button variant="ghost" size="icon" aria-pressed={showRelated} onClick={() => setShowRelated((value) => !value)}
                 className={`h-9 w-9 sm:h-8 sm:w-8 ${showRelated ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
@@ -573,6 +582,7 @@ function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; bo
           )}
         </div>
         
+        <IdeaTakeaways ideaId={idea.id} preview={idea.content.slice(0, 140)} open={takeawaysOpen} onOpenChange={setTakeawaysOpen} />
         {book && !isEditing && (
           <button type="button" onClick={() => openBook({ kind: book.kind === "meeting" ? "meeting" : "book", id: book.id })}
             className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-300/70 bg-amber-50 px-3.5 py-2 text-sm font-semibold text-amber-900 shadow-sm transition-colors hover:bg-amber-100 dark:border-amber-700/50 dark:bg-amber-950/30 dark:text-amber-100">
@@ -617,6 +627,12 @@ function IdeaItem({ idea, subjectId, book }: { idea: Idea; subjectId: number; bo
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-1">
               <MoveIdeaDialog idea={idea} />
+              {substantial && (
+                <button type="button" onClick={() => setTakeawaysOpen(true)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 px-3 text-xs font-semibold text-white shadow-sm transition hover:shadow-md active:scale-[0.98]">
+                  <Sparkles className="h-3.5 w-3.5" />{language === "ar" ? "أهم ما فيها" : "Key takeaways"}
+                </button>
+              )}
               {(idea.content.length > 220 || idea.content.split("\n").length > 4) && (
                 <Button
                   type="button"

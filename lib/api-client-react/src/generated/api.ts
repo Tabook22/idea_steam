@@ -54,6 +54,8 @@ import type {
   IdeaChatMessage,
   IdeaChatMessageInput,
   IdeaInput,
+  IdeaTakeawaysInput,
+  IdeaTakeawaysResult,
   IdeaUpdate,
   LibraryRecordingInput,
   LibraryTranscriptionInput,
@@ -932,6 +934,172 @@ export const useDeleteIdea = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteIdeaMutationOptions(options));
+    }
+
+export const getGetIdeaTakeawaysUrl = (ideaId: number,) => {
+
+
+
+
+  return `/api/ideas/${ideaId}/takeaways`
+}
+
+/**
+ * @summary The idea's key takeaways, if they were made
+ */
+export const getIdeaTakeaways = async (ideaId: number, options?: Parameters<typeof customFetch>[1]): Promise<IdeaTakeawaysResult> => {
+
+  return customFetch<IdeaTakeawaysResult>(getGetIdeaTakeawaysUrl(ideaId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetIdeaTakeawaysQueryKey = (ideaId: number,) => {
+    return [
+    `/api/ideas/${ideaId}/takeaways`
+    ] as const;
+    }
+
+
+export const getGetIdeaTakeawaysQueryOptions = <TData = Awaited<ReturnType<typeof getIdeaTakeaways>>, TError = ErrorType<unknown>>(ideaId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIdeaTakeaways>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetIdeaTakeawaysQueryKey(ideaId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getIdeaTakeaways>>> = ({ signal }) => getIdeaTakeaways(ideaId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ideaId !== null && ideaId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getIdeaTakeaways>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetIdeaTakeawaysQueryResult = NonNullable<Awaited<ReturnType<typeof getIdeaTakeaways>>>
+export type GetIdeaTakeawaysQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The idea's key takeaways, if they were made
+ */
+
+export function useGetIdeaTakeaways<TData = Awaited<ReturnType<typeof getIdeaTakeaways>>, TError = ErrorType<unknown>>(
+ ideaId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getIdeaTakeaways>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetIdeaTakeawaysQueryOptions(ideaId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMakeIdeaTakeawaysUrl = (ideaId: number,) => {
+
+
+
+
+  return `/api/ideas/${ideaId}/takeaways`
+}
+
+/**
+ * @summary Read the idea and find its key takeaways (kept until the idea changes)
+ */
+export const makeIdeaTakeaways = async (ideaId: number,
+    ideaTakeawaysInput?: IdeaTakeawaysInput, options?: Parameters<typeof customFetch>[1]): Promise<IdeaTakeawaysResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<IdeaTakeawaysResult>(getMakeIdeaTakeawaysUrl(ideaId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(ideaTakeawaysInput)
+  }
+);}
+
+
+
+
+
+export const getMakeIdeaTakeawaysMutationKey = () => ['makeIdeaTakeaways'] as const;
+
+export const getMakeIdeaTakeawaysMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof makeIdeaTakeaways>>, TError,MakeIdeaTakeawaysMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof makeIdeaTakeaways>>, TError,MakeIdeaTakeawaysMutationVariables, TContext> => {
+
+const mutationKey = getMakeIdeaTakeawaysMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof makeIdeaTakeaways>>, MakeIdeaTakeawaysMutationVariables> = (props) => {
+          const {ideaId,data} = props ?? {};
+
+          return  makeIdeaTakeaways(ideaId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MakeIdeaTakeawaysMutationResult = NonNullable<Awaited<ReturnType<typeof makeIdeaTakeaways>>>
+    export type MakeIdeaTakeawaysMutationBody = BodyType<IdeaTakeawaysInput> | undefined
+    export type MakeIdeaTakeawaysMutationError = ErrorType<unknown>
+    export type MakeIdeaTakeawaysMutationVariables = {ideaId: number;data?: BodyType<IdeaTakeawaysInput>}
+
+    /**
+ * @summary Read the idea and find its key takeaways (kept until the idea changes)
+ */
+export const useMakeIdeaTakeaways = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof makeIdeaTakeaways>>, TError,MakeIdeaTakeawaysMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof makeIdeaTakeaways>>,
+        TError,
+        MakeIdeaTakeawaysMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMakeIdeaTakeawaysMutationOptions(options));
     }
 
 export const getListIdeaChatMessagesUrl = (ideaId: number,) => {

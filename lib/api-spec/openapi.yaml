@@ -183,6 +183,39 @@ paths:
       responses:
         "204":
           description: Deleted
+  /ideas/{ideaId}/takeaways:
+    get:
+      operationId: getIdeaTakeaways
+      tags: [ideas]
+      summary: The idea's key takeaways, if they were made
+      parameters:
+        - $ref: "#/components/parameters/IdeaId"
+      responses:
+        "200":
+          description: The takeaways (null if not made yet), and whether the idea changed since
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdeaTakeawaysResult"
+    post:
+      operationId: makeIdeaTakeaways
+      tags: [ideas]
+      summary: Read the idea and find its key takeaways (kept until the idea changes)
+      parameters:
+        - $ref: "#/components/parameters/IdeaId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IdeaTakeawaysInput"
+      responses:
+        "200":
+          description: The takeaways
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdeaTakeawaysResult"
   /ideas/{ideaId}/chat:
     get:
       operationId: listIdeaChatMessages
@@ -1875,6 +1908,56 @@ components:
       properties:
         notebook:
           $ref: "#/components/schemas/NotebookDoc"
+    TakeawayPoint:
+      type: object
+      required: [title, summary, details, why, quote, kind]
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+        details:
+          type: string
+        why:
+          type: string
+        quote:
+          type: string
+          description: Words copied from the idea (checked to be there), or empty.
+        kind:
+          type: string
+          enum: [insight, fact, action, question, argument, example]
+    Takeaways:
+      type: object
+      required: [gist, points, words]
+      properties:
+        gist:
+          type: string
+        words:
+          type: integer
+          description: How many words the analysed text had.
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/TakeawayPoint"
+    IdeaTakeawaysResult:
+      type: object
+      required: [takeaways, stale, createdAt]
+      properties:
+        takeaways:
+          oneOf:
+            - $ref: "#/components/schemas/Takeaways"
+            - type: "null"
+        stale:
+          type: boolean
+          description: The idea changed after these were made.
+        createdAt:
+          type: ["string", "null"]
+    IdeaTakeawaysInput:
+      type: object
+      properties:
+        fresh:
+          type: boolean
+          description: Make them again even if the idea hasn't changed.
     Visual:
       type: object
       required: [id, compilationId, kind, title, caption, why, anchor, style, spec, status, imageUrl, error, history, createdAt]
