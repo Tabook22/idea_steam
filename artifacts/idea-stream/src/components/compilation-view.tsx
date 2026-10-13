@@ -22,6 +22,7 @@ import {
   X,
   FileText,
   FlaskConical,
+  GraduationCap,
   Video,
   Radio,
 } from "lucide-react";
@@ -61,6 +62,7 @@ import {
   sanitizeDraftHtml,
 } from "@/components/rich-text-editor";
 import { VisualStudio } from "@/components/visual-studio";
+import { StudyStart } from "@/components/study-start";
 import {
   Dialog,
   DialogContent,
@@ -106,6 +108,7 @@ export function CompilationView({
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [visualsOpen, setVisualsOpen] = useState(false);
+  const [studyOpen, setStudyOpen] = useState(false);
   const [isReadDialogOpen, setIsReadDialogOpen] = useState(false);
   const [readDialogPosition, setReadDialogPosition] = useState({ x: 0, y: 0 });
   const [readerHtml, setReaderHtml] = useState("");
@@ -792,6 +795,16 @@ export function CompilationView({
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setStudyOpen(true)}
+                      className="h-8 border-emerald-500/30 text-emerald-800 hover:bg-emerald-500/10 text-xs dark:text-emerald-200"
+                      title={copy("Study pack: notes, quiz, flashcards", "حزمة دراسية: ملخص واختبار وبطاقات")}
+                    >
+                      <GraduationCap className="me-1.5 h-3.5 w-3.5" />
+                      {copy("Study", "دراسة")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={handleOpenReadDialog}
                       className="h-8 border-primary/20 hover:bg-primary/10 text-xs"
                       title={t("readCompiledDraft")}
@@ -895,6 +908,7 @@ export function CompilationView({
         ) : null}
       </CardContent>
 
+      {selectedCompilation && <StudyStart open={studyOpen} onOpenChange={setStudyOpen} kind="draft" sourceId={selectedCompilation.id} title={`${subjectTitle} · ${getToneLabel(selectedCompilation.tone)}`} />}
       {selectedCompilation && (
         <VisualStudio
           open={visualsOpen}

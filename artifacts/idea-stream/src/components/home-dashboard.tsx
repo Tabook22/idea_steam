@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowUpRight, CalendarClock, Check, Clock3, FileText, Flame, ListChecks, Mic, NotebookPen, Presentation, Pause, PenLine, Play, Shuffle, Sparkles } from "lucide-react";
+import { ArrowUpRight, CalendarClock, Check, Clock3, FileText, Flame, GraduationCap, ListChecks, Mic, NotebookPen, Presentation, Pause, PenLine, Play, Shuffle, Sparkles } from "lucide-react";
 import { getGetDashboardQueryKey, useGetDashboard, type Dashboard } from "@workspace/api-client-react";
 import { appPath } from "@/lib/app-path";
 import { useLanguage } from "@/lib/i18n";
@@ -88,8 +88,8 @@ export function HomeGreeting() {
         )}
 
         {/* Phones have no sidebar: the places beyond the bottom bar. */}
-        <nav aria-label={copy("More places", "أماكن أخرى")} className="mt-4 grid grid-cols-4 gap-2 md:hidden">
-          {([["/meetings", CalendarClock, copy("Meetings", "الاجتماعات")], ["/books", NotebookPen, copy("Books", "الكراسات")], ["/tasks", ListChecks, copy("Tasks", "المهام")], ["/live", Presentation, copy("Workshops", "ورش")]] as const).map(([href, Icon, label]) => (
+        <nav aria-label={copy("More places", "أماكن أخرى")} className="mt-4 grid grid-cols-5 gap-1.5 md:hidden">
+          {([["/meetings", CalendarClock, copy("Meetings", "الاجتماعات")], ["/books", NotebookPen, copy("Books", "الكراسات")], ["/tasks", ListChecks, copy("Tasks", "المهام")], ["/live", Presentation, copy("Workshops", "ورش")], ["/study", GraduationCap, copy("Study", "دراسة")]] as const).map(([href, Icon, label]) => (
             <Link key={href} href={href} className="flex flex-col items-center gap-1 rounded-2xl border bg-background/70 px-2 py-2.5 text-xs font-medium text-foreground shadow-sm active:scale-[0.98]">
               <Icon size={18} className="text-primary" />{label}
             </Link>

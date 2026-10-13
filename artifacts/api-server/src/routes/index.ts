@@ -11,6 +11,7 @@ import meetingsRouter from "./meetings";
 import booksRouter from "./books";
 import visualsRouter from "./visuals";
 import liveRouter from "./live";
+import studyRouter from "./study";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -26,6 +27,7 @@ router.use(meetingsRouter);
 router.use(booksRouter);
 router.use(visualsRouter);
 router.use(liveRouter);
+router.use(studyRouter);
 router.use(audioLibraryRouter);
 router.use(storageRouter);
 

@@ -71,6 +71,7 @@ import { ideaTakeawaysTable } from "@workspace/db";
 import { GetIdeaTakeawaysParams, MakeIdeaTakeawaysBody } from "@workspace/api-zod";
 import { cleanTakeaways, sourceHash, takeawaysPrompt, wordCount } from "../lib/takeaways";
 import { cleanRichHtml, richToPlain, sameWords } from "../lib/rich-html";
+import { htmlToPdf } from "../lib/pdf";
 
 const router: IRouter = Router();
 const execFileAsync = promisify(execFile);
@@ -1081,34 +1082,13 @@ router.post(
       return;
     }
 
-    const tempDirectory = await mkdtemp(join(tmpdir(), "idea-stream-export-"));
-    try {
-      const htmlPath = join(tempDirectory, "article.html");
-      const pdfPath = join(tempDirectory, "article.pdf");
-      await writeFile(htmlPath, documentHtml);
-      await execFileAsync(
-        "chromium",
-        [
-          "--headless",
-          "--no-sandbox",
-          "--disable-gpu",
-          "--print-to-pdf-no-header",
-          "--no-pdf-header-footer",
-          `--print-to-pdf=${pdfPath}`,
-          `file://${htmlPath}`,
-        ],
-        { timeout: 60_000 },
-      );
-      const file = await readFile(pdfPath);
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename*=UTF-8''${encodeURIComponent(`${safeBaseName}.pdf`)}`,
-      );
-      res.send(file);
-    } finally {
-      await rm(tempDirectory, { recursive: true, force: true });
-    }
+    const file = await htmlToPdf(documentHtml);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encodeURIComponent(`${safeBaseName}.pdf`)}`,
+    );
+    res.send(file);
   },
 );
 

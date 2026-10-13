@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CalendarClock,
+  GraduationCap,
   Edit2,
   Trash2,
   Feather,
@@ -39,6 +40,7 @@ import {
 import { IdeaList } from "@/components/idea-list";
 import { CoverPicker } from "@/components/cover-picker";
 import { openMeetingStart } from "@/components/meeting-start";
+import { StudyStart } from "@/components/study-start";
 import { coverStyle } from "@/lib/covers";
 import { CreateIdeaForm } from "@/components/create-idea-form";
 const CompilationView = lazy(() =>
@@ -75,6 +77,7 @@ export default function SubjectDetailPage() {
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [covering, setCovering] = useState(false);
+  const [studyOpen, setStudyOpen] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [isEditingIntro, setIsEditingIntro] = useState(false);
   const [editIntro, setEditIntro] = useState("");
@@ -422,6 +425,14 @@ export default function SubjectDetailPage() {
               <CalendarClock size={14} />
               {isArabic ? "سجّل اجتماعًا هنا" : "Record a meeting here"}
             </button>
+            <button
+              type="button"
+              onClick={() => setStudyOpen(true)}
+              className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/5 px-4 py-2 text-emerald-800 dark:text-emerald-200"
+            >
+              <GraduationCap size={14} />
+              {isArabic ? "حزمة دراسية" : "Study pack"}
+            </button>
           </nav>
         </div>
       </header>
@@ -471,6 +482,7 @@ export default function SubjectDetailPage() {
           </div>
         </aside>
       </main>
+      <StudyStart open={studyOpen} onOpenChange={setStudyOpen} kind="subject" sourceId={subjectId} title={subjectDetail.title} />
     </div>
   );
 }

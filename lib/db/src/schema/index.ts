@@ -31,3 +31,4 @@ export * from "./books";
 export * from "./compilation-visuals";
 export * from "./live";
 export * from "./takeaways";
+export * from "./study";
