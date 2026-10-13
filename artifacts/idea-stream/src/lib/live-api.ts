@@ -11,13 +11,23 @@ export type LiveCard = {
   id: number; author: LiveAuthor; mine: boolean; space: LiveSpace; team: number | null; text: string; parentId: number | null; hidden: boolean;
   media: { url: string; type: string } | null;
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
+  /** Dots on it (null while voting: people see only their own). */
+  votes: number | null;
+  myVote: boolean;
   comments: Array<{ id: number; author: LiveAuthor; mine: boolean; text: string; createdAt: string }>;
   createdAt: string;
 };
-export type LiveSessionInfo = { id: number; code: string; title: string; challenge: string; status: "open" | "closed" | "ended"; teamCount: number; createdAt: string };
+export type LivePhase = "free" | "think" | "share" | "vote" | "build" | "present";
+export type LiveSynthesis = { summary: string; themes: Array<{ title: string; summary: string; cardIds: number[] }>; standouts: Array<{ cardId: number; why: string }>; gaps: string[] };
+export type LiveSessionInfo = {
+  id: number; code: string; title: string; challenge: string; status: "open" | "closed" | "ended"; teamCount: number; createdAt: string;
+  phase: LivePhase; phaseEndsAt: string | null; votesPerPerson: number; synthesis: LiveSynthesis | null; synthesisAt: string | null;
+};
 export type LiveState = {
   version: number; session: LiveSessionInfo; people: LivePerson[]; cards: LiveCard[];
   me?: LivePerson; privateCounts?: Record<string, number>;
+  /** The server's clock (timers count down by it), and the dots this participant used. */
+  now: string; votesUsed?: number;
 };
 export type LiveSessionSummary = LiveSessionInfo & { participantCount: number; cardCount: number };
 
@@ -105,3 +115,28 @@ export async function shrinkPhoto(file: File, max = 1600): Promise<Blob> {
 export const TEAM_COLORS = ["#2563eb", "#16a34a", "#ea580c", "#db2777", "#7c3aed", "#0891b2", "#ca8a04", "#dc2626", "#4f46e5", "#059669", "#c026d3", "#0d9488"];
 export const teamColor = (team: number | null) => (team ? TEAM_COLORS[(team - 1) % TEAM_COLORS.length] : "#64748b");
 export const LIVE_EMOJIS = ["🙂", "😎", "🤓", "🦊", "🐼", "🦁", "🐯", "🐨", "🐙", "🦉", "🐝", "🌟", "🚀", "🌈", "🔥", "🍀"];
+
+/** The workshop's steps: what each asks of people. */
+export const PHASE_INFO: Record<LivePhase, { emoji: string; en: string; ar: string; doEn: string; doAr: string; color: string }> = {
+  free: { emoji: "💬", en: "Open", ar: "مفتوح", doEn: "Share ideas any way you like.", doAr: "شارك أفكارك كما تشاء.", color: "#64748b" },
+  think: { emoji: "🤔", en: "Think alone", ar: "فكّر وحدك", doEn: "Write your own ideas in Me. Nobody sees them yet.", doAr: "اكتب أفكارك في «أنا». لا يراها أحد بعد.", color: "#7c3aed" },
+  share: { emoji: "🤝", en: "Share in your team", ar: "شارك فريقك", doEn: "Share your best ideas with your team and build on theirs.", doAr: "شارك أفضل أفكارك مع فريقك وابنِ على أفكارهم.", color: "#2563eb" },
+  vote: { emoji: "🗳️", en: "Vote", ar: "صوّت", doEn: "Put your dots on the ideas you like most.", doAr: "ضع نقاطك على الأفكار التي تعجبك أكثر.", color: "#db2777" },
+  build: { emoji: "🛠️", en: "Build", ar: "طوّر", doEn: "Develop the top ideas: how would it work? What's needed?", doAr: "طوّر الأفكار الأعلى: كيف ستعمل؟ وما المطلوب؟", color: "#ea580c" },
+  present: { emoji: "🎤", en: "Present", ar: "اعرض", doEn: "Teams present their best idea.", doAr: "تعرض الفرق أفضل أفكارها.", color: "#16a34a" },
+};
+
+/** Seconds left on the phase timer, by the server's clock (null: no timer). */
+export function useCountdown(endsAt: string | null | undefined, serverNow: string | undefined) {
+  const [, tick] = useState(0);
+  const offset = useRef(0);
+  useEffect(() => { if (serverNow) offset.current = Date.parse(serverNow) - Date.now(); }, [serverNow]);
+  useEffect(() => {
+    if (!endsAt) return;
+    const timer = window.setInterval(() => tick((n) => n + 1), 500);
+    return () => window.clearInterval(timer);
+  }, [endsAt]);
+  if (!endsAt) return null;
+  return Math.max(0, Math.round((Date.parse(endsAt) - (Date.now() + offset.current)) / 1000));
+}
+export const clockText = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;

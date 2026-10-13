@@ -7,12 +7,15 @@ import {
   liveParticipantsTable,
   liveReactionsTable,
   liveSessionsTable,
+  liveVotesTable,
   type LiveCard,
   type LiveParticipant,
   type LiveSession,
 } from "@workspace/db";
 import { readStoredFile, storeBytes } from "../lib/audio-edit";
-import { canSee, cleanEmoji, cleanName, cleanText, hashToken, makeCode, makeTeams, newToken, normalizeCode, REACTIONS, smallestTeam, type Viewer } from "../lib/live";
+import { canSee, canVote, cleanEmoji, cleanName, cleanSynthesis, cleanText, hashToken, liveReportHtml, makeCode, makeTeams, newToken, normalizeCode, phaseEnd, PHASES, REACTIONS, smallestTeam, synthesisPrompt, type Phase, type Viewer } from "../lib/live";
+import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
+import { htmlToPdf } from "../lib/pdf";
 import { TranscriptionBusyError, transcribeStoredAudio } from "../lib/stored-transcription";
 
 /**
@@ -72,6 +75,8 @@ async function participantOf(req: Request, session: LiveSession) {
 
 const sessionView = (session: LiveSession) => ({
   id: session.id, code: session.code, title: session.title, challenge: session.challenge, status: session.status, teamCount: session.teamCount,
+  phase: session.phase, phaseEndsAt: session.phaseEndsAt?.toISOString() ?? null, votesPerPerson: session.votesPerPerson,
+  synthesis: session.synthesis ?? null, synthesisAt: session.synthesisAt?.toISOString() ?? null,
   createdAt: session.createdAt.toISOString(),
 });
 const personView = (participant: LiveParticipant) => ({
@@ -88,7 +93,10 @@ async function buildState(session: LiveSession, viewer: Viewer) {
   const ids = cards.map((card) => card.id);
   const reactions = ids.length ? await db.select().from(liveReactionsTable).where(inArray(liveReactionsTable.cardId, ids)) : [];
   const comments = ids.length ? await db.select().from(liveCommentsTable).where(inArray(liveCommentsTable.cardId, ids)).orderBy(asc(liveCommentsTable.id)) : [];
+  const votes = ids.length ? await db.select().from(liveVotesTable).where(inArray(liveVotesTable.cardId, ids)) : [];
   const me = viewer.kind === "participant" ? viewer.id : 0;
+  // While voting, people see only their own dots (no following the crowd); afterwards, the totals.
+  const showTotals = viewer.kind === "instructor" || session.phase !== "vote";
   const fileUrl = (card: LiveCard) => (viewer.kind === "instructor" ? `/api/live-admin/files/${card.id}` : `/api/live/${session.code}/files/${card.id}`);
   const author = (participantId: number | null) => {
     const person = participantId === null ? null : byId.get(participantId);
@@ -110,8 +118,12 @@ async function buildState(session: LiveSession, viewer: Viewer) {
         id: comment.id, author: author(comment.participantId), mine: comment.participantId === (viewer.kind === "participant" ? viewer.id : null), text: comment.text,
         createdAt: comment.createdAt.toISOString(),
       })),
+      votes: showTotals ? votes.filter((vote) => vote.cardId === card.id).length : null,
+      myVote: votes.some((vote) => vote.cardId === card.id && vote.participantId === me),
       createdAt: card.createdAt.toISOString(),
     })),
+    now: new Date().toISOString(),
+    ...(viewer.kind === "participant" ? { votesUsed: votes.filter((vote) => vote.participantId === me).length } : {}),
     // The instructor sees how much each person is writing privately, never what.
     ...(viewer.kind === "instructor" ? { privateCounts: Object.fromEntries(people.map((person) => [person.id, all.filter((card) => card.participantId === person.id && card.space === "me").length])) } : {}),
   };
@@ -183,9 +195,92 @@ router.patch("/live-admin/sessions/:sessionId", async (req, res): Promise<void> 
   if (typeof req.body?.title === "string" && cleanText(req.body.title, 120)) changes.title = cleanText(req.body.title, 120);
   if (typeof req.body?.challenge === "string") changes.challenge = cleanText(req.body.challenge, 4000);
   if (["open", "closed", "ended"].includes(req.body?.status)) changes.status = req.body.status;
+  // Phases: everyone's screen follows; an optional timer in minutes.
+  if ((PHASES as readonly string[]).includes(req.body?.phase)) {
+    changes.phase = req.body.phase as Phase;
+    changes.phaseEndsAt = phaseEnd(req.body?.minutes);
+  }
+  if (req.body?.addMinutes !== undefined) {
+    const base = session.phaseEndsAt && session.phaseEndsAt.getTime() > Date.now() ? session.phaseEndsAt.getTime() : Date.now();
+    changes.phaseEndsAt = phaseEnd(Number(req.body.addMinutes), base);
+  }
+  if (req.body?.stopTimer) changes.phaseEndsAt = null;
+  const perPerson = Number(req.body?.votesPerPerson);
+  if (Number.isInteger(perPerson) && perPerson >= 1 && perPerson <= 10) changes.votesPerPerson = perPerson;
   if (Object.keys(changes).length) await db.update(liveSessionsTable).set(changes).where(eq(liveSessionsTable.id, session.id));
   bump(session.id);
   res.json(sessionView((await sessionById(session.id))!));
+});
+
+router.post("/live-admin/sessions/:sessionId/votes/clear", async (req, res): Promise<void> => {
+  const session = await adminSession(req, res);
+  if (!session) return;
+  await db.execute(sql`delete from live_votes v using live_cards c where v.card_id = c.id and c.session_id = ${session.id}`);
+  bump(session.id);
+  res.json({ ok: true });
+});
+
+/** The shared ideas (team and everyone, never private), with their votes. */
+async function sharedIdeas(session: LiveSession) {
+  const cards = await db.select().from(liveCardsTable).where(eq(liveCardsTable.sessionId, session.id)).orderBy(asc(liveCardsTable.id));
+  const people = await db.select().from(liveParticipantsTable).where(eq(liveParticipantsTable.sessionId, session.id));
+  const names = new Map(people.map((person) => [person.id, person.name]));
+  const shared = cards.filter((card) => card.space !== "me" && !card.hidden && card.text.trim());
+  const votes = shared.length ? await db.select().from(liveVotesTable).where(inArray(liveVotesTable.cardId, shared.map((card) => card.id))) : [];
+  return {
+    people: people.length,
+    cards: shared.map((card) => ({
+      id: card.id, text: card.text, team: card.team, space: card.space as "team" | "all",
+      author: card.participantId === null ? "Instructor" : names.get(card.participantId) ?? "?",
+      votes: votes.filter((vote) => vote.cardId === card.id).length,
+    })),
+  };
+}
+
+/** The AI reads all shared ideas: a summary of the room, themes, standout ideas, what's missing. */
+router.post("/live-admin/sessions/:sessionId/synthesize", async (req, res): Promise<void> => {
+  const session = await adminSession(req, res);
+  if (!session) return;
+  if (!aiConfigured) { res.status(503).json({ error: "AI is not configured yet." }); return; }
+  const { cards } = await sharedIdeas(session);
+  if (cards.length < 3) { res.status(409).json({ error: "Wait for at least 3 shared ideas." }); return; }
+  try {
+    const response = await openai.chat.completions.create({
+      model: process.env.OPENAI_ANALYSIS_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? (process.env.OPENAI_TEXT_MODEL || "gpt-5.6-luna") : "gpt-4.1"),
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: synthesisPrompt(session.challenge, typeof req.body?.language === "string" ? req.body.language : "auto") },
+        { role: "user", content: cards.map((card) => `#${card.id} [${card.space === "team" ? `Team ${card.team}` : "Everyone"}${card.votes ? `, ${card.votes} votes` : ""}] ${card.text.slice(0, 600)}`).join("\n").slice(0, 80_000) },
+      ],
+    }, { timeout: 120_000, maxRetries: 1 });
+    let raw: unknown = null;
+    try { raw = JSON.parse(response.choices[0]?.message?.content ?? "null"); } catch { /* below */ }
+    const synthesis = cleanSynthesis(raw, new Set(cards.map((card) => card.id)));
+    if (!synthesis) { res.status(502).json({ error: "The AI didn't return themes. Try again." }); return; }
+    await db.update(liveSessionsTable).set({ synthesis, synthesisAt: new Date() }).where(eq(liveSessionsTable.id, session.id));
+    bump(session.id);
+    res.json({ synthesis });
+  } catch (error) {
+    console.warn("Live synthesis failed:", (error as Error).message);
+    res.status(502).json({ error: "The ideas couldn't be read right now. Try again." });
+  }
+});
+
+/** The workshop report as a PDF. */
+router.get("/live-admin/sessions/:sessionId/report", async (req, res): Promise<void> => {
+  const session = await adminSession(req, res);
+  if (!session) return;
+  const { people, cards } = await sharedIdeas(session);
+  try {
+    const pdf = await htmlToPdf(liveReportHtml({ title: session.title, challenge: session.challenge, date: session.createdAt, people, teamCount: session.teamCount, cards, synthesis: session.synthesis ?? null }));
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(`${session.title.replace(/[^\p{L}\p{N}\s_-]/gu, "").trim().slice(0, 60) || "workshop"} - report.pdf`)}`);
+    res.send(pdf);
+  } catch (error) {
+    console.warn("Live report failed:", (error as Error).message);
+    res.status(500).json({ error: "The report couldn't be made on the server." });
+  }
 });
 
 router.delete("/live-admin/sessions/:sessionId", async (req, res): Promise<void> => {
@@ -427,6 +522,21 @@ router.post("/live/:code/cards/:cardId/react", async (req, res): Promise<void> =
   const [had] = await db.select().from(liveReactionsTable).where(key);
   if (had) await db.delete(liveReactionsTable).where(key);
   else await db.insert(liveReactionsTable).values({ cardId: found.card.id, participantId: found.person.id, emoji });
+  bump(found.session.id);
+  res.json({ on: !had });
+});
+
+/** Dot voting: put a dot on an idea, or take it back. */
+router.post("/live/:code/cards/:cardId/vote", async (req, res): Promise<void> => {
+  const found = await ownCard(req, res);
+  if (!found || !writable(found.session, res)) return;
+  const key = and(eq(liveVotesTable.cardId, found.card.id), eq(liveVotesTable.participantId, found.person.id));
+  const [had] = await db.select().from(liveVotesTable).where(key);
+  const used = await db.execute(sql`select count(*)::int as n from live_votes v join live_cards c on c.id = v.card_id where v.participant_id = ${found.person.id} and c.session_id = ${found.session.id}`);
+  const problem = canVote({ phase: found.session.phase, own: found.card.participantId === found.person.id || found.card.space === "me", already: !!had, used: Number((used.rows[0] as { n: number }).n), allowed: found.session.votesPerPerson });
+  if (problem) { res.status(409).json({ error: problem }); return; }
+  if (had) await db.delete(liveVotesTable).where(key);
+  else await db.insert(liveVotesTable).values({ cardId: found.card.id, participantId: found.person.id });
   bump(found.session.id);
   res.json({ on: !had });
 });

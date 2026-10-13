@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CornerDownRight, Globe2, Loader2, Lock, Mic, Send, Square, Target, Users, X } from "lucide-react";
 import { LiveIdeaCard } from "@/components/live-card";
+import { PhaseBanner } from "@/components/live-phase";
 import { LanguageToggle } from "@/components/language-toggle";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
@@ -164,11 +165,28 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
   const [challengeOpen, setChallengeOpen] = useState(true);
   const [seen, setSeen] = useState<Record<LiveSpace, number>>({ me: 0, team: 0, all: 0 });
   useEffect(() => { try { sessionStorage.setItem(`idea-live-tab-${code}`, tab); } catch { /* optional */ } }, [code, tab]);
+  // When the instructor moves the room to a new step, the screen goes where that step happens.
+  const phase = state?.session.phase;
+  const lastPhase = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!phase || phase === lastPhase.current) return;
+    const first = lastPhase.current === undefined;
+    lastPhase.current = phase;
+    if (first && phase === "free") return;
+    const hasTeam = state?.me?.team != null;
+    setTab(phase === "think" ? "me" : phase === "share" ? (hasTeam ? "team" : "me") : phase === "free" ? tab : "all");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const me = state?.me;
   const cards = state?.cards ?? [];
   const byId = useMemo(() => new Map(cards.map((card) => [card.id, card])), [cards]);
-  const inTab = (space: LiveSpace) => cards.filter((card) => card.space === space && (space !== "me" || card.mine)).sort((a, b) => b.id - a.id);
+  // After voting, the most-voted ideas come first.
+  const byVotes = phase === "build" || phase === "present";
+  const inTab = (space: LiveSpace) => cards.filter((card) => card.space === space && (space !== "me" || card.mine))
+    .sort((a, b) => (byVotes ? (b.votes ?? 0) - (a.votes ?? 0) : 0) || b.id - a.id);
+  const voting = phase === "vote";
+  const dotsLeft = (state?.session.votesPerPerson ?? 0) - (state?.votesUsed ?? 0);
   const shown = inTab(tab);
   const ended = state?.session.status === "ended";
   // New in the other tabs since you last looked.
@@ -209,6 +227,13 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
       {ended && <p className="bg-secondary px-4 py-2 text-center text-sm" role="status">{copy("This session has ended. You can still read everything.", "انتهت الجلسة. ما زال بإمكانك قراءة كل شيء.")}</p>}
 
       <main className="flex-1 space-y-4 px-4 pb-28 pt-4">
+        <PhaseBanner state={state} copy={copy} extra={voting ? (
+          <p className="mt-3 flex items-center gap-1.5 rounded-2xl bg-white/15 px-3 py-2 text-sm font-semibold">
+            {copy("Your dots:", "نقاطك:")}
+            {Array.from({ length: state.session.votesPerPerson }, (_, i) => <span key={i} className={`h-4 w-4 rounded-full ${i < dotsLeft ? "bg-white" : "border-2 border-white/60"}`} />)}
+            <span className="ms-auto text-xs font-normal">{dotsLeft > 0 ? copy(`${dotsLeft} left`, `باقي ${dotsLeft}`) : copy("All used", "استُخدمت كلها")}</span>
+          </p>
+        ) : undefined} />
         {state.session.challenge && (
           <button type="button" onClick={() => setChallengeOpen((open) => !open)} aria-expanded={challengeOpen}
             className="block w-full rounded-3xl border border-amber-300/70 bg-gradient-to-br from-amber-50 to-card p-4 text-start dark:border-amber-800 dark:from-amber-950/30">
@@ -235,7 +260,7 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
                 ))}
               </div>
             )}
-            {!ended && (
+            {!ended && !voting && phase !== "present" && (
               <Composer key={tab} code={code} space={tab} copy={copy} buildOn={buildOn} onClearBuild={() => setBuildOn(null)} onPosted={() => { setBuildOn(null); void refresh(); }} />
             )}
             {shown.length === 0 ? (
@@ -247,6 +272,7 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
             ) : shown.map((card) => (
               <div key={card.id}>
                 <LiveIdeaCard card={card} parent={card.parentId ? byId.get(card.parentId) : undefined} copy={copy} readOnly={ended} showTeam={tab === "all"}
+                  voting={voting && card.space !== "me"} onVote={() => void act(() => post(`/cards/${card.id}/vote`), copy("It didn't work.", "لم ينجح."))}
                   onReact={(emoji) => void act(() => post(`/cards/${card.id}/react`, { emoji }), copy("It didn't work.", "لم ينجح."))}
                   onComment={(text) => act(() => post(`/cards/${card.id}/comments`, { text }), copy("The comment wasn't sent.", "لم يُرسل التعليق."))}
                   onDeleteComment={(id) => void act(() => post(`/comments/${id}`, undefined, "DELETE"), copy("It didn't work.", "لم ينجح."))}

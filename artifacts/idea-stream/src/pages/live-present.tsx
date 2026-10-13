@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams } from "wouter";
-import { Globe2, LayoutGrid, Loader2, Maximize, QrCode as QrIcon, Users, X } from "lucide-react";
+import { Globe2, LayoutGrid, Loader2, Maximize, QrCode as QrIcon, Sparkles, Trophy, Users, X } from "lucide-react";
+import { PhaseOverlay } from "@/components/live-phase";
 import { appPath } from "@/lib/app-path";
 import { useLanguage } from "@/lib/i18n";
 import { joinLink, showCode, teamColor, useLiveState } from "@/lib/live-api";
 import { QrCode } from "@/pages/live-sessions";
 
-type Mode = "join" | "wall" | "teams";
+type Mode = "join" | "wall" | "teams" | "results" | "themes";
 
 /**
  * The projector: a big QR code and code with people popping in as they join, then the live wall
@@ -23,6 +24,8 @@ export default function LivePresentPage() {
       if (event.key === "1") setMode("join");
       if (event.key === "2") setMode("wall");
       if (event.key === "3") setMode("teams");
+      if (event.key === "4") setMode("results");
+      if (event.key === "5") setMode("themes");
       if (event.key.toLowerCase() === "f") void document.documentElement.requestFullscreen?.().catch(() => {});
     };
     window.addEventListener("keydown", keys);
@@ -35,9 +38,59 @@ export default function LivePresentPage() {
   const people = state.people;
   const wall = state.cards.filter((card) => card.space === "all" && !card.hidden).sort((a, b) => b.id - a.id).slice(0, 30);
   const teams = Array.from({ length: session.teamCount }, (_, index) => index + 1);
+  const ranked = state.cards.filter((card) => card.space !== "me" && !card.hidden && (card.votes ?? 0) > 0).sort((a, b) => (b.votes ?? 0) - (a.votes ?? 0)).slice(0, 8);
+  const byId = new Map(state.cards.map((card) => [card.id, card]));
+  // Following the room: voting shows the results view once it's over; the join view stays manual.
 
   return (
     <div className="fixed inset-0 z-[90] overflow-hidden bg-[radial-gradient(ellipse_at_top_left,#1e3a5f_0%,#0b1220_55%,#05080f_100%)] text-white">
+      {mode !== "join" && <PhaseOverlay state={state} copy={copy} />}
+      {mode === "results" && (
+        <div className="flex h-full flex-col p-[2.5vw]">
+          <h1 className="mb-[1.5vw] flex items-center gap-[1vw] font-serif text-[2.6vw] text-white"><Trophy className="h-[2.6vw] w-[2.6vw] text-amber-400" />{copy("Most votes", "الأكثر أصواتًا")}</h1>
+          {ranked.length === 0 ? (
+            <p className="m-auto text-[2vw] text-white/60">{copy("No votes yet.", "لا أصوات بعد.")}</p>
+          ) : (
+            <ol className="min-h-0 flex-1 space-y-[0.9vw] overflow-hidden">
+              {ranked.map((card, index) => {
+                const max = ranked[0]!.votes ?? 1;
+                return (
+                  <li key={card.id} className="relative flex items-center gap-[1.2vw] overflow-hidden rounded-[1.2vw] bg-white/[0.07] px-[1.4vw] py-[0.9vw]">
+                    <span className="absolute inset-y-0 start-0 bg-pink-500/25 transition-all duration-700" style={{ width: `${((card.votes ?? 0) / max) * 100}%` }} />
+                    <span className={`relative grid h-[3vw] w-[3vw] shrink-0 place-items-center rounded-full text-[1.5vw] font-black ${index === 0 ? "bg-amber-400 text-slate-900" : index < 3 ? "bg-white/80 text-slate-900" : "bg-white/15"}`}>{index + 1}</span>
+                    <span dir="auto" className="relative min-w-0 flex-1 truncate text-[1.6vw]">{card.text || "📷"}</span>
+                    <span className="relative shrink-0 text-[1.2vw] text-white/70">{card.author?.emoji} {card.author?.name ?? copy("Instructor", "المدرّب")}{card.team ? ` · ${copy(`Team ${card.team}`, `الفريق ${card.team}`)}` : ""}</span>
+                    <span className="relative shrink-0 rounded-full bg-pink-500 px-[1vw] py-[0.2vw] text-[1.4vw] font-black tabular-nums">● {card.votes}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      )}
+      {mode === "themes" && (
+        <div className="flex h-full flex-col p-[2.5vw]">
+          <h1 className="mb-[1vw] flex items-center gap-[1vw] font-serif text-[2.6vw] text-white"><Sparkles className="h-[2.4vw] w-[2.4vw] text-violet-300" />{copy("What the room is saying", "ما تقوله القاعة")}</h1>
+          {!session.synthesis ? (
+            <p className="m-auto max-w-[60vw] text-center text-[2vw] text-white/60">{copy("Use “Group the ideas into themes” in the control room.", "استخدم «جمّع الأفكار في محاور» من غرفة التحكم.")}</p>
+          ) : (
+            <>
+              {session.synthesis.summary && <p dir="auto" className="mb-[1.5vw] max-w-[80vw] text-[1.6vw] leading-snug text-white/85">{session.synthesis.summary}</p>}
+              <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-3 gap-[1.2vw] overflow-hidden">
+                {session.synthesis.themes.slice(0, 6).map((theme, index) => (
+                  <div key={index} className="flex min-h-0 flex-col overflow-hidden rounded-[1.4vw] bg-white p-[1.2vw] text-slate-900 shadow-xl">
+                    <p className="flex items-center gap-[0.6vw] text-[1.5vw] font-bold"><span className="grid h-[2.2vw] w-[2.2vw] shrink-0 place-items-center rounded-full bg-violet-600 text-[1.1vw] text-white">{theme.cardIds.length}</span><span dir="auto" className="truncate">{theme.title}</span></p>
+                    <p dir="auto" className="mt-[0.4vw] text-[1.1vw] leading-snug text-slate-600">{theme.summary}</p>
+                    <ul className="mt-[0.6vw] min-h-0 space-y-[0.3vw] overflow-hidden">
+                      {theme.cardIds.slice(0, 4).map((id) => byId.get(id)).filter(Boolean).map((card) => <li key={card!.id} dir="auto" className="truncate rounded-[0.6vw] bg-slate-100 px-[0.7vw] py-[0.25vw] text-[1vw]">{card!.text}</li>)}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
       {mode === "join" && (
         <div className="grid h-full grid-cols-1 items-center gap-[4vw] p-[4vw] md:grid-cols-[auto_1fr]">
           <div className="mx-auto rounded-[2rem] bg-white p-[1.2vw] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6)]">
@@ -127,7 +180,7 @@ export default function LivePresentPage() {
       {/* Controls: shown on hover (keys 1, 2, 3 and F work too). */}
       <div className="group fixed bottom-0 end-0 p-4">
         <div className="flex items-center gap-1 rounded-full bg-white/10 p-1 opacity-30 backdrop-blur transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          {([["join", QrIcon, copy("Join", "انضمام")], ["wall", Globe2, copy("Wall", "الحائط")], ["teams", LayoutGrid, copy("Teams", "الفرق")]] as const).map(([value, Icon, label]) => (
+          {([["join", QrIcon, copy("Join", "انضمام")], ["wall", Globe2, copy("Wall", "الحائط")], ["teams", LayoutGrid, copy("Teams", "الفرق")], ["results", Trophy, copy("Votes", "الأصوات")], ["themes", Sparkles, copy("Themes", "المحاور")]] as const).map(([value, Icon, label]) => (
             <button key={value} type="button" onClick={() => setMode(value)} aria-pressed={mode === value}
               className={`inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold ${mode === value ? "bg-white text-slate-900" : "text-white"}`}><Icon size={16} />{label}</button>
           ))}

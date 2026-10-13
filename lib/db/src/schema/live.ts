@@ -1,4 +1,11 @@
-import { boolean, index, integer, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
+
+export type LiveSynthesis = {
+  summary: string;
+  themes: Array<{ title: string; summary: string; cardIds: number[] }>;
+  standouts: Array<{ cardId: number; why: string }>;
+  gaps: string[];
+};
 
 /**
  * Live workshops. The owner runs a session; participants join with its code and a name (no
@@ -15,6 +22,13 @@ export const liveSessionsTable = pgTable("live_sessions", {
   /** open: people can join; closed: no new people; ended: read only. */
   status: text("status", { enum: ["open", "closed", "ended"] }).notNull().default("open"),
   teamCount: integer("team_count").notNull().default(0),
+  /** The step everyone is on (think alone, share in teams, vote, build, present), and when its timer ends. */
+  phase: text("phase", { enum: ["free", "think", "share", "vote", "build", "present"] }).notNull().default("free"),
+  phaseEndsAt: timestamp("phase_ends_at", { withTimezone: true }),
+  votesPerPerson: integer("votes_per_person").notNull().default(3),
+  /** The AI's reading of the room: summary, themes, standout ideas. */
+  synthesis: jsonb("synthesis").$type<LiveSynthesis>(),
+  synthesisAt: timestamp("synthesis_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
@@ -62,6 +76,12 @@ export const liveCommentsTable = pgTable("live_comments", {
   text: text("text").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index("live_comments_card_idx").on(table.cardId)]);
+
+/** Dot voting: one dot per person per card, up to the session's votes per person. */
+export const liveVotesTable = pgTable("live_votes", {
+  cardId: integer("card_id").notNull().references(() => liveCardsTable.id, { onDelete: "cascade" }),
+  participantId: integer("participant_id").notNull().references(() => liveParticipantsTable.id, { onDelete: "cascade" }),
+}, (table) => [primaryKey({ columns: [table.cardId, table.participantId] })]);
 
 export type LiveSession = typeof liveSessionsTable.$inferSelect;
 export type LiveParticipant = typeof liveParticipantsTable.$inferSelect;

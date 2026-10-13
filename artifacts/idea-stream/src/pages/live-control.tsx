@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { ArrowLeft, Check, Copy as CopyIcon, Loader2, Megaphone, MonitorPlay, MoreHorizontal, Shuffle, Target, Trash2, UserMinus, Users } from "lucide-react";
+import { ArrowLeft, Check, Copy as CopyIcon, FileDown, Loader2, Megaphone, MonitorPlay, MoreHorizontal, Shuffle, Target, Trash2, UserMinus, Users } from "lucide-react";
 import { LiveIdeaCard } from "@/components/live-card";
+import { StepsPanel, ThemesPanel } from "@/components/live-steps";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -26,6 +27,20 @@ export default function LiveControlPage() {
   const [prompt, setPrompt] = useState("");
   const [copied, setCopied] = useState(false);
   const [size, setSize] = useState(4);
+  const [reporting, setReporting] = useState(false);
+  async function report() {
+    setReporting(true);
+    try {
+      const response = await fetch(appPath(`/api/live-admin/sessions/${id}/report`, import.meta.env.BASE_URL), { credentials: "same-origin" });
+      if (!response.ok) throw new Error(((await response.json().catch(() => ({}))) as { error?: string }).error ?? "report");
+      const url = URL.createObjectURL(await response.blob());
+      const name = decodeURIComponent(response.headers.get("Content-Disposition")?.match(/filename\*=UTF-8''([^;]+)/)?.[1] ?? "workshop report.pdf");
+      const link = Object.assign(document.createElement("a"), { href: url, download: name });
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (error) { toast({ variant: "destructive", title: (error as Error).message !== "report" ? (error as Error).message : copy("The report couldn't be made.", "تعذر إنشاء التقرير.") }); }
+    finally { setReporting(false); }
+  }
   useEffect(() => { if (state && challenge === null) setChallenge(state.session.challenge); }, [state, challenge]);
 
   const act = async (work: () => Promise<unknown>, failed = copy("It didn't work. Try again.", "لم ينجح. حاول مجددًا.")) => {
@@ -91,6 +106,9 @@ export default function LiveControlPage() {
         <div className="flex flex-wrap items-center gap-2">
           <a href={appPath(`/live/${session.id}/present`, import.meta.env.BASE_URL)} target="_blank" rel="noreferrer"
             className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"><MonitorPlay size={17} />{copy("Presenter screen", "شاشة العرض")}</a>
+          <Button variant="outline" className="rounded-full" disabled={reporting} onClick={() => void report()}>
+            {reporting ? <Loader2 size={16} className="me-1.5 animate-spin" /> : <FileDown size={16} className="me-1.5" />}{copy("Report (PDF)", "التقرير (PDF)")}
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="rounded-full" aria-label={copy("More", "المزيد")}><MoreHorizontal size={17} /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -132,6 +150,8 @@ export default function LiveControlPage() {
         </section>
       </div>
 
+      <StepsPanel state={state} copy={copy} call={(path, method, json) => call(path, method, json)} act={act} />
+
       <section className="mt-6" aria-label={copy("People and teams", "المشاركون والفرق")}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-serif text-2xl"><Users size={20} className="text-primary" />{copy("People and teams", "المشاركون والفرق")}</h2>
@@ -154,13 +174,19 @@ export default function LiveControlPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {teams.map((team) => {
               const members = people.filter((person) => person.team === team);
-              const count = state.cards.filter((card) => card.space === "team" && card.team === team).length;
+              const teamCards = state.cards.filter((card) => card.space === "team" && card.team === team);
+              const count = teamCards.length;
+              // A team with nothing new for a while, during a working step, may be stuck.
+              const last = teamCards.reduce((latest, card) => Math.max(latest, Date.parse(card.createdAt)), 0);
+              const quietMinutes = Math.floor((Date.parse(state.now) - (last || Date.parse(state.session.createdAt))) / 60_000);
+              const quiet = ["share", "build"].includes(state.session.phase) && quietMinutes >= 4;
               return (
                 <div key={team} className="rounded-3xl border bg-card p-4 shadow-sm" style={{ borderTop: `4px solid ${teamColor(team)}` }}>
                   <div className="mb-2 flex items-center justify-between">
                     <button type="button" onClick={() => setWall(team)} className="font-semibold hover:underline" style={{ color: teamColor(team) }}>{copy(`Team ${team}`, `الفريق ${team}`)}</button>
                     <span className="text-xs text-muted-foreground">{copy(`${members.length} people · ${count} ideas`, `${members.length} أشخاص · ${count} فكرة`)}</span>
                   </div>
+                  {quiet && <p className="mb-2 rounded-xl bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">{copy(`Quiet for ${quietMinutes} min: maybe go and help`, `هادئ منذ ${quietMinutes} د: ربما تحتاج مساعدتك`)}</p>}
                   <div className="flex flex-wrap gap-1.5">{members.map(personChip)}</div>
                 </div>
               );
@@ -174,6 +200,8 @@ export default function LiveControlPage() {
           </div>
         )}
       </section>
+
+      <ThemesPanel state={state} copy={copy} call={(path, method, json) => call(path, method, json)} act={act} />
 
       <section className="mt-8" aria-label={copy("Ideas", "الأفكار")}>
         <div className="mb-3 flex flex-wrap items-center gap-2">

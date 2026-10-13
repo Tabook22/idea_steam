@@ -17,8 +17,11 @@ function ago(iso: string, copy: Copy) {
  * An idea card in a workshop: who wrote it, the idea (text, photo or voice), what it builds on,
  * reactions and comments. Its author can share it further or delete it; the instructor can hide it.
  */
-export function LiveIdeaCard({ card, parent, copy, readOnly, showTeam, instructor, onReact, onComment, onDeleteComment, onBuild, onShare, onDelete, onHide }: {
+export function LiveIdeaCard({ card, parent, copy, readOnly, showTeam, instructor, voting, onVote, onReact, onComment, onDeleteComment, onBuild, onShare, onDelete, onHide }: {
   card: Card; parent?: Card; copy: Copy; readOnly?: boolean; showTeam?: boolean; instructor?: boolean;
+  /** Voting is open (a dot button on others' ideas). */
+  voting?: boolean;
+  onVote?: () => void;
   onReact?: (emoji: string) => void;
   onComment: (text: string) => Promise<boolean>;
   onDeleteComment?: (id: number) => void;
@@ -86,7 +89,19 @@ export function LiveIdeaCard({ card, parent, copy, readOnly, showTeam, instructo
       )}
       {media && card.media && !card.media.type.startsWith("image/") && <audio src={media} controls preload="none" className="mt-2 h-10 w-full" />}
 
+      {voting && !card.mine && !fromInstructor && onVote && (
+        <button type="button" onClick={onVote} aria-pressed={card.myVote}
+          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 py-2.5 text-sm font-bold transition active:scale-[0.98] ${card.myVote ? "border-pink-600 bg-pink-600 text-white shadow-md" : "border-dashed border-pink-300 text-pink-700 hover:bg-pink-50 dark:text-pink-300 dark:hover:bg-pink-950/30"}`}>
+          <span className={`h-4 w-4 rounded-full ${card.myVote ? "bg-white" : "border-2 border-current"}`} />
+          {card.myVote ? copy("Your dot is here (tap to take it back)", "نقطتك هنا (اضغط لاسترجاعها)") : copy("Put a dot on this idea", "ضع نقطة على هذه الفكرة")}
+        </button>
+      )}
       <footer className="mt-3 flex flex-wrap items-center gap-1.5">
+        {card.votes !== null && card.votes > 0 && (
+          <span className="inline-flex h-8 items-center gap-1 rounded-full bg-pink-100 px-2.5 text-sm font-bold text-pink-800 dark:bg-pink-950/40 dark:text-pink-200" title={copy("Votes", "أصوات")}>
+            {"●".repeat(Math.min(card.votes, 5))}{card.votes > 5 ? "+" : ""} {card.votes}
+          </span>
+        )}
         {card.reactions.map((reaction) => (
           <button key={reaction.emoji} type="button" disabled={readOnly || !onReact} onClick={() => onReact?.(reaction.emoji)} aria-pressed={reaction.mine}
             className={`inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-sm transition active:scale-95 ${reaction.mine ? "border-primary/50 bg-primary/10 font-semibold" : "bg-background hover:bg-secondary"}`}>

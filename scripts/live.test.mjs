@@ -80,3 +80,53 @@ test("the sign-in gate lets participants reach only the workshop: join page, app
     assert.equal((await get("/live/3", { Accept: "text/html", "Sec-Fetch-Mode": "navigate" })).status, 303, "the instructor pages ask for sign-in");
   } finally { server.close(); }
 });
+
+test("phase timers and dot voting rules", async () => {
+  const { phaseEnd, canVote } = await import("../artifacts/api-server/src/lib/live.ts");
+  assert.equal(phaseEnd(5, 0).getTime(), 300_000);
+  assert.equal(phaseEnd(500, 0).getTime(), 120 * 60_000, "at most two hours");
+  assert.equal(phaseEnd(0), null);
+  assert.equal(phaseEnd("x"), null);
+  const base = { phase: "vote", own: false, already: false, used: 0, allowed: 3 };
+  assert.equal(canVote(base), null);
+  assert.match(canVote({ ...base, phase: "share" }), /isn't open/);
+  assert.match(canVote({ ...base, own: true }), /your own/);
+  assert.match(canVote({ ...base, used: 3 }), /all your dots/);
+  assert.equal(canVote({ ...base, used: 3, already: true }), null, "taking a dot back is always fine");
+});
+
+test("the AI's themes are checked: real ideas only, each in one theme", async () => {
+  const { cleanSynthesis } = await import("../artifacts/api-server/src/lib/live.ts");
+  const ids = new Set([1, 2, 3, 4]);
+  const result = cleanSynthesis({
+    summary: "Two directions.",
+    themes: [{ title: "Buddies", summary: "Pairing.", cardIds: [1, 2, 99] }, { title: "Repeat", cardIds: [2] }, { title: "Events", summary: "Day one.", cardIds: ["3", 4] }],
+    standouts: [{ cardId: 3, why: "Cheap and fun." }, { cardId: 42, why: "invented" }],
+    gaps: ["Cost", "", "Families", "Transport", "too many"],
+  }, ids);
+  assert.deepEqual(result.themes.map((t) => [t.title, t.cardIds]), [["Buddies", [1, 2]], ["Events", [3, 4]]]);
+  assert.deepEqual(result.standouts.map((s) => s.cardId), [3]);
+  assert.deepEqual(result.gaps, ["Cost", "Families", "Transport"]);
+  assert.equal(cleanSynthesis({}, ids), null);
+});
+
+test("the workshop report has the challenge, themes, top votes and every team", async () => {
+  const { liveReportHtml } = await import("../artifacts/api-server/src/lib/live.ts");
+  const html = liveReportHtml({
+    title: "Welcome week", challenge: "How might we <help> newcomers?", date: new Date("2026-10-13"), people: 23, teamCount: 2,
+    cards: [
+      { id: 1, text: "Buddy system", author: "Sara", team: 1, space: "team", votes: 5 },
+      { id: 2, text: "Treasure hunt", author: "Ali", team: 2, space: "team", votes: 2 },
+      { id: 3, text: "Welcome map", author: "Mona", team: null, space: "all", votes: 0 },
+    ],
+    synthesis: { summary: "People want connection.", themes: [{ title: "Belonging", summary: "Pairing up.", cardIds: [1] }], standouts: [{ cardId: 2, why: "Fun." }], gaps: ["Families"] },
+  });
+  assert.match(html, /How might we &lt;help&gt; newcomers\?/);
+  assert.match(html, /23 participants/);
+  assert.match(html, /People want connection\./);
+  assert.match(html, /Belonging/);
+  assert.match(html, /Most votes<\/h2><ol><li>Buddy system/);
+  assert.match(html, /Team 1<\/h2>/);
+  assert.match(html, /Team 2<\/h2>/);
+  assert.match(html, /Shared with everyone<\/h2><ul><li>Welcome map/);
+});
