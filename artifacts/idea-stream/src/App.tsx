@@ -28,6 +28,7 @@ import LiveControlPage from "@/pages/live-control";
 import LivePresentPage from "@/pages/live-present";
 import StudyPage from "@/pages/study";
 import StudyPackPage from "@/pages/study-pack";
+import TelegramPage from "@/pages/telegram";
 import { BookHost, BooksButton } from "@/components/books";
 import { MeetingStart } from "@/components/meeting-start";
 import { TasksButton } from "@/components/home-tasks";
@@ -138,6 +139,7 @@ function Router() {
         <Route path="/meetings" component={MeetingsPage} />
         <Route path="/meetings/:id" component={MeetingPage} />
         <Route path="/books" component={BooksPage} />
+        <Route path="/telegram" component={TelegramPage} />
         <Route path="/study" component={StudyPage} />
         <Route path="/study/:id" component={StudyPackPage} />
         <Route path="/live" component={LiveSessionsPage} />

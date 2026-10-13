@@ -8,8 +8,9 @@ const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 // and Android fetches the manifest and icons without cookies when installing the app.
 // Workshops: participants join with a code and their name, without the owner's sign-in. They reach
 // only the join page, the app's code (no data in it), and the workshop API, which checks its own pass
-// and only ever shows one workshop's cards to the people in it.
-const PUBLIC_LIVE = /^\/(?:join(?:\/[\w-]{0,20})?|assets\/[\w.-]+|api\/live\/.+)$/;
+// and only ever shows one workshop's cards to the people in it. Also Telegram's calls to the capture
+// bot's webhook, which carry the bot's own secret (checked by that route).
+const PUBLIC_LIVE = /^\/(?:join(?:\/[\w-]{0,20})?|assets\/[\w.-]+|api\/live\/.+|api\/telegram\/webhook\/[a-f0-9]{48})$/;
 const PUBLIC_ASSET = /^\/(?:assets\/[\w.-]+\.woff2|favicon\.svg|apple-touch-icon\.png|icon-[\w-]+\.png|manifest\.webmanifest)$/;
 
 /** Optional single-owner gate for a private VPS. This is not multi-user account isolation. */

@@ -12,6 +12,7 @@ import booksRouter from "./books";
 import visualsRouter from "./visuals";
 import liveRouter from "./live";
 import studyRouter from "./study";
+import telegramRouter from "./telegram";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -28,6 +29,7 @@ router.use(booksRouter);
 router.use(visualsRouter);
 router.use(liveRouter);
 router.use(studyRouter);
+router.use(telegramRouter);
 router.use(audioLibraryRouter);
 router.use(storageRouter);
 

@@ -638,6 +638,9 @@ export default function RecorderPage() {
         <p className="relative mt-5 text-lg font-semibold" role="status">
           {stage === "starting" ? copy("Opening the microphone…", "جارٍ فتح الميكروفون…") : copy("Tap to record", "اضغط للتسجيل")}
         </p>
+        <Link href="/telegram" className="relative mx-auto mt-3 inline-flex items-center gap-1.5 rounded-full border border-sky-300/60 bg-sky-50 px-3.5 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200">
+          {copy("Or send ideas from Telegram", "أو أرسل أفكارك من تيليجرام")} →
+        </Link>
         <p className="relative mt-1 text-xs text-muted-foreground">
           {copy("or press Alt + R", "أو اضغط Alt + R")}
         </p>

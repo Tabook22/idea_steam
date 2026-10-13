@@ -130,3 +130,19 @@ test("the workshop report has the challenge, themes, top votes and every team", 
   assert.match(html, /Team 2<\/h2>/);
   assert.match(html, /Shared with everyone<\/h2><ul><li>Welcome map/);
 });
+
+test("Telegram can reach only the capture webhook (with its long secret), nothing else", async () => {
+  const env = { APP_BASE_PATH: "/ideas", APP_ORIGIN: "https://nasserdiary.com", APP_USERNAME: "owner", APP_PASSWORD_HASH: `salt:${scryptSync("pw", "salt", 32).toString("hex")}` };
+  const app = express();
+  app.use(privateAccess(env));
+  app.all("/{*path}", (_req, res) => res.send("reached"));
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const hook = await fetch(`${origin}/api/telegram/webhook/${"a1".repeat(24)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    assert.equal(hook.status, 200, "Telegram sends no Origin header and no sign-in");
+    for (const path of ["/api/telegram", "/api/telegram/connect", "/api/telegram/webhook/short", "/api/telegram/webhook/" + "a1".repeat(24) + "/x"])
+      assert.notEqual((await fetch(`${origin}${path}`, { method: "POST", headers: { "Sec-Fetch-Dest": "empty" } })).status, 200, path);
+  } finally { server.close(); }
+});
