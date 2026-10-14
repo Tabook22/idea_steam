@@ -5,6 +5,7 @@ import {
   db,
   ideasTable,
   meetingsTable,
+  eventsTable,
   subjectsTable,
   type AudioLibraryRecord,
 } from "@workspace/db";
@@ -41,6 +42,7 @@ import { findTasksLater } from "../lib/task-extract";
 import { processMeetingLater } from "../lib/meeting-process";
 import { cleanNotes } from "../lib/meeting-notes";
 import { cleanNotebook } from "../lib/meeting-notebook";
+import { cleanPlace } from "../lib/reminders";
 
 const router: IRouter = Router();
 
@@ -287,6 +289,8 @@ router.post("/audio-library/recordings", async (req, res): Promise<void> => {
       subjectId: meeting.subjectId ?? null,
       participants: (meeting.participants ?? []).map((name) => name.trim()).filter(Boolean),
       agenda: meeting.agenda ?? "",
+      location: cleanPlace(meeting.location),
+      eventId: meeting.eventId ?? null,
       markers: (meeting.markers ?? []).filter((mark) => mark.at >= 0),
       notes: cleanNotes(meeting.notes ?? []),
       notebook: cleanNotebook(meeting.notebook) as unknown as Record<string, unknown> | null,
@@ -294,6 +298,8 @@ router.post("/audio-library/recordings", async (req, res): Promise<void> => {
       stage: "waiting",
     }).onConflictDoNothing().returning({ id: meetingsTable.id });
     if (created) processMeetingLater(created.id);
+    // The scheduled event now points at its recording.
+    if (created && meeting.eventId) await db.update(eventsTable).set({ meetingId: created.id }).where(eq(eventsTable.id, meeting.eventId));
   }
   res.status(inserted ? 201 : 200).json(serialize(saved));
 });

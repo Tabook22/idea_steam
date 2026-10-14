@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MeetingUpdateSpeakers } from './meetingUpdateSpeakers';
+import type { Place } from './place';
 
 export interface MeetingUpdate {
+  location?: Place | null;
   /**
      * @minLength 1
      * @maxLength 200

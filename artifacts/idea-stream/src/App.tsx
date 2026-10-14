@@ -29,6 +29,8 @@ import LivePresentPage from "@/pages/live-present";
 import StudyPage from "@/pages/study";
 import StudyPackPage from "@/pages/study-pack";
 import TelegramPage from "@/pages/telegram";
+import CalendarPage from "@/pages/calendar";
+import { EventEditor } from "@/components/event-editor";
 import { BookHost, BooksButton } from "@/components/books";
 import { MeetingStart } from "@/components/meeting-start";
 import { TasksButton } from "@/components/home-tasks";
@@ -140,6 +142,7 @@ function Router() {
         <Route path="/meetings/:id" component={MeetingPage} />
         <Route path="/books" component={BooksPage} />
         <Route path="/telegram" component={TelegramPage} />
+        <Route path="/calendar" component={CalendarPage} />
         <Route path="/study" component={StudyPage} />
         <Route path="/study/:id" component={StudyPackPage} />
         <Route path="/live" component={LiveSessionsPage} />
@@ -168,6 +171,7 @@ function AppContent() {
           <RecorderProvider>
             <ServiceNotice />
             <MeetingStart />
+            <EventEditor />
             <BookHost />
             {import.meta.env.VITE_DESIGN_PREVIEW === "true" && (
               <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">

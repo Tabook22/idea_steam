@@ -23,6 +23,7 @@ import {
   Sparkles,
   Video,
   Wand2,
+  CalendarDays,
 } from "lucide-react";
 import {
   getListSubjectsQueryKey,
@@ -203,6 +204,7 @@ export default function HomePage() {
           <Link href="/record" className="sidebar-link"><Mic size={18} />{copy("Recorder & inbox", "المسجل وصندوق التسجيلات")}</Link>
           <Link href="/library" className="sidebar-link"><Headphones size={18} />{copy("Audio library", "مكتبة الصوت")}</Link>
           <Link href="/tasks" className="sidebar-link"><ListChecks size={18} />{copy("Tasks", "المهام")}</Link>
+          <Link href="/calendar" className="sidebar-link"><CalendarDays size={18} />{copy("Calendar", "التقويم")}</Link>
           <Link href="/meetings" className="sidebar-link"><CalendarClock size={18} />{copy("Meetings", "الاجتماعات")}</Link>
           <Link href="/books" className="sidebar-link"><NotebookPen size={18} />{copy("Books", "الكراسات")}</Link>
           <Link href="/live" className="sidebar-link"><Presentation size={18} />{copy("Workshops", "ورش العمل")}</Link>

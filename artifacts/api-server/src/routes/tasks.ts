@@ -48,6 +48,8 @@ router.patch("/tasks/:taskId", async (req, res): Promise<void> => {
   if (body.data.text !== undefined && body.data.text.trim()) changes.text = body.data.text.trim();
   if (body.data.due !== undefined) { changes.due = body.data.due; if (!body.data.due) changes.time = null; }
   if (body.data.time !== undefined) changes.time = body.data.time;
+  // A new due date or time means a new reminder.
+  if (body.data.due !== undefined || body.data.time !== undefined) changes.remindedAt = null;
   if (body.data.done !== undefined) { changes.done = body.data.done; changes.doneAt = body.data.done ? new Date() : null; }
   if (!Object.keys(changes).length) { res.status(400).json({ error: "Nothing to change" }); return; }
   const [row] = await db.update(tasksTable).set(changes).where(eq(tasksTable.id, params.data.taskId)).returning();

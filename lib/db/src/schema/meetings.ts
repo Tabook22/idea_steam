@@ -46,6 +46,10 @@ export const meetingsTable = pgTable("meetings", {
   /** The handwriting notebook (pages of ink, typed text and media); checked in lib/meeting-notebook. */
   notebook: jsonb("notebook").$type<Record<string, unknown>>(),
   ideaId: integer("idea_id"),
+  /** Where it took place (name, and map position when known). */
+  location: jsonb("location").$type<{ name: string; address?: string; lat?: number; lng?: number }>(),
+  /** The calendar event it was scheduled as, if any. */
+  eventId: integer("event_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

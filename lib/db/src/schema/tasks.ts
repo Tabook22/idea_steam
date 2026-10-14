@@ -15,6 +15,8 @@ export const tasksTable = pgTable(
     person: text("person"),
     done: boolean("done").notNull().default(false),
     doneAt: timestamp("done_at", { withTimezone: true }),
+    /** When its reminder (due date and time) was sent. */
+    remindedAt: timestamp("reminded_at", { withTimezone: true }),
     source: text("source", { enum: ["recording", "manual"] }).notNull().default("manual"),
     /** The audio library recording it came from (a plain reference: deleting either keeps the other). */
     sourceId: integer("source_id"),

@@ -8,8 +8,15 @@
 import type { MeetingMarker } from './meetingMarker';
 import type { MeetingNote } from './meetingNote';
 import type { NotebookDoc } from './notebookDoc';
+import type { Place } from './place';
 
 export interface MeetingStart {
+  location?: Place | null;
+  /**
+     * The calendar event this meeting was scheduled as.
+     * @nullable
+     */
+  eventId?: number | null;
   /**
      * @minLength 1
      * @maxLength 200

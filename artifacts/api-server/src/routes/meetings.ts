@@ -8,6 +8,7 @@ import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { MEETING_ASK, mergeNamedSpeakers, minutesText, plainTranscript, speakerName, talkTime, transcriptLines } from "../lib/meeting-minutes";
 import { isProcessing, processMeetingLater, resumeMeetings, syncMeetingIdea } from "../lib/meeting-process";
 import { textHash } from "../lib/tasks";
+import { cleanPlace } from "../lib/reminders";
 
 const router: IRouter = Router();
 const textModel = () => process.env.OPENAI_TEXT_MODEL || (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "gpt-5.6-luna" : "gpt-4.1-mini");
@@ -37,6 +38,8 @@ function summary(meeting: MeetingRecord, ctx: Awaited<ReturnType<typeof context>
     speakerCount: new Set((meeting.segments ?? []).map((segment) => segment.speaker)).size,
     actionCount: meeting.minutes?.actions.length ?? 0,
     summary: meeting.minutes?.summary ?? null,
+    location: meeting.location ?? null,
+    eventId: meeting.eventId,
     createdAt: meeting.createdAt.toISOString(),
   };
 }
@@ -97,6 +100,7 @@ router.patch("/meetings/:meetingId", async (req, res): Promise<void> => {
     await db.update(audioLibraryTable).set({ title: changes.title }).where(eq(audioLibraryTable.id, meeting.libraryItemId));
   }
   if (body.data.subjectId !== undefined) changes.subjectId = body.data.subjectId;
+  if (body.data.location !== undefined) changes.location = cleanPlace(body.data.location);
   if (body.data.speakers) {
     const before = meeting.speakers ?? {};
     const names = { ...before };

@@ -6,8 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MeetingSummaryStatus } from './meetingSummaryStatus';
+import type { Place } from './place';
 
 export interface MeetingSummary {
+  location: Place | null;
+  /** @nullable */
+  eventId: number | null;
   id: number;
   title: string;
   status: MeetingSummaryStatus;

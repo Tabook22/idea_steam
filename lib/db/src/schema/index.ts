@@ -33,3 +33,4 @@ export * from "./live";
 export * from "./takeaways";
 export * from "./study";
 export * from "./settings";
+export * from "./events";

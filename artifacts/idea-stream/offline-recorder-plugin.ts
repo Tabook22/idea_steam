@@ -44,6 +44,23 @@ self.addEventListener('fetch', event => {
     event.respondWith(caches.open(CACHE).then(async cache => (await cache.match(event.request)) || fetch(event.request)));
   }
 });
+// Reminders (meetings, events, tasks) arrive as push notifications; tapping one opens its page.
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (error) { data = { title: event.data ? event.data.text() : 'Idea Stream' }; }
+  event.waitUntil(self.registration.showNotification(data.title || 'Idea Stream', {
+    body: data.body || '', tag: data.tag, renotify: true, requireInteraction: true, vibrate: [300, 120, 300, 120, 300],
+    icon: ${JSON.stringify(`${base}icon-192.png`)}, badge: ${JSON.stringify(`${base}icon-192.png`)}, data: { url: data.url || ${JSON.stringify(base)} },
+  }));
+});
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || ${JSON.stringify(base)}, self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windows => {
+    for (const client of windows) if (client.url.startsWith(self.location.origin) && 'focus' in client) { client.navigate(target); return client.focus(); }
+    return self.clients.openWindow(target);
+  }));
+});
 `,
       });
     },

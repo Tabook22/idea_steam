@@ -3,7 +3,12 @@ import type { MeetingNotebookDoc } from "./notebook.ts";
 
 export type RecordingStatus = "recording" | "saved" | "synced";
 export type MarkKind = "important" | "decision" | "action" | "question";
-export type MeetingInfo = { title: string; subjectId: number | null; participants: string[]; agenda: string };
+export type MeetingInfo = {
+  title: string; subjectId: number | null; participants: string[]; agenda: string;
+  /** Where it takes place, and the calendar event it was scheduled as. */
+  location?: { name: string; address?: string; lat?: number; lng?: number } | null;
+  eventId?: number | null;
+};
 export interface LocalRecording {
   id: string;
   title: string;

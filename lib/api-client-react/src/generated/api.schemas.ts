@@ -268,6 +268,15 @@ export interface MeetingMarker {
   kind: MeetingMarkerKind;
 }
 
+export interface Place {
+  /** @maxLength 200 */
+  name: string;
+  /** @maxLength 300 */
+  address?: string;
+  lat?: number;
+  lng?: number;
+}
+
 export type MeetingNoteKind = typeof MeetingNoteKind[keyof typeof MeetingNoteKind];
 
 
@@ -315,6 +324,12 @@ export interface NotebookDoc {
  }
 
 export interface MeetingStart {
+  location?: Place | null;
+  /**
+     * The calendar event this meeting was scheduled as.
+     * @nullable
+     */
+  eventId?: number | null;
   /**
      * @minLength 1
      * @maxLength 200
@@ -659,6 +674,9 @@ export const MeetingSummaryStatus = {
 } as const;
 
 export interface MeetingSummary {
+  location: Place | null;
+  /** @nullable */
+  eventId: number | null;
   id: number;
   title: string;
   status: MeetingSummaryStatus;
@@ -703,6 +721,7 @@ export type Meeting = MeetingSummary & ({
 export type MeetingUpdateSpeakers = {[key: string]: string};
 
 export interface MeetingUpdate {
+  location?: Place | null;
   /**
      * @minLength 1
      * @maxLength 200

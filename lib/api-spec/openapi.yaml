@@ -1861,6 +1861,13 @@ components:
       type: object
       required: [title]
       properties:
+        location:
+          oneOf:
+            - $ref: "#/components/schemas/Place"
+            - type: "null"
+        eventId:
+          type: ["integer", "null"]
+          description: The calendar event this meeting was scheduled as.
         title:
           type: string
           minLength: 1
@@ -2279,10 +2286,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MeetingTopic"
+    Place:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        address:
+          type: string
+          maxLength: 300
+        lat:
+          type: number
+        lng:
+          type: number
     MeetingSummary:
       type: object
-      required: [id, title, status, stage, libraryItemId, durationSeconds, subjectId, subjectTitle, speakerCount, actionCount, summary, createdAt]
+      required: [id, title, status, stage, libraryItemId, durationSeconds, subjectId, subjectTitle, speakerCount, actionCount, summary, createdAt, location, eventId]
       properties:
+        location:
+          oneOf:
+            - $ref: "#/components/schemas/Place"
+            - type: "null"
+        eventId:
+          type: ["integer", "null"]
         id:
           type: integer
         title:
@@ -2354,6 +2381,10 @@ components:
     MeetingUpdate:
       type: object
       properties:
+        location:
+          oneOf:
+            - $ref: "#/components/schemas/Place"
+            - type: "null"
         title:
           type: string
           minLength: 1

@@ -8,12 +8,14 @@ import { isInbox } from "@/lib/inbox";
 import { useLanguage } from "@/lib/i18n";
 import { defaultMeetingTitle } from "@/lib/meeting-view";
 import { useRecorderPrefs } from "@/lib/recorder-prefs";
+import { PlacePicker } from "@/components/place-picker";
+import type { CalendarEvent, Place } from "@/lib/calendar-api";
 
 const OPEN_EVENT = "idea-stream:meeting";
 const LAST_KEY = "idea-stream-last-meeting";
 
-/** Opens "Start a meeting" (optionally for a notebook). */
-export const openMeetingStart = (subjectId?: number) => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: subjectId }));
+/** Opens "Start a meeting": for a notebook, or for a meeting scheduled on the calendar (all filled in). */
+export const openMeetingStart = (from?: number | { event: CalendarEvent }) => window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: from }));
 
 /** Title, notebook, people and agenda (all optional except the title), then record. */
 export function MeetingStart() {
@@ -28,17 +30,33 @@ export function MeetingStart() {
   const [people, setPeople] = useState("");
   const [agenda, setAgenda] = useState("");
   const [showMore, setShowMore] = useState(false);
+  const [place, setPlace] = useState<Place | null>(null);
+  const [eventId, setEventId] = useState<number | null>(null);
 
   useEffect(() => {
     const show = (event: Event) => {
-      const chosen = (event as CustomEvent<number | undefined>).detail;
-      let last: { subjectId?: number | null; people?: string } = {};
+      const detail = (event as CustomEvent<number | { event: CalendarEvent } | undefined>).detail;
+      let last: { subjectId?: number | null; people?: string; place?: Place | null } = {};
       try { last = JSON.parse(localStorage.getItem(LAST_KEY) ?? "{}"); } catch { /* optional */ }
-      setTitle(defaultMeetingTitle(language));
-      setSubjectId(chosen ?? last.subjectId ?? null);
-      setPeople(last.people ?? "");
-      setAgenda("");
-      setShowMore(false);
+      if (detail && typeof detail === "object") {
+        // A scheduled meeting: everything from the calendar.
+        const scheduled = detail.event;
+        setTitle(scheduled.title);
+        setSubjectId(scheduled.subjectId);
+        setPeople(scheduled.participants.join(", "));
+        setAgenda(scheduled.agenda);
+        setPlace(scheduled.location);
+        setEventId(scheduled.id);
+        setShowMore(true);
+      } else {
+        setTitle(defaultMeetingTitle(language));
+        setSubjectId(detail ?? last.subjectId ?? null);
+        setPeople(last.people ?? "");
+        setAgenda("");
+        setPlace(last.place ?? null);
+        setEventId(null);
+        setShowMore(false);
+      }
       setOpen(true);
     };
     window.addEventListener(OPEN_EVENT, show);
@@ -49,18 +67,18 @@ export function MeetingStart() {
   const participants = people.split(/[,،\n]/).map((name) => name.trim()).filter(Boolean).slice(0, 30);
 
   function begin() {
-    try { localStorage.setItem(LAST_KEY, JSON.stringify({ subjectId, people })); } catch { /* optional */ }
+    try { localStorage.setItem(LAST_KEY, JSON.stringify({ subjectId, people, place })); } catch { /* optional */ }
     setOpen(false);
     void start(null, 0, {
       language: prefs.language,
       autoTranscribe: false,
-      meeting: { title: title.trim() || defaultMeetingTitle(language), subjectId, participants, agenda: agenda.trim() },
+      meeting: { title: title.trim() || defaultMeetingTitle(language), subjectId, participants, agenda: agenda.trim(), location: place, eventId },
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+      <DialogContent className="max-h-[94vh] max-w-md gap-0 overflow-y-auto p-0">
         <div className="bg-gradient-to-br from-sky-500/15 via-card to-card px-5 pb-4 pt-5">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-sky-500/15 text-sky-700 dark:text-sky-300"><CalendarClock size={22} /></span>
           <DialogTitle className="mt-3 font-serif text-2xl">{copy("Record a meeting", "سجّل اجتماعًا")}</DialogTitle>
@@ -86,10 +104,14 @@ export function MeetingStart() {
           <button type="button" onClick={() => setShowMore((value) => !value)} aria-expanded={showMore}
             className="flex items-center gap-1.5 text-xs font-medium text-primary">
             <ChevronDown size={14} className={`transition-transform ${showMore ? "" : "-rotate-90 rtl:rotate-90"}`} />
-            {copy("Who's there and the agenda (optional, makes the minutes better)", "الحاضرون وجدول الأعمال (اختياري، يحسّن المحضر)")}
+            {copy("Place, who's there and the agenda (optional)", "المكان والحاضرون وجدول الأعمال (اختياري)")}
           </button>
           {showMore && (
             <div className="space-y-3">
+              <div>
+                <span className="text-xs font-semibold text-muted-foreground">{copy("Where", "المكان")}</span>
+                <div className="mt-1"><PlacePicker value={place} onChange={setPlace} /></div>
+              </div>
               <label className="block">
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><Users size={13} />{copy("Participants, separated by commas", "الحاضرون، مفصولين بفواصل")}</span>
                 <input value={people} onChange={(event) => setPeople(event.target.value)} dir="auto" placeholder={copy("Sara, Ali, Mona", "سارة، علي، منى")}

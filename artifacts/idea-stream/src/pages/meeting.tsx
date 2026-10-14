@@ -10,6 +10,7 @@ import {
   Download,
   ListChecks,
   Loader2,
+  MapPin,
   MessageCircleQuestion,
   Pause,
   Pencil,
@@ -34,6 +35,8 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { MeetingNotepad } from "@/components/meeting-notepad";
+import { PlacePicker, PlaceView } from "@/components/place-picker";
+import type { Place } from "@/lib/calendar-api";
 import { NotebookCard } from "@/components/notebook-card";
 import type { MeetingNotebookDoc } from "@/lib/notebook";
 import type { MeetingNote } from "@/lib/meeting-notes";
@@ -96,6 +99,11 @@ export default function MeetingPage() {
     if (!meeting || !titleDraft.trim() || titleDraft.trim() === meeting.title) return;
     try { refresh(await updateMeeting(meetingId, { title: titleDraft.trim() })); } catch { /* unchanged */ }
   }
+  const [editingPlace, setEditingPlace] = useState(false);
+  async function savePlace(place: Place | null) {
+    try { refresh(await updateMeeting(meetingId, { location: place })); setEditingPlace(false); }
+    catch { toast({ variant: "destructive", title: copy("Couldn't save the place.", "تعذر حفظ المكان.") }); }
+  }
   async function retry(fresh = false) {
     try { refresh(await processMeeting(meetingId, { fresh })); }
     catch (error) { toast({ variant: "destructive", title: (error as { data?: { error?: string } })?.data?.error ?? copy("Couldn't start again.", "تعذرت إعادة المحاولة.") }); }
@@ -128,7 +136,17 @@ export default function MeetingPage() {
         <CalendarClock size={13} />{date.format(new Date(meeting.createdAt))}
         {meeting.durationSeconds ? <span>· {clock(meeting.durationSeconds)}</span> : null}
         {meeting.subjectTitle && <Link href={`/subjects/${meeting.subjectId}`} className="rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground hover:text-primary">📓 <span dir="auto">{meeting.subjectTitle}</span></Link>}
+        {!meeting.location && !editingPlace && <button type="button" onClick={() => setEditingPlace(true)} className="inline-flex items-center gap-0.5 rounded-full border border-dashed px-2 py-0.5 hover:border-primary/50 hover:text-foreground"><MapPin size={11} />{copy("Add the place", "أضف المكان")}</button>}
       </p>
+
+      {/* Where it happened: a map, and Google Maps / Google Earth. */}
+      {(meeting.location || editingPlace) && (
+        <div className="mt-3">
+          {editingPlace
+            ? <div className="rounded-2xl border bg-card p-3"><PlacePicker value={null} onChange={(place) => void savePlace(place)} /><button type="button" onClick={() => setEditingPlace(false)} className="mt-2 text-xs text-muted-foreground hover:text-foreground">{copy("Cancel", "إلغاء")}</button></div>
+            : meeting.location && <div className="space-y-1"><PlaceView place={meeting.location} /><span className="flex gap-3 text-xs"><button type="button" onClick={() => setEditingPlace(true)} className="text-muted-foreground hover:text-foreground">{copy("Change the place", "غيّر المكان")}</button><button type="button" onClick={() => void savePlace(null)} className="text-muted-foreground hover:text-destructive">{copy("Remove", "إزالة")}</button></span></div>}
+        </div>
+      )}
 
       {/* The recording, always at hand: every ▶ in the page plays from that moment. */}
       {meeting.url && (

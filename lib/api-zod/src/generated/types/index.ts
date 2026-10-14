@@ -116,6 +116,7 @@ export * from './noteTranslation';
 export * from './noteTranslationInput';
 export * from './noteTranslationInputTargetLanguage';
 export * from './noteTranslationLanguage';
+export * from './place';
 export * from './relatedItem';
 export * from './relatedItemKind';
 export * from './searchDraftHit';

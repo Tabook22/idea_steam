@@ -13,6 +13,7 @@ import visualsRouter from "./visuals";
 import liveRouter from "./live";
 import studyRouter from "./study";
 import telegramRouter from "./telegram";
+import calendarRouter from "./calendar";
 import storageRouter from "./storage";
 
 const router: IRouter = Router();
@@ -30,6 +31,7 @@ router.use(visualsRouter);
 router.use(liveRouter);
 router.use(studyRouter);
 router.use(telegramRouter);
+router.use(calendarRouter);
 router.use(audioLibraryRouter);
 router.use(storageRouter);
 

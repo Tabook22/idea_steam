@@ -1320,7 +1320,20 @@ export const ReadBookHandwritingResponse = zod.object({
 /**
  * @summary Recorded meetings, newest first
  */
+export const listMeetingsResponseLocationOneNameMax = 200;
+
+export const listMeetingsResponseLocationOneAddressMax = 300;
+
+
+
 export const ListMeetingsResponseItem = zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(listMeetingsResponseLocationOneNameMax),
+  "address": zod.string().max(listMeetingsResponseLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]),
+  "eventId": zod.number().int().nullable(),
   "id": zod.number().int(),
   "title": zod.string(),
   "status": zod.enum(['processing', 'ready', 'failed']),
@@ -1344,6 +1357,10 @@ export const GetMeetingParams = zod.object({
   "meetingId": zod.coerce.number().int()
 })
 
+export const getMeetingResponseOneLocationOneNameMax = 200;
+
+export const getMeetingResponseOneLocationOneAddressMax = 300;
+
 export const getMeetingResponseTwoMarkersItemAtMin = 0;
 
 export const getMeetingResponseTwoNotesItemIdMax = 64;
@@ -1361,6 +1378,13 @@ export const getMeetingResponseTwoNotebookOnePagesMax = 200;
 
 
 export const GetMeetingResponse = zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(getMeetingResponseOneLocationOneNameMax),
+  "address": zod.string().max(getMeetingResponseOneLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]),
+  "eventId": zod.number().int().nullable(),
   "id": zod.number().int(),
   "title": zod.string(),
   "status": zod.enum(['processing', 'ready', 'failed']),
@@ -1446,6 +1470,10 @@ export const UpdateMeetingParams = zod.object({
   "meetingId": zod.coerce.number().int()
 })
 
+export const updateMeetingBodyLocationOneNameMax = 200;
+
+export const updateMeetingBodyLocationOneAddressMax = 300;
+
 export const updateMeetingBodyTitleMax = 200;
 
 export const updateMeetingBodySpeakersMaxOne = 60;
@@ -1453,10 +1481,20 @@ export const updateMeetingBodySpeakersMaxOne = 60;
 
 
 export const UpdateMeetingBody = zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(updateMeetingBodyLocationOneNameMax),
+  "address": zod.string().max(updateMeetingBodyLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]).optional(),
   "title": zod.string().min(1).max(updateMeetingBodyTitleMax).optional(),
   "speakers": zod.record(zod.string(), zod.string().max(updateMeetingBodySpeakersMaxOne)).optional().describe('Speaker id (S1, S2...) to name; an empty name goes back to "Speaker N".'),
   "subjectId": zod.number().int().nullish()
 })
+
+export const updateMeetingResponseOneLocationOneNameMax = 200;
+
+export const updateMeetingResponseOneLocationOneAddressMax = 300;
 
 export const updateMeetingResponseTwoMarkersItemAtMin = 0;
 
@@ -1475,6 +1513,13 @@ export const updateMeetingResponseTwoNotebookOnePagesMax = 200;
 
 
 export const UpdateMeetingResponse = zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(updateMeetingResponseOneLocationOneNameMax),
+  "address": zod.string().max(updateMeetingResponseOneLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]),
+  "eventId": zod.number().int().nullable(),
   "id": zod.number().int(),
   "title": zod.string(),
   "status": zod.enum(['processing', 'ready', 'failed']),
@@ -1588,6 +1633,10 @@ export const SaveMeetingNotesBody = zod.object({
 })).max(saveMeetingNotesBodyNotesMax)
 })
 
+export const saveMeetingNotesResponseOneLocationOneNameMax = 200;
+
+export const saveMeetingNotesResponseOneLocationOneAddressMax = 300;
+
 export const saveMeetingNotesResponseTwoMarkersItemAtMin = 0;
 
 export const saveMeetingNotesResponseTwoNotesItemIdMax = 64;
@@ -1605,6 +1654,13 @@ export const saveMeetingNotesResponseTwoNotebookOnePagesMax = 200;
 
 
 export const SaveMeetingNotesResponse = zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(saveMeetingNotesResponseOneLocationOneNameMax),
+  "address": zod.string().max(saveMeetingNotesResponseOneLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]),
+  "eventId": zod.number().int().nullable(),
   "id": zod.number().int(),
   "title": zod.string(),
   "status": zod.enum(['processing', 'ready', 'failed']),
@@ -1701,6 +1757,10 @@ export const SaveMeetingNotebookBody = zod.object({
 }).describe('The handwriting notebook - pages of ink strokes, typed text and media (checked on the server).')
 })
 
+export const saveMeetingNotebookResponseOneLocationOneNameMax = 200;
+
+export const saveMeetingNotebookResponseOneLocationOneAddressMax = 300;
+
 export const saveMeetingNotebookResponseTwoMarkersItemAtMin = 0;
 
 export const saveMeetingNotebookResponseTwoNotesItemIdMax = 64;
@@ -1718,6 +1778,13 @@ export const saveMeetingNotebookResponseTwoNotebookOnePagesMax = 200;
 
 
 export const SaveMeetingNotebookResponse = zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(saveMeetingNotebookResponseOneLocationOneNameMax),
+  "address": zod.string().max(saveMeetingNotebookResponseOneLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]),
+  "eventId": zod.number().int().nullable(),
   "id": zod.number().int(),
   "title": zod.string(),
   "status": zod.enum(['processing', 'ready', 'failed']),
@@ -1803,6 +1870,10 @@ export const ReadMeetingHandwritingParams = zod.object({
   "meetingId": zod.coerce.number().int()
 })
 
+export const readMeetingHandwritingResponseOneLocationOneNameMax = 200;
+
+export const readMeetingHandwritingResponseOneLocationOneAddressMax = 300;
+
 export const readMeetingHandwritingResponseTwoMarkersItemAtMin = 0;
 
 export const readMeetingHandwritingResponseTwoNotesItemIdMax = 64;
@@ -1820,6 +1891,13 @@ export const readMeetingHandwritingResponseTwoNotebookOnePagesMax = 200;
 
 
 export const ReadMeetingHandwritingResponse = zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(readMeetingHandwritingResponseOneLocationOneNameMax),
+  "address": zod.string().max(readMeetingHandwritingResponseOneLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]),
+  "eventId": zod.number().int().nullable(),
   "id": zod.number().int(),
   "title": zod.string(),
   "status": zod.enum(['processing', 'ready', 'failed']),
@@ -1909,6 +1987,10 @@ export const ProcessMeetingBody = zod.object({
   "fresh": zod.boolean().optional().describe('Make the text with speakers again too (not only the minutes).')
 })
 
+export const processMeetingResponseOneLocationOneNameMax = 200;
+
+export const processMeetingResponseOneLocationOneAddressMax = 300;
+
 export const processMeetingResponseTwoMarkersItemAtMin = 0;
 
 export const processMeetingResponseTwoNotesItemIdMax = 64;
@@ -1926,6 +2008,13 @@ export const processMeetingResponseTwoNotebookOnePagesMax = 200;
 
 
 export const ProcessMeetingResponse = zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(processMeetingResponseOneLocationOneNameMax),
+  "address": zod.string().max(processMeetingResponseOneLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]),
+  "eventId": zod.number().int().nullable(),
   "id": zod.number().int(),
   "title": zod.string(),
   "status": zod.enum(['processing', 'ready', 'failed']),
@@ -2367,6 +2456,10 @@ export const createLibraryRecordingBodyMarksMax = 500;
 export const createLibraryRecordingBodyTitleMax = 200;
 
 export const createLibraryRecordingBodyKindDefault = `recording`;
+export const createLibraryRecordingBodyMeetingLocationOneNameMax = 200;
+
+export const createLibraryRecordingBodyMeetingLocationOneAddressMax = 300;
+
 export const createLibraryRecordingBodyMeetingTitleMax = 200;
 
 export const createLibraryRecordingBodyMeetingParticipantsItemMax = 80;
@@ -2405,6 +2498,13 @@ export const CreateLibraryRecordingBody = zod.object({
   "title": zod.string().max(createLibraryRecordingBodyTitleMax).optional(),
   "kind": zod.enum(['recording', 'music']).default(createLibraryRecordingBodyKindDefault),
   "meeting": zod.object({
+  "location": zod.union([zod.object({
+  "name": zod.string().max(createLibraryRecordingBodyMeetingLocationOneNameMax),
+  "address": zod.string().max(createLibraryRecordingBodyMeetingLocationOneAddressMax).optional(),
+  "lat": zod.number().optional(),
+  "lng": zod.number().optional()
+}),zod.null()]).optional(),
+  "eventId": zod.number().int().nullish().describe('The calendar event this meeting was scheduled as.'),
   "title": zod.string().min(1).max(createLibraryRecordingBodyMeetingTitleMax),
   "subjectId": zod.number().int().nullish(),
   "participants": zod.array(zod.string().max(createLibraryRecordingBodyMeetingParticipantsItemMax)).max(createLibraryRecordingBodyMeetingParticipantsMax).optional(),

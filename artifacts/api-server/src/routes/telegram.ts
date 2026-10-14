@@ -35,6 +35,18 @@ async function telegram<T>(token: string, method: string, body?: unknown): Promi
 const say = (token: string, chatId: number, text: string, replyTo?: number) =>
   telegram(token, "sendMessage", { chat_id: chatId, text, ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}) }).catch(() => {});
 
+/** A message to the owner's paired chat (reminders use this). False when no chat is paired. */
+export async function telegramToOwner(text: string) {
+  const value = await settings();
+  if (!value?.chatId) return false;
+  await telegram(value.token, "sendMessage", { chat_id: value.chatId, text, link_preview_options: { is_disabled: true } });
+  return true;
+}
+export async function telegramLinked() {
+  const value = await settings();
+  return !!value?.chatId;
+}
+
 /** What the app shows (never the token). */
 const status = (value: TelegramSettings | null) => value
   ? { connected: true, botUsername: value.botUsername, linked: value.chatId !== null, chatName: value.chatName, pairLink: value.chatId === null ? `https://t.me/${value.botUsername}?start=${value.pairCode}` : null }
