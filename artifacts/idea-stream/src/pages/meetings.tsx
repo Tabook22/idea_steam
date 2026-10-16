@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Bell, CalendarClock, CalendarDays, CalendarPlus, CloudUpload, ListChecks, Loader2, MapPin, Mic, Search, TriangleAlert, Users, X } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CalendarPlus, CloudUpload, ListChecks, Loader2, MapPin, Mic, Search, TriangleAlert, Users, X } from "lucide-react";
 import { CALENDAR_CHANGED, openEventEditor } from "@/components/event-editor";
 import { addDays, getCalendar, isRecordable, placeLinks, startOfDay, type CalendarEvent } from "@/lib/calendar-api";
 import { getListMeetingsQueryKey, useListMeetings, type MeetingSummary } from "@workspace/api-client-react";
@@ -77,9 +77,6 @@ export default function MeetingsPage() {
 
   return (
     <main id="main-content" className="mx-auto w-full max-w-3xl px-4 pb-16 pt-2 sm:px-6">
-      <Link href="/app" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft size={15} className="rtl:rotate-180" />{copy("Home", "الرئيسية")}
-      </Link>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2.5 font-serif text-3xl"><CalendarClock className="text-sky-600" size={28} />{copy("Meetings", "الاجتماعات")}</h1>

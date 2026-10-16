@@ -228,9 +228,6 @@ export default function TasksPage() {
 
   return (
     <main id="main-content" className="mx-auto w-full max-w-3xl px-4 pb-16 pt-2 sm:px-6">
-      <Link href="/app" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft size={15} className="rtl:rotate-180" />{copy("Home", "الرئيسية")}
-      </Link>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2.5 font-serif text-3xl"><ListChecks className="text-primary" size={28} />{copy("Tasks", "المهام")}</h1>

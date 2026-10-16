@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, ListChecks, Loader2, MapPin, Mic, Send } from "lucide-react";
+import { Bell, BellRing, CalendarClock, CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, ListChecks, Loader2, MapPin, Mic, Send } from "lucide-react";
 import { CALENDAR_CHANGED, openEventEditor } from "@/components/event-editor";
 import { openMeetingStart } from "@/components/meeting-start";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,6 @@ export default function CalendarPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-2 sm:px-6">
-      <Link href="/app" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} className="rtl:rotate-180" />{copy("Home", "الرئيسية")}</Link>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-serif text-4xl tracking-tight">{copy("Calendar", "التقويم")}</h1>

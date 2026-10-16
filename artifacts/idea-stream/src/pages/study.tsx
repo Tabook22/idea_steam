@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, FileText, GraduationCap, Headphones, Layers, ListChecks, Loader2, NotebookPen } from "lucide-react";
+import { FileText, GraduationCap, Headphones, Layers, ListChecks, Loader2, NotebookPen } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { listPacks, type StudySummary } from "@/lib/study-api";
 
@@ -14,7 +14,6 @@ export default function StudyPage() {
   const sourceIcon = { recording: Headphones, subject: NotebookPen, draft: FileText };
   return (
     <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-2 sm:px-6">
-      <Link href="/app" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} className="rtl:rotate-180" />{copy("Home", "الرئيسية")}</Link>
       <h1 className="font-serif text-4xl tracking-tight">{copy("Study", "الدراسة")}</h1>
       <p className="mt-1 max-w-xl text-sm text-muted-foreground">
         {copy("Study packs made from your lectures, notebooks and drafts: notes, a quiz, flashcards and handouts. Make one from a recording (Library), a notebook, or a draft.",

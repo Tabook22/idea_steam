@@ -1,45 +1,30 @@
 import { useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Feather } from "lucide-react";
+import { ArrowLeft, Feather, House } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const isHome = (path: string) => path === "/" || path === "/app";
 
-/**
- * Back button (every page except home) and the Idea Stream mark, which always leads home.
- * Back follows your path inside the app; opened directly (from a share or a link), it goes home.
- */
+// The pages visited inside the app, so Back can tell "go back" from "opened directly".
+const trail: string[] = [];
+function useTrail() {
+  const [location] = useLocation();
+  useEffect(() => {
+    if (trail.at(-1) === location) return;
+    if (trail.at(-2) === location) trail.pop(); // went back
+    else trail.push(location);
+    if (trail.length > 50) trail.splice(0, trail.length - 50);
+  }, [location]);
+}
+
+/** The Idea Stream mark in the top bar: always leads home. */
 export function TopBarHome() {
   const { isArabic } = useLanguage();
-  const [location, navigate] = useLocation();
-  const trail = useRef<string[]>([]);
-
-  useEffect(() => {
-    const stack = trail.current;
-    if (stack.at(-1) === location) return;
-    if (stack.at(-2) === location) stack.pop(); // went back
-    else stack.push(location);
-    if (stack.length > 50) stack.splice(0, stack.length - 50);
-  }, [location]);
-
-  const back = () => {
-    if (trail.current.length > 1) window.history.back();
-    else navigate("/app");
-  };
+  const [location] = useLocation();
+  useTrail();
   const home = isHome(location);
-
   return (
     <div className="flex min-w-0 items-center gap-2">
-      {!home && (
-        <button
-          type="button"
-          onClick={back}
-          aria-label={isArabic ? "رجوع" : "Back"}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border bg-card text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary active:scale-95"
-        >
-          <ArrowLeft size={19} className="rtl:rotate-180" />
-        </button>
-      )}
       <Link
         href="/app"
         aria-label={isArabic ? "Idea Stream: الصفحة الرئيسية" : "Idea Stream: home"}
@@ -55,5 +40,30 @@ export function TopBarHome() {
         </span>
       </Link>
     </div>
+  );
+}
+
+/**
+ * On every page but home: "Back" (to the page you came from; opened directly from a link, it goes
+ * home) and "Home", both labelled, in the same place on every page.
+ */
+export function PageNav() {
+  const { isArabic } = useLanguage();
+  const [location, navigate] = useLocation();
+  if (isHome(location)) return null;
+  const back = () => {
+    if (trail.length > 1) window.history.back();
+    else navigate("/app");
+  };
+  const pill = "inline-flex h-10 items-center gap-1.5 rounded-full border bg-card px-4 text-sm font-semibold text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary active:scale-[0.97]";
+  return (
+    <nav aria-label={isArabic ? "التنقل" : "Navigation"} className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 pb-2 sm:px-6" data-testid="page-nav">
+      <button type="button" onClick={back} className={pill}>
+        <ArrowLeft size={17} className="rtl:rotate-180" />{isArabic ? "رجوع" : "Back"}
+      </button>
+      <Link href="/app" className={pill}>
+        <House size={17} />{isArabic ? "الرئيسية" : "Home"}
+      </Link>
+    </nav>
   );
 }

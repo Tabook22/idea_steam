@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useListBooks, type BookSummary } from "@workspace/api-client-react";
-import { ArrowLeft, BookOpen, BookPlus, CalendarClock, Headphones, Library, Loader2, NotebookPen, Search } from "lucide-react";
+import { BookOpen, BookPlus, CalendarClock, Headphones, Library, Loader2, NotebookPen, Search } from "lucide-react";
 import { BookCover, BookDialog, BookMenu, openBook } from "@/components/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,9 +57,6 @@ export default function BooksPage() {
   ];
   return (
     <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-2 sm:px-6">
-      <Link href="/app" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft size={16} className="rtl:rotate-180" />{copy("Home", "الرئيسية")}
-      </Link>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-serif text-4xl tracking-tight">{copy("Books", "الكراسات")}</h1>

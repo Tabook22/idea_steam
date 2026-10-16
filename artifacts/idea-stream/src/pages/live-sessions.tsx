@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Loader2, Plus, Presentation, Users } from "lucide-react";
+import { Loader2, Plus, Presentation, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,6 @@ export default function LiveSessionsPage() {
   const statusLabel = (status: string) => (status === "open" ? copy("Open", "مفتوحة") : status === "closed" ? copy("Joining closed", "الانضمام مغلق") : copy("Ended", "منتهية"));
   return (
     <main className="mx-auto w-full max-w-4xl px-4 pb-16 pt-2 sm:px-6">
-      <Link href="/app" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} className="rtl:rotate-180" />{copy("Home", "الرئيسية")}</Link>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-serif text-4xl tracking-tight">{copy("Workshops", "ورش العمل")}</h1>

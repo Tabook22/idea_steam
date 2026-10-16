@@ -44,7 +44,7 @@ import { CaptureSheet } from "@/components/capture-sheet";
 import { UpdateNotice } from "@/components/update-notice";
 import { WorkspaceSearch } from "@/components/workspace-search";
 import { AskLibrary } from "@/components/ask-library";
-import { TopBarHome } from "@/components/top-bar-home";
+import { PageNav, TopBarHome } from "@/components/top-bar-home";
 import {
   Route,
   Redirect,
@@ -182,6 +182,7 @@ function AppContent() {
               </div>
             )}
             <TopNav />
+            <PageNav />
             <Router />
             <BottomNav />
             <UpdateNotice />

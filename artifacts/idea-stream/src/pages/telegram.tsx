@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Check, ExternalLink, FileText, Hash, Image as ImageIcon, Link2, Loader2, Mic, Send, Unlink, X } from "lucide-react";
+import { Check, ExternalLink, FileText, Hash, Image as ImageIcon, Link2, Loader2, Mic, Send, Unlink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -45,7 +45,6 @@ export default function TelegramPage() {
   );
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-16 pt-2 sm:px-6">
-      <Link href="/app" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={16} className="rtl:rotate-180" />{copy("Home", "الرئيسية")}</Link>
       <div className="mb-6 flex items-start gap-4">
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#229ED9] text-white shadow-md"><Send size={26} className="-ms-0.5 rtl:-scale-x-100" /></span>
         <div>
