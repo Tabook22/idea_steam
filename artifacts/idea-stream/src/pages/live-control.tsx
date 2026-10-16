@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "wouter";
 import { ArrowLeft, Check, Copy as CopyIcon, FileDown, Loader2, Megaphone, MonitorPlay, Activity, MoreHorizontal, Shuffle, Target, Trash2, UserMinus, Users } from "lucide-react";
 import { LiveIdeaCard } from "@/components/live-card";
 import { StepsPanel, ThemesPanel } from "@/components/live-steps";
+import { HostGuide } from "@/components/live-host-guide";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -123,6 +124,8 @@ export default function LiveControlPage() {
         </div>
       </div>
 
+      <HostGuide state={state} copy={copy} call={(path, method, json) => call(path, method, json)} act={act} onReport={() => void report()} reporting={reporting} />
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <section className="rounded-3xl border bg-card p-5 shadow-sm" aria-label={copy("Join", "الانضمام")}>
           <div className="mx-auto w-48 overflow-hidden rounded-2xl border bg-white p-1"><QrCode text={link} className="block w-full" /></div>
@@ -142,7 +145,7 @@ export default function LiveControlPage() {
 
         <section className="rounded-3xl border border-amber-300/70 bg-gradient-to-br from-amber-50 to-card p-5 shadow-sm dark:border-amber-800 dark:from-amber-950/20" aria-label={copy("The challenge", "التحدي")}>
           <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200"><Target size={14} />{copy("The challenge", "التحدي")}</p>
-          <textarea dir="auto" value={challenge ?? ""} onChange={(event) => setChallenge(event.target.value)} rows={4} maxLength={4000}
+          <textarea data-challenge dir="auto" value={challenge ?? ""} onChange={(event) => setChallenge(event.target.value)} rows={4} maxLength={4000}
             placeholder={copy("The problem everyone works on…", "المشكلة التي يعمل عليها الجميع…")}
             className="w-full resize-y rounded-2xl border bg-background/80 px-3 py-2 text-base leading-7" />
           <div className="mt-2 flex justify-end">

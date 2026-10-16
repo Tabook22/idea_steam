@@ -26,13 +26,13 @@ export function StepsPanel({ state, copy, call, act }: { state: LiveState; copy:
   return (
     <section className="mt-6 rounded-3xl border bg-card p-5 shadow-sm" aria-label={copy("Steps", "الخطوات")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-serif text-2xl">{copy("Lead the room", "قُد القاعة")}</h2>
+        <h2 className="font-serif text-2xl">{copy("All the steps", "كل الخطوات")}</h2>
         <div className="flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold text-white" style={{ background: info.color }}>
           <span>{info.emoji}</span>{copy(`Now: ${info.en}`, `الآن: ${info.ar}`)}
           {left !== null && <span className="ms-1 inline-flex items-center gap-1 rounded-full bg-white/20 px-2 font-mono tabular-nums"><Timer size={14} />{clockText(left)}</span>}
         </div>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">{copy("Tap a step: everyone's phone switches to it, with a countdown.", "اضغط خطوة: تنتقل هواتف الجميع إليها مع عدّ تنازلي.")}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{copy("For jumping around: tap any step and everyone's phone switches to it, with a countdown. The guide at the top does this for you, in order.", "للتنقل الحر: اضغط أي خطوة فتنتقل هواتف الجميع إليها مع عدّ تنازلي. الدليل في الأعلى يفعل ذلك لك بالترتيب.")}</p>
       <ol className="mt-4 grid gap-2 sm:grid-cols-5">
         {STEPS.map((step, index) => {
           const current = session.phase === step.phase;

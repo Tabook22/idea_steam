@@ -13,9 +13,9 @@ export function PhaseBanner({ state, copy, extra }: { state: LiveState; copy: Co
     <div className="rounded-3xl p-4 text-white shadow-lg" style={{ background: `linear-gradient(135deg, ${info.color}, ${info.color}cc)` }} role="status">
       <div className="flex items-center gap-3">
         <span className="text-3xl leading-none">{info.emoji}</span>
+        <span className="sr-only">{copy(info.doEn, info.doAr)}</span>
         <div className="min-w-0 flex-1">
           <p className="text-lg font-bold leading-tight">{copy(info.en, info.ar)}</p>
-          <p className="text-sm leading-snug text-white/90">{copy(info.doEn, info.doAr)}</p>
         </div>
         {left !== null && (
           <span className={`flex shrink-0 items-center gap-1 rounded-2xl bg-white/20 px-3 py-2 font-mono text-2xl font-bold tabular-nums ${ending ? "animate-pulse" : ""}`}>

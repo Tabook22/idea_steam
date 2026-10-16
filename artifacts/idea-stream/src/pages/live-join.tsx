@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CornerDownRight, Globe2, Loader2, Lock, Mic, Send, Square, Target, Users, X } from "lucide-react";
+import { ArrowRight, Camera, CircleHelp, CornerDownRight, Globe2, Loader2, Lock, Mic, Send, Square, Target, Users, X } from "lucide-react";
+import { bestTab, participantNudge } from "@/lib/live-guide";
 import { LiveIdeaCard } from "@/components/live-card";
 import { PhaseBanner } from "@/components/live-phase";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -152,10 +153,10 @@ function JoinForm({ info, copy, onJoined }: { info: Info; copy: Copy; onJoined: 
   );
 }
 
-const TABS: Array<{ space: LiveSpace; icon: typeof Lock; en: string; ar: string }> = [
-  { space: "me", icon: Lock, en: "Me", ar: "أنا" },
-  { space: "team", icon: Users, en: "My team", ar: "فريقي" },
-  { space: "all", icon: Globe2, en: "Everyone", ar: "الجميع" },
+const TABS: Array<{ space: LiveSpace; icon: typeof Lock; en: string; ar: string; hintEn: string; hintAr: string }> = [
+  { space: "me", icon: Lock, en: "Me", ar: "أنا", hintEn: "only you", hintAr: "لك وحدك" },
+  { space: "team", icon: Users, en: "My team", ar: "فريقي", hintEn: "your team", hintAr: "لفريقك" },
+  { space: "all", icon: Globe2, en: "Everyone", ar: "الجميع", hintEn: "all people", hintAr: "للجميع" },
 ];
 
 function Room({ code, copy }: { code: string; copy: Copy }) {
@@ -163,7 +164,11 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
   const { state, error, refresh } = useLiveState(`/api/live/${code}/state`, 3000);
   const [tab, setTab] = useState<LiveSpace>(() => (sessionStorage.getItem(`idea-live-tab-${code}`) as LiveSpace) || "me");
   const [buildOn, setBuildOn] = useState<LiveCard | null>(null);
-  const [challengeOpen, setChallengeOpen] = useState(true);
+  const [challengeOpen, setChallengeOpen] = useState(false);
+  const introKey = `idea-live-intro-${code}`;
+  const [intro, setIntro] = useState(() => remember(introKey) !== "seen");
+  const [help, setHelp] = useState(false);
+  const closeIntro = () => { remember(introKey, "seen"); setIntro(false); };
   const [seen, setSeen] = useState<Record<LiveSpace, number>>({ me: 0, team: 0, all: 0 });
   useEffect(() => { try { sessionStorage.setItem(`idea-live-tab-${code}`, tab); } catch { /* optional */ } }, [code, tab]);
   // When the instructor moves the room to a new step, the screen goes where that step happens.
@@ -175,7 +180,9 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
     lastPhase.current = phase;
     if (first && phase === "free") return;
     const hasTeam = state?.me?.team != null;
-    setTab(phase === "think" ? "me" : phase === "share" ? (hasTeam ? "team" : "me") : phase === "free" ? tab : "all");
+    // Sharing starts where your private ideas are, if you have some to share.
+    const toShare = state?.cards.some((card) => card.mine && card.space === "me");
+    setTab(phase === "think" ? "me" : phase === "share" ? (hasTeam && !toShare ? "team" : "me") : phase === "free" ? tab : state && (phase === "vote" || phase === "build") ? bestTab(state as never) : "all");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -219,7 +226,8 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
               {team !== null && <> · <span className="font-semibold" style={{ color: teamColor(team) }}>{copy(`Team ${team}`, `الفريق ${team}`)}</span></>}
             </p>
           </div>
-          <span className="inline-flex max-w-[45%] items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-sm"><span className="text-lg leading-none">{me?.emoji}</span><span dir="auto" className="truncate font-medium">{me?.name}</span></span>
+          <span className="inline-flex max-w-[40%] items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-sm"><span className="text-lg leading-none">{me?.emoji}</span><span dir="auto" className="hidden truncate font-medium sm:inline">{me?.name}</span></span>
+          <button type="button" onClick={() => setHelp(true)} className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-primary/10 px-3 text-sm font-semibold text-primary" aria-label={copy("Help", "مساعدة")}><CircleHelp size={17} />{copy("Help", "مساعدة")}</button>
           <div className="shrink-0 scale-90"><LanguageToggle /></div>
         </div>
       </header>
@@ -235,11 +243,12 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
             <span className="ms-auto text-xs font-normal">{dotsLeft > 0 ? copy(`${dotsLeft} left`, `باقي ${dotsLeft}`) : copy("All used", "استُخدمت كلها")}</span>
           </p>
         ) : undefined} />
+        <NextStep nudge={participantNudge(state as never, tab)} copy={copy} onGo={(space) => { setTab(space); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
         {state.session.challenge && (
           <button type="button" onClick={() => setChallengeOpen((open) => !open)} aria-expanded={challengeOpen}
             className="block w-full rounded-3xl border border-amber-300/70 bg-gradient-to-br from-amber-50 to-card p-4 text-start dark:border-amber-800 dark:from-amber-950/30">
             <span className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200"><Target size={14} />{copy("The challenge", "التحدي")}</span>
-            <span dir="auto" className={`block whitespace-pre-wrap text-sm leading-6 ${challengeOpen ? "" : "line-clamp-1"}`}>{state.session.challenge}</span>
+            <span dir="auto" className={`block whitespace-pre-wrap text-sm leading-6 ${challengeOpen ? "" : "line-clamp-2"}`}>{state.session.challenge}</span>
           </button>
         )}
 
@@ -307,12 +316,94 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
                 className={`relative flex flex-col items-center justify-center gap-0.5 text-xs font-semibold transition-colors ${tab === space ? "text-primary" : "text-muted-foreground"}`}>
                 {tab === space && <span className="absolute inset-x-6 top-0 h-0.5 rounded-full bg-primary" />}
                 <span className="relative"><Icon size={22} />{count > 0 && <span className="absolute -end-3 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-600 px-1 text-[10px] text-white">{count > 9 ? "9+" : count}</span>}</span>
-                {space === "team" && team !== null ? copy(`Team ${team}`, `الفريق ${team}`) : copy(en, ar)}
+                <span className="leading-none">{space === "team" && team !== null ? copy(`Team ${team}`, `الفريق ${team}`) : copy(en, ar)}</span>
+                <span className="text-[10px] font-normal leading-none opacity-75">{copy(TABS.find((one) => one.space === space)!.hintEn, TABS.find((one) => one.space === space)!.hintAr)}</span>
               </button>
             );
           })}
         </div>
       </nav>
+      {intro && <Intro copy={copy} name={me?.name ?? ""} onDone={closeIntro} />}
+      {help && <HelpSheet copy={copy} hasTeam={team !== null} onClose={() => setHelp(false)} onIntro={() => { setHelp(false); setIntro(true); }} />}
+    </div>
+  );
+}
+
+/** The one thing to do now, in plain words, with a button when it means going somewhere. */
+function NextStep({ nudge, copy, onGo }: { nudge: ReturnType<typeof participantNudge>; copy: Copy; onGo: (space: LiveSpace) => void }) {
+  const where = { me: copy("Go to Me", "اذهب إلى «أنا»"), team: copy("Go to my team", "اذهب إلى فريقي"), all: copy("Go to Everyone", "اذهب إلى «الجميع»") };
+  return (
+    <div className="flex items-center gap-3 rounded-3xl border-2 border-primary/25 bg-primary/[0.06] p-3.5" role="status" data-testid="next-step">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-background text-2xl shadow-sm">{nudge.emoji}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-primary">{copy("What to do now", "ماذا تفعل الآن")}</p>
+        <p className="text-[15px] font-medium leading-snug">{copy(nudge.en, nudge.ar)}</p>
+      </div>
+      {nudge.go && (
+        <button type="button" onClick={() => onGo(nudge.go!)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground shadow-sm">
+          {where[nudge.go]}<ArrowRight size={15} className="rtl:rotate-180" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+const HOW: Array<{ emoji: string; en: string; ar: string; moreEn: string; moreAr: string }> = [
+  { emoji: "✍️", en: "Write your ideas", ar: "اكتب أفكارك", moreEn: "In Me, only you see them. Type, or tap Voice and just speak.", moreAr: "في «أنا» لا يراها غيرك. اكتب أو اضغط «صوت» وتكلم." },
+  { emoji: "🤝", en: "Share the best ones", ar: "شارك أفضلها", moreEn: "Tap “Share with my team” under an idea. Comment on your team's ideas or build on them.", moreAr: "اضغط «شاركها مع فريقي» تحت الفكرة. علّق على أفكار فريقك أو ابنِ عليها." },
+  { emoji: "🗳️", en: "Vote", ar: "صوّت", moreEn: "Put your dots on the ideas you like most.", moreAr: "ضع نقاطك على الأفكار التي تعجبك أكثر." },
+];
+
+/** First time in: how it works, in three steps. */
+function Intro({ copy, name, onDone }: { copy: Copy; name: string; onDone: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label={copy("How it works", "كيف تعمل")} data-testid="intro">
+      <div className="w-full max-w-md animate-[live-pop_0.4s_ease-out] rounded-[2rem] bg-card p-6 shadow-2xl">
+        <p className="text-center text-4xl">👋</p>
+        <h2 dir="auto" className="mt-2 text-center font-serif text-3xl">{copy(`Welcome${name ? `, ${name}` : ""}!`, `أهلًا${name ? ` ${name}` : ""}!`)}</h2>
+        <p className="mt-1 text-center text-muted-foreground">{copy("It's easy. Three things:", "الأمر سهل. ثلاثة أشياء:")}</p>
+        <ol className="mt-5 space-y-3">
+          {HOW.map((step, i) => (
+            <li key={i} className="flex gap-3 rounded-2xl bg-secondary/60 p-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-background text-2xl">{step.emoji}</span>
+              <span><span className="block font-semibold">{i + 1}. {copy(step.en, step.ar)}</span><span className="block text-sm leading-snug text-muted-foreground">{copy(step.moreEn, step.moreAr)}</span></span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-4 rounded-2xl bg-primary/10 p-3 text-center text-sm font-medium text-primary">{copy("Don't worry about the order: the box at the top always tells you what to do now.", "لا تقلق بشأن الترتيب: المربع في الأعلى يخبرك دائمًا ماذا تفعل الآن.")}</p>
+        <button type="button" onClick={onDone} autoFocus className="mt-5 h-14 w-full rounded-2xl bg-primary text-lg font-semibold text-primary-foreground shadow-md">{copy("Let's start", "لنبدأ")}</button>
+      </div>
+    </div>
+  );
+}
+
+/** Stuck? Plain answers. */
+function HelpSheet({ copy, hasTeam, onClose, onIntro }: { copy: Copy; hasTeam: boolean; onClose: () => void; onIntro: () => void }) {
+  const faq: Array<[string, string, string, string]> = [
+    ["Where do I write?", "أين أكتب؟", "In the white box near the top. Tap Post when you're done. You can also tap Voice and speak.", "في المربع الأبيض في الأعلى. اضغط «انشر» عند الانتهاء. ويمكنك الضغط على «صوت» والتحدث."],
+    ["Who sees my ideas?", "من يرى أفكاري؟", "Ideas in Me: only you. In My team: your team. In Everyone: all people, and maybe the big screen.", "أفكار «أنا»: أنت فقط. «فريقي»: فريقك. «الجميع»: كل الحاضرين وربما الشاشة الكبيرة."],
+    ["How do I share an idea?", "كيف أشارك فكرة؟", "Open Me. Under your idea, tap “Share with my team” (or “Share with everyone”).", "افتح «أنا». تحت فكرتك اضغط «شاركها مع فريقي» (أو «شاركها مع الجميع»)."],
+    ["How do I vote?", "كيف أصوّت؟", "When voting starts, tap “Put a dot on this idea” on the ideas you like. Tap again to take the dot back.", "عندما يبدأ التصويت، اضغط «ضع نقطة على هذه الفكرة» على الأفكار التي تعجبك. اضغط مرة أخرى لاسترجاعها."],
+    [hasTeam ? "Who's in my team?" : "I'm not in a team", hasTeam ? "من في فريقي؟" : "لست في فريق", hasTeam ? "Tap My team at the bottom: your teammates are listed at the top." : "That's fine: the host makes the teams. Until then, write your ideas in Me.", hasTeam ? "اضغط «فريقي» في الأسفل: أسماء زملائك في الأعلى." : "لا بأس: المضيف يكوّن الفرق. حتى ذلك الحين اكتب أفكارك في «أنا»."],
+    ["I'm lost", "تهت", "Read the “What to do now” box at the top, and look at the big screen. Still stuck? Raise your hand: the host will come.", "اقرأ مربع «ماذا تفعل الآن» في الأعلى وانظر إلى الشاشة الكبيرة. ما زلت عالقًا؟ ارفع يدك وسيأتي المضيف."],
+  ];
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label={copy("Help", "مساعدة")} onClick={onClose} data-testid="help">
+      <div className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-[2rem] bg-card p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 font-serif text-2xl"><CircleHelp className="text-primary" />{copy("Help", "مساعدة")}</h2>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-secondary" aria-label={copy("Close", "إغلاق")}><X size={18} /></button>
+        </div>
+        <div className="space-y-2">
+          {faq.map(([qEn, qAr, aEn, aAr], i) => (
+            <details key={i} className="rounded-2xl bg-secondary/60 p-3.5" open={i === 0}>
+              <summary className="cursor-pointer list-none font-semibold">{copy(qEn, qAr)}</summary>
+              <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{copy(aEn, aAr)}</p>
+            </details>
+          ))}
+        </div>
+        <button type="button" onClick={onIntro} className="mt-4 h-12 w-full rounded-2xl border font-semibold">{copy("Show “How it works” again", "اعرض «كيف تعمل» مجددًا")}</button>
+      </div>
     </div>
   );
 }
