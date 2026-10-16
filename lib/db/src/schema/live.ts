@@ -1,4 +1,4 @@
-import { boolean, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, primaryKey, real, serial, text, timestamp } from "drizzle-orm/pg-core";
 
 export type LiveSynthesis = {
   summary: string;
@@ -58,6 +58,10 @@ export const liveCardsTable = pgTable("live_cards", {
   /** "Build on this": the card it builds on. */
   parentId: integer("parent_id"),
   hidden: boolean("hidden").notNull().default(false),
+  /** On the shared board: where the note sits (null: placed automatically) and its paper colour. */
+  boardX: real("board_x"),
+  boardY: real("board_y"),
+  color: text("color"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [index("live_cards_session_idx").on(table.sessionId)]);

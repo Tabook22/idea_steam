@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, ArrowRight, BarChart3, Check, FileDown, Loader2, Megaphone, Minus, MonitorPlay, Plus, Shuffle, SkipForward, Sparkles, Timer } from "lucide-react";
+import { Activity, ArrowRight, BarChart3, StickyNote, Check, FileDown, Loader2, Megaphone, Minus, MonitorPlay, Plus, Shuffle, SkipForward, Sparkles, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { appPath } from "@/lib/app-path";
 import { PHASE_INFO, clockText, useCountdown, type LivePhase, type LiveState } from "@/lib/live-api";
@@ -154,6 +154,7 @@ export function HostGuide({ state, copy, call, act, onReport, reporting }: { sta
           )}
           {left !== null && <Button variant="outline" className="h-12 rounded-full" onClick={() => void act(() => call(`/sessions/${session.id}`, "PATCH", { addMinutes: 1 }))}><Plus size={16} className="me-1" />{copy("1 more minute", "دقيقة إضافية")}</Button>}
           <Button asChild variant="ghost" className="h-12 rounded-full"><a href={pulse} target="_blank" rel="noreferrer"><Activity size={16} className="me-1.5" />{copy("Pulse screen", "شاشة النبض")}</a></Button>
+          <Button asChild variant="ghost" className="h-12 rounded-full"><a href={appPath(`/live/${session.id}/board`, import.meta.env.BASE_URL)} target="_blank" rel="noreferrer"><StickyNote size={16} className="me-1.5" />{copy("The board", "اللوحة")}</a></Button>
         </div>
       </>
     ) : (

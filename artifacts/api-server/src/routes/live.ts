@@ -13,7 +13,7 @@ import {
   type LiveSession,
 } from "@workspace/db";
 import { readStoredFile, storeBytes } from "../lib/audio-edit";
-import { canSee, canVote, cleanEmoji, cleanName, cleanSynthesis, cleanText, hashToken, liveReportHtml, makeCode, makeTeams, newToken, normalizeCode, phaseEnd, PHASES, REACTIONS, smallestTeam, synthesisPrompt, type Phase, type Viewer } from "../lib/live";
+import { canSee, canVote, cleanColor, cleanSpot, cleanEmoji, cleanName, cleanSynthesis, cleanText, hashToken, liveReportHtml, makeCode, makeTeams, newToken, normalizeCode, phaseEnd, PHASES, REACTIONS, smallestTeam, synthesisPrompt, type Phase, type Viewer } from "../lib/live";
 import { buildPulse } from "../lib/live-pulse";
 import { buildInsights } from "../lib/live-insights";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
@@ -111,6 +111,7 @@ async function buildState(session: LiveSession, viewer: Viewer, withPulse = fals
     cards: cards.map((card) => ({
       id: card.id, author: author(card.participantId), mine: card.participantId !== null && card.participantId === me,
       space: card.space, team: card.team, text: card.text, parentId: card.parentId, hidden: card.hidden,
+      board: card.boardX !== null && card.boardY !== null ? { x: card.boardX, y: card.boardY } : null, color: card.color,
       media: card.mediaType ? { url: fileUrl(card), type: card.mediaType } : null,
       reactions: REACTIONS.map((emoji) => {
         const these = reactions.filter((reaction) => reaction.cardId === card.id && reaction.emoji === emoji);
@@ -367,8 +368,30 @@ router.patch("/live-admin/cards/:cardId", async (req, res): Promise<void> => {
   const card = await adminCard(req, res);
   if (!card) return;
   if (typeof req.body?.hidden === "boolean") await db.update(liveCardsTable).set({ hidden: req.body.hidden }).where(eq(liveCardsTable.id, card.id));
+  const spot = cleanSpot(req.body?.x, req.body?.y);
+  if (spot || req.body?.color !== undefined)
+    await db.update(liveCardsTable).set({ ...(spot ? { boardX: spot.x, boardY: spot.y } : {}), ...(req.body?.color !== undefined ? { color: cleanColor(req.body.color) } : {}), updatedAt: card.updatedAt }).where(eq(liveCardsTable.id, card.id));
   bump(card.sessionId);
   res.json({ ok: true });
+});
+
+/** The host arranges the whole board at once (e.g. into team columns). */
+router.post("/live-admin/sessions/:sessionId/board", async (req, res): Promise<void> => {
+  const session = await adminSession(req, res);
+  if (!session) return;
+  const positions = Array.isArray(req.body?.positions) ? req.body.positions.slice(0, 2000) : [];
+  const cards = await db.select({ id: liveCardsTable.id, updatedAt: liveCardsTable.updatedAt }).from(liveCardsTable).where(eq(liveCardsTable.sessionId, session.id));
+  const known = new Map(cards.map((card) => [card.id, card.updatedAt]));
+  let moved = 0;
+  for (const position of positions) {
+    const spot = cleanSpot(position?.x, position?.y);
+    const id = Number(position?.id);
+    if (!spot || !known.has(id)) continue;
+    await db.update(liveCardsTable).set({ boardX: spot.x, boardY: spot.y, updatedAt: known.get(id)! }).where(eq(liveCardsTable.id, id));
+    moved++;
+  }
+  bump(session.id);
+  res.json({ moved });
 });
 router.delete("/live-admin/cards/:cardId", async (req, res): Promise<void> => {
   const card = await adminCard(req, res);
@@ -455,7 +478,7 @@ router.get("/live/:code/state", async (req, res): Promise<void> => {
   res.json({ ...(await buildState(found.session, { kind: "participant", id: found.person.id, team: found.person.team })), me: personView(found.person) });
 });
 
-async function createCard(session: LiveSession, person: LiveParticipant, values: { text: string; space: unknown; parentId: unknown; mediaUrl?: string; mediaType?: string }, res: Response) {
+async function createCard(session: LiveSession, person: LiveParticipant, values: { text: string; space: unknown; parentId: unknown; mediaUrl?: string; mediaType?: string; color?: unknown; x?: unknown; y?: unknown }, res: Response) {
   const space = values.space === "team" || values.space === "all" ? values.space : "me";
   if (space === "team" && person.team === null) { res.status(409).json({ error: "You're not in a team yet. Your instructor will put you in one." }); return; }
   if (tooMany(`card:${person.id}`, 30)) { res.status(429).json({ error: "That's a lot of ideas at once! Wait a moment." }); return; }
@@ -467,6 +490,7 @@ async function createCard(session: LiveSession, person: LiveParticipant, values:
   const [card] = await db.insert(liveCardsTable).values({
     sessionId: session.id, participantId: person.id, space, team: space === "team" ? person.team : null, text: values.text, parentId,
     ...(values.mediaUrl ? { mediaUrl: values.mediaUrl, mediaType: values.mediaType } : {}),
+    color: cleanColor(values.color), ...(() => { const spot = cleanSpot(values.x, values.y); return spot ? { boardX: spot.x, boardY: spot.y } : {}; })(),
   }).returning();
   bump(session.id);
   res.status(201).json({ id: card!.id, text: card!.text });
@@ -477,7 +501,7 @@ router.post("/live/:code/cards", async (req, res): Promise<void> => {
   if (!found || !writable(found.session, res)) return;
   const text = cleanText(req.body?.text);
   if (!text) { res.status(400).json({ error: "Write your idea first." }); return; }
-  await createCard(found.session, found.person, { text, space: req.body?.space, parentId: req.body?.parentId }, res);
+  await createCard(found.session, found.person, { text, space: req.body?.space, parentId: req.body?.parentId, color: req.body?.color, x: req.body?.x, y: req.body?.y }, res);
 });
 
 /** A photo or a voice note (the voice is written out as text). Sent as the raw file. */
@@ -516,7 +540,12 @@ router.patch("/live/:code/cards/:cardId", async (req, res): Promise<void> => {
     changes.team = space === "team" ? found.person.team : null;
   }
   if (typeof req.body?.text === "string") changes.text = cleanText(req.body.text);
-  if (Object.keys(changes).length) await db.update(liveCardsTable).set(changes).where(eq(liveCardsTable.id, found.card.id));
+  if (req.body?.color !== undefined) changes.color = cleanColor(req.body.color);
+  const spot = cleanSpot(req.body?.x, req.body?.y);
+  if (spot) { changes.boardX = spot.x; changes.boardY = spot.y; }
+  // Moving or recolouring a note on the board isn't new activity: keep its time.
+  const onlyLooks = Object.keys(changes).every((key) => ["boardX", "boardY", "color"].includes(key));
+  if (Object.keys(changes).length) await db.update(liveCardsTable).set({ ...changes, ...(onlyLooks ? { updatedAt: found.card.updatedAt } : {}) }).where(eq(liveCardsTable.id, found.card.id));
   bump(found.session.id);
   res.json({ ok: true });
 });

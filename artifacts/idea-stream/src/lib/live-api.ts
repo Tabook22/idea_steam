@@ -9,6 +9,8 @@ export type LivePerson = { id: number; name: string; emoji: string; team: number
 export type LiveAuthor = { id: number; name: string; emoji: string; team: number | null } | null;
 export type LiveCard = {
   id: number; author: LiveAuthor; mine: boolean; space: LiveSpace; team: number | null; text: string; parentId: number | null; hidden: boolean;
+  /** On the shared board: its spot (null: placed automatically) and paper colour. */
+  board: { x: number; y: number } | null; color: string | null;
   media: { url: string; type: string } | null;
   reactions: Array<{ emoji: string; count: number; mine: boolean }>;
   /** Dots on it (null while voting: people see only their own). */

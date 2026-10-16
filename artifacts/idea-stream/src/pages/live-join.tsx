@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Camera, CircleHelp, CornerDownRight, Globe2, Loader2, Lock, Mic, Send, Square, Target, Users, X } from "lucide-react";
+import { ArrowRight, Camera, LayoutDashboard, List, StickyNote, CircleHelp, CornerDownRight, Globe2, Loader2, Lock, Mic, Send, Square, Target, Users, X } from "lucide-react";
 import { bestTab, participantNudge } from "@/lib/live-guide";
 import { LiveIdeaCard } from "@/components/live-card";
+import { LiveBoard } from "@/components/live-board";
+import { NOTE_COLORS, type NoteColor } from "@/lib/live-board";
 import { PhaseBanner } from "@/components/live-phase";
 import { LanguageToggle } from "@/components/language-toggle";
 import { Toaster } from "@/components/ui/toaster";
@@ -168,6 +170,10 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
   const introKey = `idea-live-intro-${code}`;
   const [intro, setIntro] = useState(() => remember(introKey) !== "seen");
   const [help, setHelp] = useState(false);
+  const [wallView, setWallView] = useState<"board" | "list">(() => (remember("idea-live-wall") as "board" | "list") || "board");
+  const chooseView = (view: "board" | "list") => { remember("idea-live-wall", view); setWallView(view); };
+  const [openNote, setOpenNote] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
   const closeIntro = () => { remember(introKey, "seen"); setIntro(false); };
   const [seen, setSeen] = useState<Record<LiveSpace, number>>({ me: 0, team: 0, all: 0 });
   useEffect(() => { try { sessionStorage.setItem(`idea-live-tab-${code}`, tab); } catch { /* optional */ } }, [code, tab]);
@@ -213,6 +219,23 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
       {error ? <p className="text-sm text-muted-foreground">{error.message}</p> : <Loader2 className="animate-spin text-muted-foreground" />}
     </div>
   );
+  const cardProps = (card: LiveCard) => ({
+    parent: card.parentId ? byId.get(card.parentId) : undefined, copy, readOnly: ended, showTeam: card.space === "all",
+    voting: voting && card.space !== "me", onVote: () => void act(() => post(`/cards/${card.id}/vote`), copy("It didn't work.", "لم ينجح.")),
+    onReact: (emoji: string) => void act(() => post(`/cards/${card.id}/react`, { emoji }), copy("It didn't work.", "لم ينجح.")),
+    onComment: (text: string) => act(() => post(`/cards/${card.id}/comments`, { text }), copy("The comment wasn't sent.", "لم يُرسل التعليق.")),
+    onDeleteComment: (id: number) => void act(() => post(`/comments/${id}`, undefined, "DELETE"), copy("It didn't work.", "لم ينجح.")),
+    onBuild: () => { setBuildOn(card); setOpenNote(null); if (tab === "all" && wallView === "board") setAdding(true); else window.scrollTo({ top: 0, behavior: "smooth" }); },
+    onShare: (space: LiveSpace) => void act(async () => {
+      await post(`/cards/${card.id}`, { space }, "PATCH");
+      toast({ title: space === "team" ? copy("Shared with your team.", "شاركتها مع فريقك.") : space === "all" ? copy("Shared with everyone.", "شاركتها مع الجميع.") : copy("Moved back to Me.", "أعدتها إلى «أنا».") });
+    }, copy("It couldn't be moved.", "تعذر النقل.")),
+    onDelete: () => { if (window.confirm(copy("Delete this idea?", "حذف هذه الفكرة؟"))) void act(async () => { await post(`/cards/${card.id}`, undefined, "DELETE"); setOpenNote(null); }, copy("It couldn't be deleted.", "تعذر الحذف.")); },
+  });
+  // Voting and building go by the votes, so a ranked list is clearest then; otherwise the board.
+  const listStep = voting || phase === "build";
+  const board = tab === "all" && wallView === "board" && !listStep;
+  const opened = openNote !== null ? cards.find((card) => card.id === openNote) : undefined;
   const team = me?.team ?? null;
   const teammates = state.people.filter((person) => team !== null && person.team === team);
   return (
@@ -270,6 +293,24 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
                 ))}
               </div>
             )}
+            {tab === "all" && listStep && <p className="rounded-2xl bg-pink-50 px-3 py-2 text-sm text-pink-900 dark:bg-pink-950/30 dark:text-pink-100">{voting ? copy("Voting: the board shows as a list, so you can put your dots quickly.", "التصويت: تظهر اللوحة كقائمة لتضع نقاطك بسرعة.") : copy("Building: the board shows as a list, most-voted first.", "التطوير: تظهر اللوحة كقائمة، الأعلى تصويتًا أولًا.")}</p>}
+            {tab === "all" && !listStep && (
+              <div className="flex items-center gap-2">
+                <div className="inline-flex rounded-full bg-secondary p-1 text-sm" role="group" aria-label={copy("How to show it", "طريقة العرض")}>
+                  {([["board", LayoutDashboard, copy("Board", "لوحة")], ["list", List, copy("List", "قائمة")]] as const).map(([value, Icon, label]) => (
+                    <button key={value} type="button" onClick={() => chooseView(value)} aria-pressed={wallView === value} className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 font-semibold ${wallView === value ? "bg-background shadow-sm" : "text-muted-foreground"}`}><Icon size={15} />{label}</button>
+                  ))}
+                </div>
+                {board && !ended && phase !== "present" && (
+                  <button type="button" onClick={() => setAdding(true)} className="ms-auto inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm"><StickyNote size={16} />{copy("Add a note", "أضف ملاحظة")}</button>
+                )}
+              </div>
+            )}
+            {board ? (
+              <LiveBoard className="h-[calc(100dvh-15rem)] min-h-[22rem]" cards={shown} teamCount={state.session.teamCount} copy={copy} focusTeam={team ?? 0}
+                canMove={(card) => card.mine && !ended} onOpen={(card) => setOpenNote(card.id)}
+                onMove={(card, spot) => void act(() => post(`/cards/${card.id}`, spot, "PATCH"), copy("It couldn't be moved.", "تعذر النقل."))} />
+            ) : (<>
             {!ended && !voting && phase !== "present" && (
               <Composer key={tab} code={code} space={tab} copy={copy} buildOn={buildOn} onClearBuild={() => setBuildOn(null)} onPosted={() => { setBuildOn(null); void refresh(); }} />
             )}
@@ -281,17 +322,7 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
               </p>
             ) : shown.map((card) => (
               <div key={card.id}>
-                <LiveIdeaCard card={card} parent={card.parentId ? byId.get(card.parentId) : undefined} copy={copy} readOnly={ended} showTeam={tab === "all"}
-                  voting={voting && card.space !== "me"} onVote={() => void act(() => post(`/cards/${card.id}/vote`), copy("It didn't work.", "لم ينجح."))}
-                  onReact={(emoji) => void act(() => post(`/cards/${card.id}/react`, { emoji }), copy("It didn't work.", "لم ينجح."))}
-                  onComment={(text) => act(() => post(`/cards/${card.id}/comments`, { text }), copy("The comment wasn't sent.", "لم يُرسل التعليق."))}
-                  onDeleteComment={(id) => void act(() => post(`/comments/${id}`, undefined, "DELETE"), copy("It didn't work.", "لم ينجح."))}
-                  onBuild={() => { setBuildOn(card); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                  onShare={(space) => void act(async () => {
-                    await post(`/cards/${card.id}`, { space }, "PATCH");
-                    toast({ title: space === "team" ? copy("Shared with your team.", "شاركتها مع فريقك.") : space === "all" ? copy("Shared with everyone.", "شاركتها مع الجميع.") : copy("Moved back to Me.", "أعدتها إلى «أنا».") });
-                  }, copy("It couldn't be moved.", "تعذر النقل."))}
-                  onDelete={() => { if (window.confirm(copy("Delete this idea?", "حذف هذه الفكرة؟"))) void act(() => post(`/cards/${card.id}`, undefined, "DELETE"), copy("It couldn't be deleted.", "تعذر الحذف.")); }} />
+                <LiveIdeaCard card={card} {...cardProps(card)} />
                 {/* Private ideas: one tap to share. */}
                 {card.space === "me" && !ended && (
                   <div className="mt-1.5 flex flex-wrap justify-end gap-1.5 px-2">
@@ -303,9 +334,30 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
                 )}
               </div>
             ))}
+            </>)}
           </>
         )}
       </main>
+      {/* A note opened on the board: everything you can do with it. */}
+      {board && opened && (
+        <Sheet label={copy("The note", "الملاحظة")} copy={copy} onClose={() => setOpenNote(null)}>
+          <LiveIdeaCard card={opened} {...cardProps(opened)} />
+          {opened.mine && !ended && (
+            <div className="mt-3 flex items-center gap-1.5 px-1" role="group" aria-label={copy("Paper colour", "لون الورقة")}>
+              <span className="me-1 text-xs text-muted-foreground">{copy("Colour", "اللون")}</span>
+              {(Object.keys(NOTE_COLORS) as NoteColor[]).map((key) => (
+                <button key={key} type="button" onClick={() => void act(() => post(`/cards/${opened.id}`, { color: key }, "PATCH"), copy("It didn't work.", "لم ينجح."))} aria-pressed={(opened.color ?? "yellow") === key} aria-label={copy(NOTE_COLORS[key].en, NOTE_COLORS[key].ar)}
+                  className={`h-7 w-7 rounded-full border-2 ${(opened.color ?? "yellow") === key ? "border-foreground" : "border-transparent"}`} style={{ background: NOTE_COLORS[key].band }} />
+              ))}
+            </div>
+          )}
+        </Sheet>
+      )}
+      {board && adding && (
+        <Sheet label={copy("Add a note to the board", "أضف ملاحظة إلى اللوحة")} copy={copy} onClose={() => { setAdding(false); setBuildOn(null); }}>
+          <Composer code={code} space="all" copy={copy} buildOn={buildOn} withColor onClearBuild={() => setBuildOn(null)} onPosted={() => { setBuildOn(null); setAdding(false); void refresh(); toast({ title: copy("Pinned on the board.", "ثُبّتت على اللوحة.") }); }} />
+        </Sheet>
+      )}
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t bg-card/95 backdrop-blur-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-label={copy("Spaces", "المساحات")}>
         <div className="mx-auto grid h-16 max-w-2xl grid-cols-3">
@@ -325,6 +377,21 @@ function Room({ code, copy }: { code: string; copy: Copy }) {
       </nav>
       {intro && <Intro copy={copy} name={me?.name ?? ""} onDone={closeIntro} />}
       {help && <HelpSheet copy={copy} hasTeam={team !== null} onClose={() => setHelp(false)} onIntro={() => { setHelp(false); setIntro(true); }} />}
+    </div>
+  );
+}
+
+/** A sheet from the bottom of the screen. */
+function Sheet({ label, copy, onClose, children }: { label: string; copy: Copy; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-2 backdrop-blur-[2px] sm:items-center" role="dialog" aria-modal="true" aria-label={label} onClick={onClose} data-testid="sheet">
+      <div className="max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-[1.75rem] bg-background p-3 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <p className="font-semibold">{label}</p>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full bg-secondary" aria-label={copy("Close", "إغلاق")}><X size={17} /></button>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -409,9 +476,10 @@ function HelpSheet({ copy, hasTeam, onClose, onIntro }: { copy: Copy; hasTeam: b
 }
 
 /** Write, speak or photograph an idea, straight into the open space. */
-function Composer({ code, space, copy, buildOn, onClearBuild, onPosted }: {
-  code: string; space: LiveSpace; copy: Copy; buildOn: LiveCard | null; onClearBuild: () => void; onPosted: () => void;
+function Composer({ code, space, copy, buildOn, onClearBuild, onPosted, withColor = false }: {
+  code: string; space: LiveSpace; copy: Copy; buildOn: LiveCard | null; onClearBuild: () => void; onPosted: () => void; withColor?: boolean;
 }) {
+  const [color, setColor] = useState<NoteColor>(() => (remember("idea-live-note-color") as NoteColor) || "yellow");
   const { toast } = useToast();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -433,7 +501,7 @@ function Composer({ code, space, copy, buildOn, onClearBuild, onPosted }: {
     if (!text.trim()) return;
     setBusy(copy("Posting…", "جارٍ النشر…"));
     try {
-      await liveFetch(`/api/live/${code}/cards`, { method: "POST", json: { text: text.trim(), space, parentId: buildOn?.id ?? null } });
+      await liveFetch(`/api/live/${code}/cards`, { method: "POST", json: { text: text.trim(), space, parentId: buildOn?.id ?? null, ...(withColor ? { color } : {}) } });
       setText("");
       onPosted();
     } catch (failure) { fail(failure); }
@@ -513,6 +581,15 @@ function Composer({ code, space, copy, buildOn, onClearBuild, onPosted }: {
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} className="rtl:-scale-x-100" />}{copy("Post", "انشر")}
         </button>
       </div>
+      {withColor && (
+        <div className="mt-2 flex items-center gap-1.5 px-1" role="group" aria-label={copy("Paper colour", "لون الورقة")}>
+          <span className="me-1 text-xs text-muted-foreground">{copy("Paper", "الورقة")}</span>
+          {(Object.keys(NOTE_COLORS) as NoteColor[]).map((key) => (
+            <button key={key} type="button" onClick={() => { setColor(key); remember("idea-live-note-color", key); }} aria-pressed={color === key} aria-label={copy(NOTE_COLORS[key].en, NOTE_COLORS[key].ar)}
+              className={`h-7 w-7 rounded-full border-2 ${color === key ? "border-foreground" : "border-transparent"}`} style={{ background: NOTE_COLORS[key].paper, boxShadow: `inset 0 4px 0 ${NOTE_COLORS[key].band}` }} />
+          ))}
+        </div>
+      )}
       <p className="mt-1.5 px-1 text-[11px] text-muted-foreground" role="status">{busy ?? where}</p>
     </section>
   );

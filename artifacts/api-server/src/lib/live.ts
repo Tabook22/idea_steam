@@ -26,6 +26,16 @@ export const hashToken = (token: string) => createHash("sha256").update(`idea-li
 export const EMOJIS = ["🙂", "😎", "🤓", "🦊", "🐼", "🦁", "🐯", "🐨", "🐙", "🦉", "🐝", "🌟", "🚀", "🌈", "🔥", "🍀"];
 export const REACTIONS = ["👍", "💡", "❓"] as const;
 
+/** Paper colours for notes on the shared board. */
+export const NOTE_COLORS = ["yellow", "pink", "blue", "green", "orange", "purple"] as const;
+export const cleanColor = (value: unknown) => ((NOTE_COLORS as readonly string[]).includes(value as string) ? (value as string) : null);
+/** A spot on the board (board units), or null when it isn't one. */
+export function cleanSpot(x: unknown, y: unknown) {
+  const nx = Number(x), ny = Number(y);
+  if (x == null || y == null || !Number.isFinite(nx) || !Number.isFinite(ny)) return null;
+  return { x: Math.round(Math.min(20_000, Math.max(0, nx))), y: Math.round(Math.min(20_000, Math.max(0, ny))) };
+}
+
 /** A participant's name: trimmed, single spaces, 1–40 characters, no control characters. */
 export function cleanName(value: unknown) {
   if (typeof value !== "string") return "";
