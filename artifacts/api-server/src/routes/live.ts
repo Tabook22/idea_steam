@@ -15,6 +15,7 @@ import {
 import { readStoredFile, storeBytes } from "../lib/audio-edit";
 import { canSee, canVote, cleanEmoji, cleanName, cleanSynthesis, cleanText, hashToken, liveReportHtml, makeCode, makeTeams, newToken, normalizeCode, phaseEnd, PHASES, REACTIONS, smallestTeam, synthesisPrompt, type Phase, type Viewer } from "../lib/live";
 import { buildPulse } from "../lib/live-pulse";
+import { buildInsights } from "../lib/live-insights";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { htmlToPdf } from "../lib/pdf";
 import { TranscriptionBusyError, transcribeStoredAudio } from "../lib/stored-transcription";
@@ -271,6 +272,19 @@ router.post("/live-admin/sessions/:sessionId/synthesize", async (req, res): Prom
 });
 
 /** The workshop report as a PDF. */
+/** Team insights: every team compared, and each member's contribution (the host only). */
+router.get("/live-admin/sessions/:sessionId/insights", async (req, res): Promise<void> => {
+  const session = await adminSession(req, res);
+  if (!session) return;
+  const people = await db.select().from(liveParticipantsTable).where(eq(liveParticipantsTable.sessionId, session.id)).orderBy(asc(liveParticipantsTable.id));
+  const cards = await db.select().from(liveCardsTable).where(eq(liveCardsTable.sessionId, session.id)).orderBy(asc(liveCardsTable.id));
+  const ids = cards.map((card) => card.id);
+  const comments = ids.length ? await db.select().from(liveCommentsTable).where(inArray(liveCommentsTable.cardId, ids)) : [];
+  const reactions = ids.length ? await db.select().from(liveReactionsTable).where(inArray(liveReactionsTable.cardId, ids)) : [];
+  const votes = ids.length ? await db.select().from(liveVotesTable).where(inArray(liveVotesTable.cardId, ids)) : [];
+  res.json({ version: versionOf(session.id), ...buildInsights(people, cards, comments, reactions, votes, session.teamCount) });
+});
+
 router.get("/live-admin/sessions/:sessionId/report", async (req, res): Promise<void> => {
   const session = await adminSession(req, res);
   if (!session) return;

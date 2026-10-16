@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, ArrowRight, Check, FileDown, Loader2, Megaphone, Minus, MonitorPlay, Plus, Shuffle, SkipForward, Sparkles, Timer } from "lucide-react";
+import { Activity, ArrowRight, BarChart3, Check, FileDown, Loader2, Megaphone, Minus, MonitorPlay, Plus, Shuffle, SkipForward, Sparkles, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { appPath } from "@/lib/app-path";
 import { PHASE_INFO, clockText, useCountdown, type LivePhase, type LiveState } from "@/lib/live-api";
@@ -116,6 +116,7 @@ export function HostGuide({ state, copy, call, act, onReport, reporting }: { sta
         <Button className="h-12 rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 px-6 text-base" disabled={busy || shared < 3} onClick={async () => { setBusy(true); await act(() => call(`/sessions/${session.id}/synthesize`, "POST", {}), copy("The ideas couldn't be read.", "تعذرت قراءة الأفكار.")); setBusy(false); }}>
           {busy ? <Loader2 size={18} className="me-2 animate-spin" /> : <Sparkles size={18} className="me-2" />}{session.synthesis ? copy("Themes ready ✓ (again)", "المحاور جاهزة ✓ (أعد)") : copy("Group the ideas into themes", "جمّع الأفكار في محاور")}
         </Button>
+        <Button asChild variant="outline" className="h-12 rounded-full"><a href={appPath(`/live/${session.id}/insights`, import.meta.env.BASE_URL)}><BarChart3 size={16} className="me-1.5" />{copy("Team insights", "تحليل الفرق")}</a></Button>
         <Button variant="outline" className="h-12 rounded-full" disabled={reporting} onClick={onReport}>{reporting ? <Loader2 size={16} className="me-1.5 animate-spin" /> : <FileDown size={16} className="me-1.5" />}{copy("Report (PDF)", "التقرير (PDF)")}</Button>
         {session.status !== "ended" && <Button variant="ghost" className="h-12 rounded-full" onClick={() => { if (window.confirm(copy("End the workshop? Everyone can still read, but no one can add ideas.", "إنهاء الورشة؟ يمكن للجميع القراءة دون إضافة أفكار."))) void act(() => call(`/sessions/${session.id}`, "PATCH", { status: "ended" })); }}>{copy("End the workshop", "أنهِ الورشة")}</Button>}
       </div>

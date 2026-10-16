@@ -27,6 +27,7 @@ import LiveSessionsPage from "@/pages/live-sessions";
 import LiveControlPage from "@/pages/live-control";
 import LivePresentPage from "@/pages/live-present";
 import LivePulsePage from "@/pages/live-pulse";
+import LiveInsightsPage from "@/pages/live-insights";
 import StudyPage from "@/pages/study";
 import StudyPackPage from "@/pages/study-pack";
 import TelegramPage from "@/pages/telegram";
@@ -149,6 +150,7 @@ function Router() {
         <Route path="/live" component={LiveSessionsPage} />
         <Route path="/live/:id/present" component={LivePresentPage} />
         <Route path="/live/:id/pulse" component={LivePulsePage} />
+        <Route path="/live/:id/insights" component={LiveInsightsPage} />
         <Route path="/live/:id" component={LiveControlPage} />
         <Route path="/subjects/:id/studio" component={EpisodeStudio} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />
