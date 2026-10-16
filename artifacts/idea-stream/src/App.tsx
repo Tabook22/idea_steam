@@ -26,6 +26,7 @@ import LiveJoinApp from "@/pages/live-join";
 import LiveSessionsPage from "@/pages/live-sessions";
 import LiveControlPage from "@/pages/live-control";
 import LivePresentPage from "@/pages/live-present";
+import LivePulsePage from "@/pages/live-pulse";
 import StudyPage from "@/pages/study";
 import StudyPackPage from "@/pages/study-pack";
 import TelegramPage from "@/pages/telegram";
@@ -147,6 +148,7 @@ function Router() {
         <Route path="/study/:id" component={StudyPackPage} />
         <Route path="/live" component={LiveSessionsPage} />
         <Route path="/live/:id/present" component={LivePresentPage} />
+        <Route path="/live/:id/pulse" component={LivePulsePage} />
         <Route path="/live/:id" component={LiveControlPage} />
         <Route path="/subjects/:id/studio" component={EpisodeStudio} />
         <Route path="/subjects/:id" component={SubjectDetailPage} />

@@ -14,6 +14,7 @@ import {
 } from "@workspace/db";
 import { readStoredFile, storeBytes } from "../lib/audio-edit";
 import { canSee, canVote, cleanEmoji, cleanName, cleanSynthesis, cleanText, hashToken, liveReportHtml, makeCode, makeTeams, newToken, normalizeCode, phaseEnd, PHASES, REACTIONS, smallestTeam, synthesisPrompt, type Phase, type Viewer } from "../lib/live";
+import { buildPulse } from "../lib/live-pulse";
 import { aiConfigured, openai } from "@workspace/integrations-openai-ai-server";
 import { htmlToPdf } from "../lib/pdf";
 import { TranscriptionBusyError, transcribeStoredAudio } from "../lib/stored-transcription";
@@ -85,7 +86,7 @@ const personView = (participant: LiveParticipant) => ({
 });
 
 /** Everything this viewer may see in the session: people, cards, reactions and comments. */
-async function buildState(session: LiveSession, viewer: Viewer) {
+async function buildState(session: LiveSession, viewer: Viewer, withPulse = false) {
   const people = await db.select().from(liveParticipantsTable).where(eq(liveParticipantsTable.sessionId, session.id)).orderBy(asc(liveParticipantsTable.id));
   const byId = new Map(people.map((person) => [person.id, person]));
   const all = await db.select().from(liveCardsTable).where(eq(liveCardsTable.sessionId, session.id)).orderBy(asc(liveCardsTable.id));
@@ -125,6 +126,8 @@ async function buildState(session: LiveSession, viewer: Viewer) {
     now: new Date().toISOString(),
     ...(viewer.kind === "participant" ? { votesUsed: votes.filter((vote) => vote.participantId === me).length } : {}),
     // The instructor sees how much each person is writing privately, never what.
+    // The Pulse screen: who helps which team, similar teams, and what just happened.
+    ...(viewer.kind === "instructor" && withPulse ? { pulse: buildPulse(people, all, comments, reactions, votes) } : {}),
     ...(viewer.kind === "instructor" ? { privateCounts: Object.fromEntries(people.map((person) => [person.id, all.filter((card) => card.participantId === person.id && card.space === "me").length])) } : {}),
   };
 }
@@ -185,7 +188,7 @@ router.get("/live-admin/sessions/:sessionId/state", async (req, res): Promise<vo
   const session = await adminSession(req, res);
   if (!session) return;
   if (Number(req.query.since) === versionOf(session.id)) { res.json({ version: versionOf(session.id), unchanged: true }); return; }
-  res.json(await buildState(session, { kind: "instructor" }));
+  res.json(await buildState(session, { kind: "instructor" }, req.query.pulse === "1"));
 });
 
 router.patch("/live-admin/sessions/:sessionId", async (req, res): Promise<void> => {

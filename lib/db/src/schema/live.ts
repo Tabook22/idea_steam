@@ -67,6 +67,7 @@ export const liveReactionsTable = pgTable("live_reactions", {
   /** 0 for the instructor. */
   participantId: integer("participant_id").notNull().default(0),
   emoji: text("emoji").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [primaryKey({ columns: [table.cardId, table.participantId, table.emoji] })]);
 
 export const liveCommentsTable = pgTable("live_comments", {
@@ -81,6 +82,7 @@ export const liveCommentsTable = pgTable("live_comments", {
 export const liveVotesTable = pgTable("live_votes", {
   cardId: integer("card_id").notNull().references(() => liveCardsTable.id, { onDelete: "cascade" }),
   participantId: integer("participant_id").notNull().references(() => liveParticipantsTable.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [primaryKey({ columns: [table.cardId, table.participantId] })]);
 
 export type LiveSession = typeof liveSessionsTable.$inferSelect;

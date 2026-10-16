@@ -145,6 +145,7 @@ function JoinForm({ info, copy, onJoined }: { info: Info; copy: Copy; onJoined: 
             {busy ? <Loader2 className="animate-spin" /> : <span className="text-2xl">{emoji}</span>}{copy("Join", "انضم")}
           </button>
           <p className="text-center text-xs text-muted-foreground">{copy("No account needed. Only your name is shown to others.", "لا حاجة لحساب. يظهر اسمك فقط للآخرين.")}</p>
+          <p className="text-center text-xs text-muted-foreground">{copy("What you share with your team or everyone may be shown on the big screen. Ideas in “Me” stay private.", "ما تشاركه مع فريقك أو الجميع قد يُعرض على الشاشة الكبيرة. أفكار «أنا» تبقى خاصة.")}</p>
         </form>
       )}
     </Shell>

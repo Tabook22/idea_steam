@@ -28,6 +28,16 @@ export type LiveState = {
   me?: LivePerson; privateCounts?: Record<string, number>;
   /** The server's clock (timers count down by it), and the dots this participant used. */
   now: string; votesUsed?: number;
+  /** The Pulse screen (asked for with ?pulse=1, the instructor only). */
+  pulse?: LivePulse;
+};
+export type PulseHelpKind = "comment" | "reaction" | "vote" | "build";
+export type LivePulse = {
+  links: Array<{ a: number; b: number; count: number; people: number[]; kinds: Partial<Record<PulseHelpKind, number>> }>;
+  helps: Array<{ from: number; to: number; personId: number; kind: PulseHelpKind; cardId: number; at: string }>;
+  similar: Array<{ a: number; b: number; words: string[]; score: number }>;
+  feed: Array<{ at: string; kind: "idea" | "join" | PulseHelpKind; team: number | null; personId: number | null; toTeam: number | null; cardId: number | null; text: string }>;
+  lastActivity: Record<string, string>;
 };
 export type LiveSessionSummary = LiveSessionInfo & { participantCount: number; cardCount: number };
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "wouter";
-import { Globe2, LayoutGrid, Loader2, Maximize, QrCode as QrIcon, Sparkles, Trophy, Users, X } from "lucide-react";
+import { Activity, Globe2, LayoutGrid, Loader2, Maximize, QrCode as QrIcon, Sparkles, Trophy, Users, X } from "lucide-react";
 import { PhaseOverlay } from "@/components/live-phase";
 import { appPath } from "@/lib/app-path";
 import { useLanguage } from "@/lib/i18n";
@@ -184,6 +184,7 @@ export default function LivePresentPage() {
             <button key={value} type="button" onClick={() => setMode(value)} aria-pressed={mode === value}
               className={`inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold ${mode === value ? "bg-white text-slate-900" : "text-white"}`}><Icon size={16} />{label}</button>
           ))}
+          <a href={appPath(`/live/${session.id}/pulse`, import.meta.env.BASE_URL)} className="inline-flex h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-white hover:bg-white/10"><Activity size={16} />{copy("Pulse", "النبض")}</a>
           <span className="mx-1 inline-flex items-center gap-1 px-2 text-sm text-white/80"><Users size={15} />{people.length}</span>
           <button type="button" onClick={() => void document.documentElement.requestFullscreen?.().catch(() => {})} className="grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10" aria-label={copy("Full screen", "ملء الشاشة")}><Maximize size={16} /></button>
           <button type="button" onClick={() => { if (window.opener) window.close(); else history.back(); }} className="grid h-10 w-10 place-items-center rounded-full text-white hover:bg-white/10" aria-label={copy("Close", "إغلاق")}><X size={16} /></button>

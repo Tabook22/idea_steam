@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { ArrowLeft, Check, Copy as CopyIcon, FileDown, Loader2, Megaphone, MonitorPlay, MoreHorizontal, Shuffle, Target, Trash2, UserMinus, Users } from "lucide-react";
+import { ArrowLeft, Check, Copy as CopyIcon, FileDown, Loader2, Megaphone, MonitorPlay, Activity, MoreHorizontal, Shuffle, Target, Trash2, UserMinus, Users } from "lucide-react";
 import { LiveIdeaCard } from "@/components/live-card";
 import { StepsPanel, ThemesPanel } from "@/components/live-steps";
 import { Button } from "@/components/ui/button";
@@ -106,6 +106,8 @@ export default function LiveControlPage() {
         <div className="flex flex-wrap items-center gap-2">
           <a href={appPath(`/live/${session.id}/present`, import.meta.env.BASE_URL)} target="_blank" rel="noreferrer"
             className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"><MonitorPlay size={17} />{copy("Presenter screen", "شاشة العرض")}</a>
+          <a href={appPath(`/live/${session.id}/pulse`, import.meta.env.BASE_URL)} target="_blank" rel="noreferrer"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-gradient-to-r from-rose-500 to-orange-500 px-4 text-sm font-semibold text-white shadow-sm hover:opacity-90"><Activity size={17} />{copy("Workshop Pulse", "نبض الورشة")}</a>
           <Button variant="outline" className="rounded-full" disabled={reporting} onClick={() => void report()}>
             {reporting ? <Loader2 size={16} className="me-1.5 animate-spin" /> : <FileDown size={16} className="me-1.5" />}{copy("Report (PDF)", "التقرير (PDF)")}
           </Button>
